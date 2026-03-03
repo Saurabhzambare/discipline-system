@@ -183,8 +183,17 @@
       "bases:Create new base": false
     }
   },
-  "active": "2edab75e131dffb7",
+  "active": "2cf5cdec44cf3f18",
   "lastOpenFiles": [
+    "backend/players/migrations/__init__.py",
+    "backend/players/migrations",
+    "backend/players/apps.py",
+    "backend/players/__init__.py",
+    "backend/players/tests.py",
+    "backend/players/views.py",
+    "backend/players/models.py",
+    "backend/players/admin.py",
+    "backend/players",
     "Untitled.md",
     "README.md"
   ]
