@@ -5,6 +5,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    depends_on:
+      - db
 
   frontend:
     build: ./frontend
@@ -14,3 +16,18 @@ services:
       - ./frontend:/app
     depends_on:
       - backend
+
+  db:
+    image: postgres:16
+    container_name: discipline_db
+    environment:
+      POSTGRES_DB: discipline_db
+      POSTGRES_USER: discipline_user
+      POSTGRES_PASSWORD: discipline_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

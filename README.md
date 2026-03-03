@@ -1,428 +1,443 @@
-Perfect. Below is your **Phase 0 Markdown version** formatted cleanly for GitHub README.
+# SOLO LEVELING – DISCIPLINE SYSTEM
 
-You can copy-paste this directly into:
+# Phase 1 – PostgreSQL + Docker Networking + Environment Setup
+
+---
+
+# 1️⃣ What Was the Goal of Phase 1?
+
+The goal of Phase 1 was:
+
+* Replace SQLite with PostgreSQL
+* Run PostgreSQL inside Docker
+* Connect Django backend to Postgres
+* Understand Docker architecture
+* Understand virtual environments properly
+* Fix configuration errors correctly
+* Build a clean SaaS-ready backend foundation
+
+---
+
+# 2️⃣ Our Initial Architecture Confusion
+
+At the beginning, we had confusion about how Django was running.
+
+There were two possible setups:
+
+---
+
+## Option A
+
+Django runs locally (venv + manage.py)
+Postgres runs in Docker
+
+Django connects using:
 
 ```
-README.md
-```
-
-or into:
-
-```
-docs/phase-0-setup.md
+DB_HOST=127.0.0.1
 ```
 
 ---
 
-# 🚀 Phase 0 — Local Development Setup
+## Option B
 
-**Discipline System (Full-Stack Django + React + Docker)**
+Django runs inside Docker
+Postgres runs inside Docker
+
+Django connects using:
+
+```
+DB_HOST=db
+```
+
+(where `db` is the Docker service name)
 
 ---
 
-## 🎯 Phase 0 Goal
+## What Actually Happened
 
-By the end of Phase 0:
+From your Docker Desktop screenshot, we discovered:
 
-* ✅ Django backend running locally
-* ✅ React frontend running locally
-* ✅ Tailwind UI working
-* ✅ React connected to Django API
-* ✅ Docker configured for local development
-* ✅ All changes committed to GitHub
+* Django backend was already running inside Docker
+* So we were actually in Option B
+* There was no Postgres container yet
 
----
+So we locked:
 
-# 🛠 Tech Stack (Phase 0)
-
-## Backend
-
-* **Python**
-* **Django**
-* **Django REST Framework**
-* **django-cors-headers**
-
-## Frontend
-
-* **React**
-* **Vite**
-* **Tailwind CSS**
-
-## Dev Tools
-
-* **VS Code**
-* **GitHub Desktop**
-* **Node.js (v20+)**
-* **Docker Desktop**
+✅ Full Docker architecture (backend + db)
 
 ---
 
-# 📁 Project Structure
+# 3️⃣ Understanding Docker in This Project
+
+Docker is used to isolate:
+
+* Python runtime
+* Django
+* Postgres
+* Frontend
+* All dependencies
+
+Think of Docker as:
+
+> A fully isolated apartment for your app.
+
+Instead of installing Postgres locally,
+we run:
 
 ```
-discipline-system/
-│
-├── backend/
-│
-├── frontend/
-│
-├── docs/
-│   └── phase-0-setup.md
-│
-└── docker-compose.yml
+postgres:16
 ```
+
+inside a container.
 
 ---
 
-# 🔵 Step 1 — Create GitHub Repository
+# 4️⃣ Adding PostgreSQL to docker-compose.yml
 
-### Why?
-
-To track all progress professionally and avoid losing work.
-
-### Steps:
-
-1. Open GitHub Desktop
-2. File → New Repository
-3. Name: `discipline-system`
-4. Check “Initialize with README”
-5. Publish repository
-
-Commit message:
-
-```
-Phase 0: Initialize project structure
-```
-
----
-
-# 🟢 Step 2 — Backend Setup (Django)
-
-## 2.1 Create Virtual Environment
-
-```bash
-cd backend
-python -m venv venv
-```
-
-### Activate (PowerShell)
-
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-If blocked:
-
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
----
-
-## 2.2 Install Dependencies
-
-```bash
-pip install django djangorestframework django-cors-headers python-dotenv
-```
-
-### What They Do
-
-| Package       | Purpose                         |
-| ------------- | ------------------------------- |
-| Django        | Backend framework               |
-| DRF           | Builds REST APIs                |
-| CORS Headers  | Allows frontend to call backend |
-| python-dotenv | Environment variables support   |
-
----
-
-## 2.3 Create Django Project
-
-```bash
-django-admin startproject config .
-python manage.py startapp core
-```
-
----
-
-## 2.4 Configure Settings
-
-Add to `INSTALLED_APPS`:
-
-```python
-"corsheaders",
-"rest_framework",
-"core",
-```
-
-⚠️ **Common Error**
-
-If you see:
-
-```
-ModuleNotFoundError: corsheadersrest_frameworkcore
-```
-
-Cause: Missing commas between app names.
-
-Fix: Add commas properly.
-
----
-
-## 2.5 Add CORS Middleware
-
-```python
-"corsheaders.middleware.CorsMiddleware",
-```
-
-Allow React:
-
-```python
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-]
-```
-
----
-
-## 2.6 Create Health Endpoint
-
-`core/views.py`
-
-```python
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
-
-@api_view(["GET"])
-def health(request):
-    return Response({"status": "ok"})
-```
-
-`config/urls.py`
-
-```python
-path("api/health/", health),
-```
-
----
-
-## 2.7 Run Backend
-
-```bash
-python manage.py migrate
-python manage.py runserver
-```
-
-Test:
-
-```
-http://127.0.0.1:8000/api/health/
-```
-
-⚠️ 404 on `/` is normal — only `/api/health/` exists.
-
----
-
-# 🔵 Step 3 — Frontend Setup (React + Vite)
-
-## 3.1 Create React App
-
-```bash
-cd frontend
-npm create vite@latest . -- --template react
-npm install
-```
-
----
-
-### ⚠️ Node Version Error
-
-If you see:
-
-```
-Vite requires Node 20+
-```
-
-Fix:
-Upgrade Node to latest LTS.
-
-Check:
-
-```bash
-node -v
-npm -v
-```
-
----
-
-# 🟣 Step 4 — Tailwind Setup
-
-Install:
-
-```bash
-npm install -D tailwindcss postcss autoprefixer
-npx tailwindcss init -p
-```
-
-Update `tailwind.config.js`:
-
-```js
-content: ["./index.html", "./src/**/*.{js,jsx}"],
-```
-
-Update `src/index.css`:
-
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-```
-
----
-
-### ⚠️ VS Code Warning
-
-```
-Unknown at rule @tailwind
-```
-
-This is safe to ignore.
-It is only a VS Code CSS validation warning.
-
----
-
-# 🔗 Step 5 — Connect React to Django
-
-Update `App.jsx`:
-
-```javascript
-useEffect(() => {
-  fetch("http://127.0.0.1:8000/api/health/")
-    .then((r) => r.json())
-    .then(setHealth);
-}, []);
-```
-
-Run:
-
-```bash
-npm run dev
-```
-
-Open:
-
-```
-http://localhost:5173
-```
-
-You should see:
-
-* Dark UI (Tailwind working)
-* JSON health response (backend connected)
-
----
-
-# 🐳 Step 6 — Docker Setup
-
-## backend/Dockerfile
-
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-EXPOSE 8000
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
-```
-
----
-
-## frontend/Dockerfile
-
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json .
-RUN npm install
-COPY . .
-EXPOSE 5173
-CMD ["npm", "run", "dev", "--", "--host"]
-```
-
----
-
-## docker-compose.yml
+We added this service:
 
 ```yaml
-services:
-  backend:
-    build: ./backend
-    ports:
-      - "8000:8000"
+db:
+  image: postgres:16
+  container_name: discipline_db
+  environment:
+    POSTGRES_DB: discipline_db
+    POSTGRES_USER: discipline_user
+    POSTGRES_PASSWORD: discipline_password
+  ports:
+    - "5432:5432"
+  volumes:
+    - postgres_data:/var/lib/postgresql/data
+```
 
-  frontend:
-    build: ./frontend
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
+And at bottom:
+
+```yaml
+volumes:
+  postgres_data:
 ```
 
 ---
 
-## Run Docker
+# 5️⃣ First Major Error: YAML Structure Error
 
-```bash
-docker compose up --build
-```
-
-Test:
+### Error Message:
 
 ```
-http://localhost:8000/api/health/
-http://localhost:5173
+services.volumes additional properties 'postgres_data' not allowed
 ```
 
 ---
 
-### ⚠️ Common Docker Error
+## What Happened?
+
+We accidentally placed:
 
 ```
-Port already in use
+volumes:
+  postgres_data:
 ```
 
-Fix:
-Stop local Django/React servers before running Docker.
+inside the `services:` block.
+
+Docker expected a service name, but saw `volumes`.
 
 ---
 
-# ✅ Phase 0 Completion Checklist
+## Why It Happened
 
-* [ ] Django running
-* [ ] React running
-* [ ] Tailwind visible
-* [ ] React fetch works
-* [ ] Docker runs successfully
-* [ ] All commits pushed to GitHub
+YAML is indentation-sensitive.
 
----
+In Docker Compose:
 
-# 🚀 Next Phase (Phase 1)
-
-* JWT Authentication
-* Custom User Model
-* PostgreSQL (Docker)
-* Profile system (Level / EXP / Streak)
-* Protected React routes
+* `services:` is top-level
+* `volumes:` must also be top-level
+* You cannot nest named volumes under services
 
 ---
 
-If you’d like, I can now:
+## Fix
 
-* 🔷 Generate a professional GitHub README header with badges
-* 🔷 Create a clean architecture diagram
-* 🔷 Prepare Phase 1 markdown template
-* 🔷 Help you design your commit structure strategy
+Move this:
 
-Just tell me what’s next 🔥
+```yaml
+volumes:
+  postgres_data:
+```
+
+to the bottom of the file (aligned left).
+
+After fix:
+
+```
+docker compose down
+docker compose up --build -d
+```
+
+---
+
+# 6️⃣ Database Networking Inside Docker
+
+Very important concept.
+
+Inside Docker:
+
+Containers talk using service names.
+
+So:
+
+```
+DB_HOST=db
+```
+
+NOT:
+
+```
+DB_HOST=127.0.0.1
+```
+
+Because:
+
+* 127.0.0.1 = inside the container itself
+* db = other container on Docker network
+
+---
+
+# 7️⃣ Creating .env File
+
+We created:
+
+```
+backend/.env
+```
+
+Containing:
+
+```
+DB_NAME=discipline_db
+DB_USER=discipline_user
+DB_PASSWORD=discipline_password
+DB_HOST=db
+DB_PORT=5432
+```
+
+Why use .env?
+
+* Do not hardcode secrets
+* Easier environment switching
+* Clean configuration separation
+
+---
+
+# 8️⃣ Installing Required Packages
+
+Inside requirements.txt:
+
+```
+python-dotenv
+psycopg2-binary
+```
+
+Why?
+
+* psycopg2-binary → allows Django to talk to Postgres
+* python-dotenv → loads environment variables from .env
+
+Then rebuild:
+
+```
+docker compose down
+docker compose up --build -d
+```
+
+---
+
+# 9️⃣ Updating settings.py Correctly
+
+Correct top of settings.py:
+
+```python
+from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+```
+
+Important:
+
+* Only ONE BASE_DIR
+* Do not duplicate it
+* load_dotenv comes after BASE_DIR
+
+Then replace DATABASES section with:
+
+```python
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
+    }
+}
+```
+
+---
+
+# 🔟 Running Migrations Inside Docker
+
+Because backend runs inside container, we must run:
+
+```
+docker compose exec backend python manage.py migrate
+```
+
+NOT local manage.py.
+
+This is critical.
+
+---
+
+# 1️⃣1️⃣ VS Code Dotenv Error
+
+Error:
+
+```
+Import "dotenv" could not be resolved
+```
+
+---
+
+## What Happened?
+
+VS Code was using global Python interpreter,
+not backend/venv interpreter.
+
+So Pylance could not see installed packages.
+
+---
+
+## Fix
+
+Select interpreter:
+
+```
+backend/venv/Scripts/python.exe
+```
+
+NOT:
+
+* pythonw.exe
+* pip.exe
+
+After selecting:
+
+* Restart VS Code
+* Error disappears
+
+---
+
+# 1️⃣2️⃣ Understanding Virtual Environment vs Docker
+
+Very important concept.
+
+Virtual Environment isolates:
+
+* Python packages only
+
+Docker isolates:
+
+* OS
+* Python
+* Dependencies
+* Network
+* Services
+
+Right now:
+
+Docker container = runtime environment
+Local venv = development support for VS Code
+
+---
+
+# 1️⃣3️⃣ Final Working Architecture
+
+```
+Docker Desktop
+│
+├── backend (Django)
+├── db (Postgres)
+└── frontend (React)
+```
+
+Backend connects to db using:
+
+```
+DB_HOST=db
+```
+
+Port mapping:
+
+```
+8000 → backend
+5432 → Postgres
+5173 → frontend
+```
+
+---
+
+# 1️⃣4️⃣ Key Engineering Lessons Learned
+
+1. YAML indentation matters.
+2. Docker networking uses service names.
+3. 127.0.0.1 means different things inside containers.
+4. Migrations must run inside the container.
+5. VS Code interpreter must match project environment.
+6. Never duplicate BASE_DIR in Django settings.
+7. Always rebuild Docker after changing requirements.
+8. Separate configuration using .env.
+9. Docker volumes persist database data.
+10. Infrastructure debugging requires understanding layers.
+
+---
+
+# 1️⃣5️⃣ Why This Setup Is Professional
+
+This setup is SaaS-ready because:
+
+* Uses PostgreSQL (production database)
+* Uses environment variables
+* Uses containerization
+* Uses dependency isolation
+* Clean separation of services
+* Reproducible stack
+* Easy future deployment
+
+---
+
+# 1️⃣6️⃣ What Phase 1 Achieved
+
+By the end of this stage:
+
+* PostgreSQL is running inside Docker
+* Django connects successfully
+* Migrations run without errors
+* Environment is clean
+* Infrastructure is stable
+* Errors were debugged properly
+* Architecture is clear
+
+---
+
+# 🎯 Final Status
+
+Infrastructure Phase 1: ✅ COMPLETE
+
+Next Phase:
+Create `players` app and build the Player model.
+
