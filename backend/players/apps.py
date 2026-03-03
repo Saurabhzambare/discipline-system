@@ -2,5 +2,8 @@ from django.apps import AppConfig
 
 
 class PlayersConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'players'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "players"
+
+    def ready(self):
+        from . import signals  #  This ensures signals are loaded
