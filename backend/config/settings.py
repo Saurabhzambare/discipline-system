@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     #Local apps
     'core',
     'players.apps.PlayersConfig',
+    "users.apps.UsersConfig",
 ]
 
 MIDDLEWARE = [
@@ -71,10 +72,49 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
+"""
+Django REST Framework global configuration.
+
+This section in settings.py controls how DRF behaves
+across the entire project (authentication, permissions, etc.).
+"""
+
 REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
-    ]
+
+    # DEFAULT_AUTHENTICATION_CLASSES
+    # -----------------------------------------
+    # Defines how users authenticate with the API.
+    #
+    # Here we are using JWT (JSON Web Token) authentication
+    # provided by the package "djangorestframework-simplejwt".
+    #
+    # When a user logs in, the backend generates a JWT token.
+    # The frontend (React) sends this token in every request.
+    #
+    # Example request header:
+    # Authorization: Bearer <your_jwt_token>
+    #
+    # DRF reads the token and identifies the logged-in user.
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+
+    # DEFAULT_PERMISSION_CLASSES
+    # -----------------------------------------
+    # Defines the default access rules for all API views.
+    #
+    # "IsAuthenticated" means:
+    #   Only logged-in users can access the API.
+    #
+    # If a request does not include a valid token,
+    # the API will return:
+    #
+    # 401 Unauthorized
+    #
+    # Individual views can override this if needed.
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
 }
 
 ROOT_URLCONF = 'config.urls'
@@ -152,3 +192,4 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTH_USER_MODEL = "users.User"

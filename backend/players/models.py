@@ -1,58 +1,94 @@
 """
 models.py
 
-This file defines your Django database models.
-A "model" = a Python class that Django converts into a database table.
+This file defines the Player model, which represents the
+game profile attached to each user in the Discipline System.
 """
 
-from django.conf import settings  # Lets us reference AUTH_USER_MODEL safely (custom User model)
-from django.db import models      # Django's base tools for creating database tables (models)
+# Import project settings so we can reference the custom User model safely
+from django.conf import settings
+
+# Import Django's base model classes and field types
+from django.db import models
 
 
 class Player(models.Model):
     """
-    Player = the "game profile" for a user in your Solo Leveling discipline system.
+    Player model = the "game profile" for a user.
 
-    Why separate Player from User?
-    - User handles authentication (login, password, email, etc.)
-    - Player handles game stats (level, exp, streak, etc.)
-
-    This keeps your system clean and scalable.
+    In the Discipline System:
+        User   → authentication identity (login)
+        Player → game stats (level, EXP, streak)
     """
 
-    # One-to-one relationship:
-    # - Each User has exactly ONE Player
-    # - Each Player belongs to exactly ONE User
+    # ---------------------------------------------------------
+    # RELATIONSHIP TO USER
+    # ---------------------------------------------------------
+    # One-to-one relationship with the User model.
+    #
+    # This means:
+    # - Each User has exactly ONE Player profile.
+    # - Each Player belongs to exactly ONE User.
+    #
+    # settings.AUTH_USER_MODEL references the custom user model
+    # defined in settings.py (users.User).
+    #
+    # on_delete=models.CASCADE means:
+    # If the User is deleted, the Player is deleted automatically.
+    #
+    # related_name="player" allows us to access the player from
+    # the user like this:
+    #
+    #     user.player
+    #
     user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,  # Points to your custom User model (recommended best practice)
-        on_delete=models.CASCADE,  # If the User is deleted, delete the Player too (prevents orphan data)
-        related_name="player",     # Allows: user.player instead of user.player_set
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="player",
     )
 
-    # Core game stats ---------------------------------------------
+    # ---------------------------------------------------------
+    # GAME PROGRESSION FIELDS
+    # ---------------------------------------------------------
 
-    # Player's current level in the system (starts at 1)
-    # PositiveIntegerField prevents negative numbers.
+    # Player's current level.
+    # PositiveIntegerField ensures the value cannot be negative.
+    # Default level is 1 when a new player is created.
     level = models.PositiveIntegerField(default=1)
 
-    # Player's experience points (EXP). Starts at 0.
-    # Later: you'll add logic like "if exp >= 100 => level up"
+    # Player's experience points.
+    # This increases when quests are completed.
     exp = models.PositiveIntegerField(default=0)
 
-    # Consecutive days of completing quests/habits. Starts at 0.
+    # Player's current streak (consecutive days completing tasks).
+    # Example:
+    # If a user completes tasks daily for 5 days → streak = 5
     streak = models.PositiveIntegerField(default=0)
 
-    # Timestamps ---------------------------------------------
+    # ---------------------------------------------------------
+    # TIMESTAMP FIELDS
+    # ---------------------------------------------------------
 
-    # Automatically set once when the Player is created.
-    # Example: created_at = March 3, 2026 10:15 AM
+    # Automatically set when the Player record is created.
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Automatically updates every time you save/update the Player.
-    # Example: updated_at changes when level/exp/streak changes.
+    # Automatically updated every time the Player record is saved.
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self) -> str:
+    # ---------------------------------------------------------
+    # STRING REPRESENTATION
+    # ---------------------------------------------------------
+    # This controls how the object appears in:
+    # - Django Admin
+    # - Django shell
+    #
+    # Instead of:
+    #   Player object (1)
+    #
+    # It will display:
+    #   Player(saurabh)
+    #
+    def __str__(self):
         """
         Human-friendly display name for this object.
         Shows up in Django Admin and Django shell.
