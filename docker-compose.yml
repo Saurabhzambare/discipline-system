@@ -1,25 +1,8 @@
 services:
-  backend:
-    build: ./backend
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-    depends_on:
-      - db
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-    depends_on:
-      - backend
-
   db:
     image: postgres:16
     container_name: discipline_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: discipline_db
       POSTGRES_USER: discipline_user
@@ -28,6 +11,20 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: discipline_backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - db
 
 volumes:
   postgres_data:

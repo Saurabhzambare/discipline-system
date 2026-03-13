@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'core',
     'players.apps.PlayersConfig',
     "users.apps.UsersConfig",
+    'quests',
 ]
 
 MIDDLEWARE = [
