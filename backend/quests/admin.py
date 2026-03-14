@@ -18,8 +18,7 @@ class QuestAdmin(admin.ModelAdmin):
 
     # Search box support
     search_fields = ("title",)
-
-
+    
 @admin.register(QuestCompletion)
 class QuestCompletionAdmin(admin.ModelAdmin):
     """

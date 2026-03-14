@@ -26,6 +26,8 @@ from django.contrib import admin
 from django.urls import path, include
 from core.views import health
 
+
+
 """
 Import JWT authentication views from the SimpleJWT package.
 
@@ -122,4 +124,9 @@ urlpatterns = [
     # }
     #
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    
+    
+    
+    path("api/quests/", include("quests.urls")),
+
 ]
