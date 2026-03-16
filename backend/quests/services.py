@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -50,6 +52,12 @@ def complete_quest(*, player, quest):
     if already_completed_today:
         raise ValueError("Quest already completed today.")
 
+    # Determine whether this completion is the first one for today.
+    had_completion_today = QuestCompletion.objects.filter(
+        player=player,
+        completion_date=today,
+    ).exists()
+
     # Create a quest completion record
     QuestCompletion.objects.create(
         player=player,
@@ -65,6 +73,19 @@ def complete_quest(*, player, quest):
 
     # Recalculate level from updated EXP
     player.level = calculate_level_from_exp(player.exp)
+
+    # Update streak only on the first completion of the day
+    if not had_completion_today:
+        yesterday = today - timedelta(days=1)
+        completed_yesterday = QuestCompletion.objects.filter(
+            player=player,
+            completion_date=yesterday,
+        ).exists()
+
+        if completed_yesterday:
+            player.streak += 1
+        else:
+            player.streak = 1
 
     # Save updated player progress
     player.save()
