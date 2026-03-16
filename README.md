@@ -1,3 +1,7 @@
+
+README.md
+
+```md
 # Discipline System
 
 A Solo Leveling–inspired discipline web app where real-life habits become quests and are converted into progression through EXP, levels, and streaks.
@@ -33,13 +37,41 @@ The goal is to make self-improvement feel like an RPG progression system.
 6. System updates streak data where appropriate
 7. User sees measurable growth over time
 
-This project is being built in clear phases so the system stays maintainable and beginner-friendly while remaining extensible for future SaaS growth.
+This project is being built in clear phases so the system stays maintainable and beginner-friendly while remaining extensible for future growth.
+
+---
+
+## Product direction
+
+The current product direction is:
+
+- **web app first**
+- mobile apps later
+- strong core loop first
+- social / competition / premium ecosystem later
+- immersive Solo Leveling-style experience later
+
+The system is intended to grow over time into a larger platform that may include:
+
+- player paths such as Gym, Runner, Discipline, Tournament, and 75 Hard
+- richer quest systems
+- social/community features
+- leaderboards and challenges
+- privacy controls
+- avatar identity
+- subscription plans
+- merch ecosystem
+- smartwatch / device integration
+- immersive UI effects
+
+Not all of these are immediate implementation targets. The product is built in phases.
 
 ---
 
 ## Tech stack
 
 ### Backend
+
 - Python
 - Django
 - Django REST Framework
@@ -47,11 +79,13 @@ This project is being built in clear phases so the system stays maintainable and
 - JWT authentication
 
 ### Frontend
+
 - React
 - Vite
 - Tailwind CSS
 
 ### Dev tools
+
 - GitHub
 - Docker
 - Docker Compose
