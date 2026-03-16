@@ -36,7 +36,8 @@
               "title": "AGENTS"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       },
       {
         "id": "7cf815e06d3ef91c",
@@ -234,13 +235,14 @@
       "bases:Create new base": false
     }
   },
-  "active": "2cf5cdec44cf3f18",
+  "active": "f6793d38b9f14f84",
   "lastOpenFiles": [
+    "docs/Phase-3-progression.md",
     "docs/templates/execution-plan.md",
+    "README.md",
     "docs/Phase-3-Progression.md",
     "docs/architecture.md",
     "AGENTS.md",
-    "README.md",
     "docs/phase-0-setup.md",
     "backend/players/migrations/__init__.py",
     "backend/players/migrations",
