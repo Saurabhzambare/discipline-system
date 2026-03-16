@@ -237,6 +237,14 @@
   },
   "active": "f6793d38b9f14f84",
   "lastOpenFiles": [
+    "backend/quests/__pycache__/services.cpython-311.pyc",
+    "backend/quests/__pycache__/serializers.cpython-311.pyc",
+    "backend/quests/__pycache__/views.cpython-311.pyc",
+    "backend/quests/__pycache__/urls.cpython-311.pyc",
+    "backend/users/__pycache__/tests.cpython-311.pyc",
+    "backend/quests/__pycache__/tests.cpython-311.pyc",
+    "backend/players/__pycache__/tests.cpython-311.pyc",
+    "backend/core/__pycache__/tests.cpython-311.pyc",
     "docs/Phase-3-progression.md",
     "docs/templates/execution-plan.md",
     "README.md",
@@ -247,12 +255,6 @@
     "backend/players/migrations/__init__.py",
     "backend/players/migrations",
     "backend/players/apps.py",
-    "backend/players/__init__.py",
-    "backend/players/tests.py",
-    "backend/players/views.py",
-    "backend/players/models.py",
-    "backend/players/admin.py",
-    "backend/players",
     "Untitled.md"
   ]
 }
