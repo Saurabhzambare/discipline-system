@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from quests.models import Quest, QuestCompletion
@@ -62,6 +65,59 @@ class QuestProgressionServiceTests(TestCase):
         self.player.refresh_from_db()
         self.assertEqual(self.player.exp, 20)
         self.assertEqual(QuestCompletion.objects.filter(player=self.player, quest=quest).count(), 1)
+
+    def test_streak_increments_when_completed_yesterday(self):
+        self.player.streak = 3
+        self.player.save(update_fields=["streak"])
+        yesterday = timezone.localdate() - timedelta(days=1)
+
+        yesterday_quest = Quest.objects.create(title="Yesterday Quest", exp_reward=10)
+        QuestCompletion.objects.create(
+            player=self.player,
+            quest=yesterday_quest,
+            completion_date=yesterday,
+        )
+
+        today_quest = Quest.objects.create(title="Today Quest", exp_reward=20)
+        complete_quest(player=self.player, quest=today_quest)
+
+        self.player.refresh_from_db()
+        self.assertEqual(self.player.streak, 4)
+
+    def test_streak_resets_when_day_missed(self):
+        self.player.streak = 5
+        self.player.save(update_fields=["streak"])
+
+        quest = Quest.objects.create(title="Comeback Quest", exp_reward=20)
+        complete_quest(player=self.player, quest=quest)
+
+        self.player.refresh_from_db()
+        self.assertEqual(self.player.streak, 1)
+
+    def test_multiple_same_day_completions_do_not_double_increment_streak(self):
+        self.player.streak = 2
+        self.player.save(update_fields=["streak"])
+        yesterday = timezone.localdate() - timedelta(days=1)
+
+        yesterday_quest = Quest.objects.create(title="Yesterday Streak Quest", exp_reward=10)
+        QuestCompletion.objects.create(
+            player=self.player,
+            quest=yesterday_quest,
+            completion_date=yesterday,
+        )
+
+        first_quest_today = Quest.objects.create(title="First Today", exp_reward=15)
+        second_quest_today = Quest.objects.create(title="Second Today", exp_reward=15)
+
+        complete_quest(player=self.player, quest=first_quest_today)
+        self.player.refresh_from_db()
+        streak_after_first = self.player.streak
+
+        complete_quest(player=self.player, quest=second_quest_today)
+        self.player.refresh_from_db()
+
+        self.assertEqual(streak_after_first, 3)
+        self.assertEqual(self.player.streak, 3)
 
 
 class QuestCompletionApiTests(TestCase):
