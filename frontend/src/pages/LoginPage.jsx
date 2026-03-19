@@ -33,6 +33,7 @@ export default function LoginPage({ onLogin, onNavigate }) {
               type="button"
               onClick={() => onNavigate('/signup')}
               className="font-medium text-cyan-300 hover:text-cyan-200"
+              disabled={loading}
             >
               Create account
             </button>
@@ -46,7 +47,8 @@ export default function LoginPage({ onLogin, onNavigate }) {
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               required
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-cyan-400/40 transition focus:ring"
+              disabled={loading}
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-cyan-400/40 transition focus:ring disabled:opacity-70"
             />
           </label>
           <label className="block space-y-1">
@@ -56,7 +58,8 @@ export default function LoginPage({ onLogin, onNavigate }) {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-cyan-400/40 transition focus:ring"
+              disabled={loading}
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-cyan-400/40 transition focus:ring disabled:opacity-70"
             />
           </label>
 

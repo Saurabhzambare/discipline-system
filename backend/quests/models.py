@@ -3,45 +3,98 @@ from django.utils import timezone
 
 
 class Quest(models.Model):
-    """
-    Reusable quest template.
+    CATEGORY_FITNESS = "fitness"
+    CATEGORY_DISCIPLINE = "discipline"
+    CATEGORY_PRODUCTIVITY = "productivity"
+    CATEGORY_HEALTH = "health"
+    CATEGORY_RECOVERY = "recovery"
 
-    Example:
-    - Gym Session
-    - Outdoor Walk
-    - Drink 3L Water
+    CATEGORY_CHOICES = [
+        (CATEGORY_FITNESS, "Fitness"),
+        (CATEGORY_DISCIPLINE, "Discipline"),
+        (CATEGORY_PRODUCTIVITY, "Productivity"),
+        (CATEGORY_HEALTH, "Health"),
+        (CATEGORY_RECOVERY, "Recovery"),
+    ]
 
-    This is NOT tied to a specific player.
-    It defines what the quest is and how much EXP it gives.
-    """
+    DIFFICULTY_EASY = "easy"
+    DIFFICULTY_MEDIUM = "medium"
+    DIFFICULTY_HARD = "hard"
+
+    DIFFICULTY_CHOICES = [
+        (DIFFICULTY_EASY, "Easy"),
+        (DIFFICULTY_MEDIUM, "Medium"),
+        (DIFFICULTY_HARD, "Hard"),
+    ]
+
+    RECURRENCE_DAILY = "daily"
+    RECURRENCE_WEEKDAYS = "weekdays"
+    RECURRENCE_WEEKLY = "weekly"
+
+    RECURRENCE_CHOICES = [
+        (RECURRENCE_DAILY, "Daily"),
+        (RECURRENCE_WEEKDAYS, "Weekdays"),
+        (RECURRENCE_WEEKLY, "Weekly"),
+    ]
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     exp_reward = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
 
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default=CATEGORY_DISCIPLINE)
+    difficulty = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, default=DIFFICULTY_EASY)
+    recurrence = models.CharField(max_length=10, choices=RECURRENCE_CHOICES, default=RECURRENCE_DAILY)
+    # Optional path targeting. Empty means quest is valid for all paths.
+    PATH_TARGET_CHOICES = [
+        ("", "All Paths"),
+        ("runner", "Runner"),
+        ("gym", "Gym"),
+        ("discipline", "Discipline"),
+        ("tournament", "Tournament"),
+        ("75_hard", "75 Hard"),
+    ]
+
+    path_target = models.CharField(max_length=20, choices=PATH_TARGET_CHOICES, blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        """
-        Human-readable name in Django admin and shell.
-        """
         return self.title
 
 
+class PlayerDailyQuestAssignment(models.Model):
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="daily_quest_assignments",
+    )
+    quest = models.ForeignKey(
+        "quests.Quest",
+        on_delete=models.CASCADE,
+        related_name="daily_assignments",
+    )
+
+    assignment_date = models.DateField(default=timezone.localdate)
+    assigned_exp_reward = models.PositiveIntegerField()
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["player", "quest", "assignment_date"],
+                name="unique_player_quest_assignment_per_day",
+            )
+        ]
+        ordering = ["quest_id"]
+
+
 class QuestCompletion(models.Model):
-    """
-    Record of a player completing a quest.
-
-    Example:
-    Saurabh completed 'Gym Session' on 2026-03-11.
-
-    We store both:
-    - completed_at: exact timestamp
-    - completion_date: easier daily filtering and uniqueness checks
-    """
-
     player = models.ForeignKey(
         "players.Player",
         on_delete=models.CASCADE,
@@ -57,10 +110,6 @@ class QuestCompletion(models.Model):
     completion_date = models.DateField(default=timezone.localdate)
 
     class Meta:
-        """
-        Prevent the same player from completing the same quest
-        more than once on the same date.
-        """
         constraints = [
             models.UniqueConstraint(
                 fields=["player", "quest", "completion_date"],
@@ -70,7 +119,4 @@ class QuestCompletion(models.Model):
         ordering = ["-completed_at"]
 
     def __str__(self):
-        """
-        Helpful admin/shell display.
-        """
         return f"{self.player.user.username} - {self.quest.title} - {self.completion_date}"

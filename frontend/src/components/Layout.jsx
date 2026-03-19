@@ -1,4 +1,28 @@
-export default function Layout({ children, onNavigate, isAuthenticated, onLogout }) {
+import { useEffect } from 'react';
+
+export default function Layout({
+  children,
+  onNavigate,
+  isAuthenticated,
+  onLogout,
+  flashMessage,
+  onDismissFlash,
+}) {
+  useEffect(() => {
+    if (!flashMessage) return undefined;
+
+    const timeout = setTimeout(() => {
+      onDismissFlash();
+    }, 3000);
+
+    return () => clearTimeout(timeout);
+  }, [flashMessage, onDismissFlash]);
+
+  const flashClass =
+    flashMessage?.type === 'error'
+      ? 'border-rose-500/50 bg-rose-500/15 text-rose-200'
+      : 'border-emerald-500/50 bg-emerald-500/15 text-emerald-200';
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-950/90 backdrop-blur">
@@ -32,7 +56,12 @@ export default function Layout({ children, onNavigate, isAuthenticated, onLogout
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+        {flashMessage ? (
+          <div className={`mb-5 rounded-xl border px-4 py-3 text-sm ${flashClass}`}>{flashMessage.text}</div>
+        ) : null}
+        {children}
+      </main>
     </div>
   );
 }

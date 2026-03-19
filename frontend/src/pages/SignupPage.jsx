@@ -34,6 +34,7 @@ export default function SignupPage({ onSignup, onNavigate }) {
               type="button"
               onClick={() => onNavigate('/login')}
               className="font-medium text-cyan-300 hover:text-cyan-200"
+              disabled={loading}
             >
               Go to login
             </button>
@@ -48,7 +49,8 @@ export default function SignupPage({ onSignup, onNavigate }) {
               onChange={(event) => setUsername(event.target.value)}
               minLength={3}
               required
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-cyan-400/40 transition focus:ring"
+              disabled={loading}
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-cyan-400/40 transition focus:ring disabled:opacity-70"
             />
           </label>
 
@@ -60,7 +62,8 @@ export default function SignupPage({ onSignup, onNavigate }) {
               onChange={(event) => setPassword(event.target.value)}
               minLength={8}
               required
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-cyan-400/40 transition focus:ring"
+              disabled={loading}
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none ring-cyan-400/40 transition focus:ring disabled:opacity-70"
             />
           </label>
 

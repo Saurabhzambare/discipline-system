@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   clearTokens,
   completeQuest,
@@ -8,6 +8,7 @@ import {
   login,
   setTokens,
   signup,
+  updatePlayerPath,
 } from './api';
 import Layout from './components/Layout';
 import DashboardPage from './pages/DashboardPage';
@@ -45,7 +46,23 @@ export default function App() {
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [dashboardError, setDashboardError] = useState('');
   const [completingQuestId, setCompletingQuestId] = useState(null);
-  const [selectedPath, setSelectedPath] = useState(localStorage.getItem('discipline_path') || '');
+  const [savingPath, setSavingPath] = useState(false);
+  const [flashMessage, setFlashMessage] = useState(null);
+
+  const selectedPath = useMemo(() => player?.path || '', [player?.path]);
+  const selectedPathDisplay = useMemo(() => player?.path_display || '', [player?.path_display]);
+
+  const handleAuthExpired = useCallback(
+    (message = 'Session expired. Please log in again.') => {
+      clearTokens();
+      setIsAuthenticated(false);
+      setPlayer(null);
+      setQuests([]);
+      setFlashMessage({ type: 'error', text: message });
+      navigate('/login');
+    },
+    [navigate],
+  );
 
   const loadDashboard = useCallback(async () => {
     setLoadingDashboard(true);
@@ -57,16 +74,14 @@ export default function App() {
       setQuests(questData);
     } catch (error) {
       if (error.status === 401) {
-        clearTokens();
-        setIsAuthenticated(false);
-        setPlayer(null);
-        navigate('/login');
+        handleAuthExpired(error.message);
+        return;
       }
       setDashboardError(error.message || 'Could not load dashboard data.');
     } finally {
       setLoadingDashboard(false);
     }
-  }, [navigate]);
+  }, [handleAuthExpired]);
 
   useEffect(() => {
     const protectedRoute = !PUBLIC_ROUTES.includes(route);
@@ -76,7 +91,7 @@ export default function App() {
       return;
     }
 
-    if (isAuthenticated && route === '/') {
+    if (isAuthenticated && (route === '/' || route === '/login' || route === '/signup')) {
       navigate('/dashboard');
       return;
     }
@@ -86,7 +101,7 @@ export default function App() {
       return;
     }
 
-    if (isAuthenticated && (route === '/dashboard' || route === '/profile')) {
+    if (isAuthenticated && (route === '/dashboard' || route === '/profile' || route === '/onboarding')) {
       loadDashboard();
     }
   }, [isAuthenticated, loadDashboard, navigate, route]);
@@ -95,11 +110,13 @@ export default function App() {
     const tokenData = await login(username, password);
     setTokens(tokenData.access, tokenData.refresh);
     setIsAuthenticated(true);
+    setFlashMessage({ type: 'success', text: 'Welcome back, Hunter.' });
     navigate('/dashboard');
   }
 
   async function handleSignup(username, password) {
     await signup(username, password);
+    setFlashMessage({ type: 'success', text: 'Account created. You can now sign in.' });
   }
 
   function handleLogout() {
@@ -107,12 +124,27 @@ export default function App() {
     setIsAuthenticated(false);
     setPlayer(null);
     setQuests([]);
+    setFlashMessage({ type: 'success', text: 'You have been logged out.' });
     navigate('/login');
   }
 
-  function handleSelectPath(path) {
-    setSelectedPath(path);
-    localStorage.setItem('discipline_path', path);
+  async function handleSelectPath(path) {
+    setSavingPath(true);
+    setDashboardError('');
+
+    try {
+      const updatedPlayer = await updatePlayerPath(path);
+      setPlayer(updatedPlayer);
+      setFlashMessage({ type: 'success', text: `Path updated to ${updatedPlayer.path_display || path}.` });
+    } catch (error) {
+      if (error.status === 401) {
+        handleAuthExpired(error.message);
+        return;
+      }
+      setDashboardError(error.message || 'Could not update path.');
+    } finally {
+      setSavingPath(false);
+    }
   }
 
   async function handleCompleteQuest(questId) {
@@ -133,10 +165,21 @@ export default function App() {
 
       setQuests((previous) =>
         previous.map((quest) =>
-          quest.id === questId ? { ...quest, completed_today: true } : quest,
+          quest.id === questId ? { ...quest, completed_today: true, assigned_completed_today: true } : quest,
         ),
       );
+
+      setFlashMessage({
+        type: 'success',
+        text: response.leveled_up
+          ? `Quest complete! +${response.exp_gained} EXP. Level up!`
+          : `Quest complete! +${response.exp_gained} EXP.`,
+      });
     } catch (error) {
+      if (error.status === 401) {
+        handleAuthExpired(error.message);
+        return;
+      }
       setDashboardError(error.message || 'Quest completion failed.');
     } finally {
       setCompletingQuestId(null);
@@ -155,10 +198,11 @@ export default function App() {
         selectedPath={selectedPath}
         onSelectPath={handleSelectPath}
         onNavigate={navigate}
+        savingPath={savingPath}
       />
     );
   } else if (route === '/profile') {
-    page = <ProfilePage player={player} selectedPath={selectedPath} />;
+    page = <ProfilePage player={player} selectedPathDisplay={selectedPathDisplay} onNavigate={navigate} />;
   } else {
     page = (
       <DashboardPage
@@ -169,15 +213,20 @@ export default function App() {
         onRefresh={loadDashboard}
         onCompleteQuest={handleCompleteQuest}
         completingQuestId={completingQuestId}
-        selectedPath={selectedPath}
+        selectedPathDisplay={selectedPathDisplay}
         onNavigate={navigate}
       />
     );
   }
 
-
   return (
-    <Layout onNavigate={navigate} isAuthenticated={isAuthenticated} onLogout={handleLogout}>
+    <Layout
+      onNavigate={navigate}
+      isAuthenticated={isAuthenticated}
+      onLogout={handleLogout}
+      flashMessage={flashMessage}
+      onDismissFlash={() => setFlashMessage(null)}
+    >
       {page}
     </Layout>
   );
