@@ -16,6 +16,7 @@ class QuestSerializer(serializers.ModelSerializer):
     path_target = serializers.CharField(source="quest.path_target", read_only=True)
     exp_reward = serializers.IntegerField(source="assigned_exp_reward", read_only=True)
     completed_today = serializers.BooleanField(source="completed", read_only=True)
+    # Kept for API compatibility with existing frontend payload contract.
     assigned_completed_today = serializers.BooleanField(source="completed", read_only=True)
 
     class Meta:

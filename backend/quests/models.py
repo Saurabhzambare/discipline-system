@@ -3,6 +3,7 @@ from django.utils import timezone
 
 
 class Quest(models.Model):
+    """Quest templates that can be assigned to players each day."""
     CATEGORY_FITNESS = "fitness"
     CATEGORY_DISCIPLINE = "discipline"
     CATEGORY_PRODUCTIVITY = "productivity"
@@ -65,6 +66,12 @@ class Quest(models.Model):
 
 
 class PlayerDailyQuestAssignment(models.Model):
+    """
+    Per-player, per-day quest state.
+
+    This is the runtime daily snapshot: assigned reward + completion status.
+    """
+
     player = models.ForeignKey(
         "players.Player",
         on_delete=models.CASCADE,
@@ -91,10 +98,23 @@ class PlayerDailyQuestAssignment(models.Model):
                 name="unique_player_quest_assignment_per_day",
             )
         ]
+        indexes = [
+            # Hot path for "give me today's assignments for this player".
+            models.Index(fields=["player", "assignment_date"]),
+        ]
         ordering = ["quest_id"]
+
+    def __str__(self):
+        return f"{self.player.user.username} · {self.assignment_date} · {self.quest.title}"
 
 
 class QuestCompletion(models.Model):
+    """
+    Historical completion event log.
+
+    Assignment tracks today's mutable state; this model keeps immutable history.
+    """
+
     player = models.ForeignKey(
         "players.Player",
         on_delete=models.CASCADE,

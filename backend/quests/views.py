@@ -12,6 +12,7 @@ class QuestListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Service guarantees deterministic "today list" semantics.
         assignments = assign_daily_quests(player=request.user.player)
         serializer = QuestSerializer(assignments, many=True)
         return Response(serializer.data)

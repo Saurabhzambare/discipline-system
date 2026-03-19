@@ -42,7 +42,7 @@ class Player(models.Model):
     exp = models.PositiveIntegerField(default=0)
     streak = models.PositiveIntegerField(default=0)
 
-    # Path selected by player. Used by quest assignment logic.
+    # Backend-owned game state used by assignment logic to filter path-specific quests.
     path = models.CharField(max_length=20, choices=PATH_CHOICES, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)

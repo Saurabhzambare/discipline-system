@@ -21,6 +21,7 @@ class PlayerPathView(APIView):
         serializer.is_valid(raise_exception=True)
 
         player = request.user.player
+        # Path is stored on Player so quest assignment can use it as backend game state.
         player.path = serializer.validated_data["path"]
         player.save(update_fields=["path", "updated_at"])
 

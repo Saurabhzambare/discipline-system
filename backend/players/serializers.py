@@ -4,6 +4,7 @@ from .models import Player
 
 
 class PlayerSerializer(serializers.ModelSerializer):
+    # Username is denormalized into payload for convenience in profile responses.
     username = serializers.CharField(source="user.username", read_only=True)
     path_display = serializers.SerializerMethodField(read_only=True)
 
