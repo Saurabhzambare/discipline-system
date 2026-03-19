@@ -13,6 +13,7 @@ DIFFICULTY_MULTIPLIERS = {
 
 
 def calculate_level_from_exp(exp: int) -> int:
+    # Linear progression rule used across the backend as source of truth.
     return (exp // 100) + 1
 
 
@@ -31,7 +32,7 @@ def is_quest_scheduled_for_date(*, quest: Quest, date) -> bool:
     return False
 
 
-def _eligible_quests_queryset(*, player, date):
+def _eligible_quests_queryset(*, player):
     path = player.path or ""
     return (
         Quest.objects.filter(is_active=True)
@@ -44,6 +45,7 @@ def _eligible_quests_queryset(*, player, date):
 def assign_daily_quests(*, player, date=None):
     assignment_date = date or timezone.localdate()
 
+    # Assignments are stable for the day; if they already exist, always reuse them.
     existing_assignments = PlayerDailyQuestAssignment.objects.filter(
         player=player,
         assignment_date=assignment_date,
@@ -53,7 +55,7 @@ def assign_daily_quests(*, player, date=None):
 
     eligible_quests = [
         quest
-        for quest in _eligible_quests_queryset(player=player, date=assignment_date)
+        for quest in _eligible_quests_queryset(player=player)
         if is_quest_scheduled_for_date(quest=quest, date=assignment_date)
     ]
 
@@ -68,7 +70,10 @@ def assign_daily_quests(*, player, date=None):
             )
         )
 
-    PlayerDailyQuestAssignment.objects.bulk_create(assignments)
+    # ignore_conflicts keeps this idempotent under concurrent "first request of the day"
+    # calls. DB uniqueness remains the hard guarantee.
+    if assignments:
+        PlayerDailyQuestAssignment.objects.bulk_create(assignments, ignore_conflicts=True)
 
     return PlayerDailyQuestAssignment.objects.filter(
         player=player,
@@ -79,7 +84,9 @@ def assign_daily_quests(*, player, date=None):
 @transaction.atomic
 def complete_quest(*, player, quest):
     today = timezone.localdate()
+    now = timezone.now()
 
+    # Lock the assignment row so duplicate completion attempts cannot race.
     assignment = (
         PlayerDailyQuestAssignment.objects.select_for_update()
         .filter(player=player, quest=quest, assignment_date=today)
@@ -91,45 +98,48 @@ def complete_quest(*, player, quest):
     if assignment.completed:
         raise ValueError("Quest already completed today.")
 
+    # Lock player progression state while exp/level/streak are updated.
+    locked_player = type(player).objects.select_for_update().get(pk=player.pk)
+
     had_completion_today = QuestCompletion.objects.filter(
-        player=player,
+        player=locked_player,
         completion_date=today,
     ).exists()
 
     QuestCompletion.objects.create(
-        player=player,
+        player=locked_player,
         quest=quest,
         completion_date=today,
     )
 
     assignment.completed = True
-    assignment.completed_at = timezone.now()
+    assignment.completed_at = now
     assignment.save(update_fields=["completed", "completed_at", "updated_at"])
 
-    old_level = player.level
+    old_level = locked_player.level
 
-    player.exp += assignment.assigned_exp_reward
-    player.level = calculate_level_from_exp(player.exp)
+    locked_player.exp += assignment.assigned_exp_reward
+    locked_player.level = calculate_level_from_exp(locked_player.exp)
 
     if not had_completion_today:
         yesterday = today - timedelta(days=1)
         completed_yesterday = QuestCompletion.objects.filter(
-            player=player,
+            player=locked_player,
             completion_date=yesterday,
         ).exists()
 
         if completed_yesterday:
-            player.streak += 1
+            locked_player.streak += 1
         else:
-            player.streak = 1
+            locked_player.streak = 1
 
-    player.save()
+    locked_player.save(update_fields=["exp", "level", "streak", "updated_at"])
 
     return {
         "exp_gained": assignment.assigned_exp_reward,
-        "player_exp": player.exp,
-        "player_streak": player.streak,
+        "player_exp": locked_player.exp,
+        "player_streak": locked_player.streak,
         "old_level": old_level,
-        "new_level": player.level,
-        "leveled_up": player.level > old_level,
+        "new_level": locked_player.level,
+        "leveled_up": locked_player.level > old_level,
     }
