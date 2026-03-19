@@ -94,6 +94,7 @@ def complete_quest(*, player, quest):
     return {
         "exp_gained": quest.exp_reward,
         "player_exp": player.exp,
+        "player_streak": player.streak,
         "old_level": old_level,
         "new_level": player.level,
         "leveled_up": player.level > old_level,

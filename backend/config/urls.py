@@ -58,6 +58,7 @@ urlpatterns = [
     # Instead of defining all player routes here, we delegate them to the players app.
     
     path("api/player/", include("players.urls")),
+    path("api/auth/", include("users.urls")),
     # Example:
     # If players/urls.py contains:
     # path("me/", PlayerMeView.as_view())

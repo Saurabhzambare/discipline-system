@@ -9,6 +9,8 @@ class QuestSerializer(serializers.ModelSerializer):
     GET /api/quests/
     """
 
+    completed_today = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Quest
 
@@ -19,7 +21,12 @@ class QuestSerializer(serializers.ModelSerializer):
             "description",
             "exp_reward",
             "is_active",
+            "completed_today",
         ]
+
+    def get_completed_today(self, obj):
+        completed_today_quest_ids = self.context.get("completed_today_quest_ids", set())
+        return obj.id in completed_today_quest_ids
 
 
 class QuestCompleteSerializer(serializers.Serializer):
