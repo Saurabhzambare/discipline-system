@@ -1,42 +1,41 @@
 from rest_framework import serializers
-from .models import Quest
+
+from .models import PlayerDailyQuestAssignment
 
 
 class QuestSerializer(serializers.ModelSerializer):
-    """
-    Used when sending quest data from the backend to the frontend.
-    Example use case:
-    GET /api/quests/
-    """
-
-    completed_today = serializers.SerializerMethodField(read_only=True)
+    id = serializers.IntegerField(source="quest.id", read_only=True)
+    title = serializers.CharField(source="quest.title", read_only=True)
+    description = serializers.CharField(source="quest.description", read_only=True)
+    category = serializers.CharField(source="quest.category", read_only=True)
+    difficulty = serializers.CharField(source="quest.difficulty", read_only=True)
+    recurrence = serializers.CharField(source="quest.recurrence", read_only=True)
+    category_display = serializers.CharField(source="quest.get_category_display", read_only=True)
+    difficulty_display = serializers.CharField(source="quest.get_difficulty_display", read_only=True)
+    recurrence_display = serializers.CharField(source="quest.get_recurrence_display", read_only=True)
+    path_target = serializers.CharField(source="quest.path_target", read_only=True)
+    exp_reward = serializers.IntegerField(source="assigned_exp_reward", read_only=True)
+    completed_today = serializers.BooleanField(source="completed", read_only=True)
+    assigned_completed_today = serializers.BooleanField(source="completed", read_only=True)
 
     class Meta:
-        model = Quest
-
-        # These are the fields we want to expose in the API response
+        model = PlayerDailyQuestAssignment
         fields = [
             "id",
             "title",
             "description",
+            "category",
+            "difficulty",
+            "recurrence",
+            "category_display",
+            "difficulty_display",
+            "recurrence_display",
+            "path_target",
             "exp_reward",
-            "is_active",
             "completed_today",
+            "assigned_completed_today",
         ]
-
-    def get_completed_today(self, obj):
-        completed_today_quest_ids = self.context.get("completed_today_quest_ids", set())
-        return obj.id in completed_today_quest_ids
 
 
 class QuestCompleteSerializer(serializers.Serializer):
-    """
-    Used when the frontend sends a request to complete a quest.
-    Example request body:
-    {
-        "quest_id": 1
-    }
-    """
-
-    # We only need the quest ID from the frontend for now
     quest_id = serializers.IntegerField()

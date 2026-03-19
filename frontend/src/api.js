@@ -18,6 +18,19 @@ export function clearTokens() {
   localStorage.removeItem('discipline_refresh_token');
 }
 
+function buildErrorMessage(errorData, status) {
+  if (!errorData) return `Request failed with status ${status}`;
+
+  if (typeof errorData.detail === 'string') return errorData.detail;
+  if (typeof errorData.message === 'string') return errorData.message;
+
+  const firstEntry = Object.values(errorData)[0];
+  if (Array.isArray(firstEntry) && firstEntry.length > 0) return String(firstEntry[0]);
+  if (typeof firstEntry === 'string') return firstEntry;
+
+  return `Request failed with status ${status}`;
+}
+
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
 
@@ -34,13 +47,7 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const message =
-      errorData?.detail ||
-      errorData?.message ||
-      Object.values(errorData || {})?.[0]?.[0] ||
-      `Request failed with status ${response.status}`;
-
-    const error = new Error(message);
+    const error = new Error(buildErrorMessage(errorData, response.status));
     error.status = response.status;
     error.data = errorData;
     throw error;
@@ -67,7 +74,12 @@ export async function signup(username, password) {
 
 export async function refreshAccessToken() {
   const refresh = getRefreshToken();
-  if (!refresh) throw new Error('No refresh token available');
+
+  if (!refresh) {
+    const error = new Error('Your session has expired. Please log in again.');
+    error.status = 401;
+    throw error;
+  }
 
   return request('/api/auth/token/refresh/', {
     method: 'POST',
@@ -82,8 +94,15 @@ async function authedRequest(path, options = {}) {
   } catch (error) {
     if (error.status !== 401) throw error;
 
-    const tokenData = await refreshAccessToken();
-    setTokens(tokenData.access, tokenData.refresh);
+    try {
+      const tokenData = await refreshAccessToken();
+      setTokens(tokenData.access, tokenData.refresh);
+    } catch {
+      clearTokens();
+      const authError = new Error('Your session has expired. Please log in again.');
+      authError.status = 401;
+      throw authError;
+    }
 
     return request(path, { ...options, auth: true });
   }
@@ -91,6 +110,13 @@ async function authedRequest(path, options = {}) {
 
 export async function getPlayerMe() {
   return authedRequest('/api/player/me/');
+}
+
+export async function updatePlayerPath(path) {
+  return authedRequest('/api/player/path/', {
+    method: 'PATCH',
+    body: { path },
+  });
 }
 
 export async function getQuests() {

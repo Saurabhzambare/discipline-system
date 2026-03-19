@@ -3,78 +3,114 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
-from .models import QuestCompletion
+from .models import PlayerDailyQuestAssignment, Quest, QuestCompletion
+
+DIFFICULTY_MULTIPLIERS = {
+    Quest.DIFFICULTY_EASY: 1.0,
+    Quest.DIFFICULTY_MEDIUM: 1.3,
+    Quest.DIFFICULTY_HARD: 1.6,
+}
 
 
 def calculate_level_from_exp(exp: int) -> int:
-    """
-    Convert total EXP into a player level.
-
-    Phase 2 rule:
-    - Every 100 EXP = 1 level up
-    - Level starts at 1
-
-    Examples:
-    0 EXP   -> Level 1
-    99 EXP  -> Level 1
-    100 EXP -> Level 2
-    250 EXP -> Level 3
-    """
     return (exp // 100) + 1
+
+
+def calculate_scaled_exp(*, quest: Quest) -> int:
+    multiplier = DIFFICULTY_MULTIPLIERS.get(quest.difficulty, 1.0)
+    return max(1, int(round(quest.exp_reward * multiplier)))
+
+
+def is_quest_scheduled_for_date(*, quest: Quest, date) -> bool:
+    if quest.recurrence == Quest.RECURRENCE_DAILY:
+        return True
+    if quest.recurrence == Quest.RECURRENCE_WEEKDAYS:
+        return date.weekday() < 5
+    if quest.recurrence == Quest.RECURRENCE_WEEKLY:
+        return date.weekday() == 0
+    return False
+
+
+def _eligible_quests_queryset(*, player, date):
+    path = player.path or ""
+    return (
+        Quest.objects.filter(is_active=True)
+        .filter(path_target__in=["", path] if path else [""])
+        .order_by("id")
+    )
+
+
+@transaction.atomic
+def assign_daily_quests(*, player, date=None):
+    assignment_date = date or timezone.localdate()
+
+    existing_assignments = PlayerDailyQuestAssignment.objects.filter(
+        player=player,
+        assignment_date=assignment_date,
+    ).select_related("quest")
+    if existing_assignments.exists():
+        return existing_assignments
+
+    eligible_quests = [
+        quest
+        for quest in _eligible_quests_queryset(player=player, date=assignment_date)
+        if is_quest_scheduled_for_date(quest=quest, date=assignment_date)
+    ]
+
+    assignments = []
+    for quest in eligible_quests:
+        assignments.append(
+            PlayerDailyQuestAssignment(
+                player=player,
+                quest=quest,
+                assignment_date=assignment_date,
+                assigned_exp_reward=calculate_scaled_exp(quest=quest),
+            )
+        )
+
+    PlayerDailyQuestAssignment.objects.bulk_create(assignments)
+
+    return PlayerDailyQuestAssignment.objects.filter(
+        player=player,
+        assignment_date=assignment_date,
+    ).select_related("quest")
 
 
 @transaction.atomic
 def complete_quest(*, player, quest):
-    """
-    Complete a quest for a player.
-
-    This function handles the core gameplay rules:
-    1. Prevent duplicate completion on the same day
-    2. Create a QuestCompletion record
-    3. Award EXP to the player
-    4. Recalculate the player's level
-    5. Return updated progress data
-
-    transaction.atomic ensures that all database operations
-    succeed together or fail together.
-    """
-
-    # Get today's local date
     today = timezone.localdate()
 
-    # Check whether the player already completed this quest today
-    already_completed_today = QuestCompletion.objects.filter(
-        player=player,
-        quest=quest,
-        completion_date=today,
-    ).exists()
+    assignment = (
+        PlayerDailyQuestAssignment.objects.select_for_update()
+        .filter(player=player, quest=quest, assignment_date=today)
+        .first()
+    )
+    if not assignment:
+        raise ValueError("Quest is not assigned for today.")
 
-    if already_completed_today:
+    if assignment.completed:
         raise ValueError("Quest already completed today.")
 
-    # Determine whether this completion is the first one for today.
     had_completion_today = QuestCompletion.objects.filter(
         player=player,
         completion_date=today,
     ).exists()
 
-    # Create a quest completion record
     QuestCompletion.objects.create(
         player=player,
         quest=quest,
         completion_date=today,
     )
 
-    # Store old level so we can compare after EXP update
+    assignment.completed = True
+    assignment.completed_at = timezone.now()
+    assignment.save(update_fields=["completed", "completed_at", "updated_at"])
+
     old_level = player.level
 
-    # Add quest EXP reward to the player
-    player.exp += quest.exp_reward
-
-    # Recalculate level from updated EXP
+    player.exp += assignment.assigned_exp_reward
     player.level = calculate_level_from_exp(player.exp)
 
-    # Update streak only on the first completion of the day
     if not had_completion_today:
         yesterday = today - timedelta(days=1)
         completed_yesterday = QuestCompletion.objects.filter(
@@ -87,12 +123,10 @@ def complete_quest(*, player, quest):
         else:
             player.streak = 1
 
-    # Save updated player progress
     player.save()
 
-    # Return useful response data for the API
     return {
-        "exp_gained": quest.exp_reward,
+        "exp_gained": assignment.assigned_exp_reward,
         "player_exp": player.exp,
         "player_streak": player.streak,
         "old_level": old_level,

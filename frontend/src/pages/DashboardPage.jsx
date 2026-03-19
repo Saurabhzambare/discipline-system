@@ -2,44 +2,49 @@ import ProgressCard from '../components/ProgressCard';
 import QuestCard from '../components/QuestCard';
 
 function calculateExpProgress(exp) {
-  const currentLevel = Math.floor(Math.sqrt(Math.max(exp, 0) / 100)) + 1;
-  const previousThreshold = Math.pow(currentLevel - 1, 2) * 100;
-  const nextThreshold = Math.pow(currentLevel, 2) * 100;
-  const inLevelExp = exp - previousThreshold;
-  const levelRange = Math.max(nextThreshold - previousThreshold, 1);
+  const totalExp = Math.max(exp || 0, 0);
+  const inLevelExp = totalExp % 100;
+
   return {
-    currentLevel,
     inLevelExp,
-    levelRange,
-    percent: Math.min(100, Math.max(0, Math.round((inLevelExp / levelRange) * 100))),
+    levelRange: 100,
+    percent: Math.min(100, Math.max(0, Math.round((inLevelExp / 100) * 100))),
   };
 }
 
-export default function DashboardPage({ player, quests, loading, error, onRefresh, onCompleteQuest, completingQuestId, selectedPath, onNavigate }) {
+export default function DashboardPage({
+  player,
+  quests,
+  loading,
+  error,
+  onRefresh,
+  onCompleteQuest,
+  completingQuestId,
+  selectedPathDisplay,
+  onNavigate,
+}) {
   if (loading) {
     return <p className="text-slate-300">Loading status window...</p>;
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-4 text-rose-200">
-        <p className="font-semibold">Failed to load dashboard</p>
-        <p className="mt-1 text-sm">{error}</p>
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="mt-3 rounded-lg border border-rose-400/50 px-3 py-2 text-sm"
-        >
-          Retry
-        </button>
-      </div>
-    );
   }
 
   const expProgress = calculateExpProgress(player?.exp || 0);
 
   return (
     <section className="space-y-6">
+      {error ? (
+        <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-4 text-rose-200">
+          <p className="font-semibold">Action failed</p>
+          <p className="mt-1 text-sm">{error}</p>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="mt-3 rounded-lg border border-rose-400/50 px-3 py-2 text-sm"
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+
       <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 p-6 shadow-[0_0_30px_rgba(14,165,233,0.12)]">
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Player Status Window</p>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
@@ -49,7 +54,7 @@ export default function DashboardPage({ player, quests, loading, error, onRefres
             onClick={() => onNavigate('/onboarding')}
             className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-cyan-500/50 hover:text-cyan-200"
           >
-            Path: {selectedPath || 'Choose'}
+            Path: {selectedPathDisplay || 'Choose'}
           </button>
         </div>
 
@@ -61,7 +66,7 @@ export default function DashboardPage({ player, quests, loading, error, onRefres
 
         <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950/60 p-4">
           <div className="flex items-center justify-between text-sm">
-            <p className="font-medium text-slate-300">EXP Progress</p>
+            <p className="font-medium text-slate-300">EXP Progress to Next Level</p>
             <p className="text-amber-300">
               {expProgress.inLevelExp} / {expProgress.levelRange}
             </p>
@@ -77,7 +82,10 @@ export default function DashboardPage({ player, quests, loading, error, onRefres
 
       <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold text-slate-100">Active Quests</h2>
+          <div>
+            <h2 className="text-xl font-semibold text-slate-100">Today&apos;s Quests</h2>
+            <p className="text-sm text-slate-400">Complete your assigned set to protect your streak.</p>
+          </div>
           <button
             type="button"
             onClick={onRefresh}
@@ -88,7 +96,7 @@ export default function DashboardPage({ player, quests, loading, error, onRefres
         </div>
 
         {quests.length === 0 ? (
-          <p className="text-sm text-slate-400">No active quests available yet.</p>
+          <p className="text-sm text-slate-400">No quests assigned yet for today.</p>
         ) : (
           <div className="space-y-3">
             {quests.map((quest) => (

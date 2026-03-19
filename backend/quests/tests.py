@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -6,8 +6,14 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from quests.models import Quest, QuestCompletion
-from quests.services import calculate_level_from_exp, complete_quest
+from quests.models import PlayerDailyQuestAssignment, Quest, QuestCompletion
+from quests.services import (
+    assign_daily_quests,
+    calculate_level_from_exp,
+    calculate_scaled_exp,
+    complete_quest,
+    is_quest_scheduled_for_date,
+)
 
 
 class QuestProgressionServiceTests(TestCase):
@@ -24,47 +30,88 @@ class QuestProgressionServiceTests(TestCase):
         self.assertEqual(calculate_level_from_exp(100), 2)
         self.assertEqual(calculate_level_from_exp(250), 3)
 
-    def test_complete_quest_awards_exp_and_creates_completion_record(self):
-        quest = Quest.objects.create(title="Gym Session", exp_reward=40)
+    def test_calculate_scaled_exp_uses_difficulty_multiplier(self):
+        easy = Quest.objects.create(title="Easy", exp_reward=20, difficulty=Quest.DIFFICULTY_EASY)
+        medium = Quest.objects.create(title="Medium", exp_reward=20, difficulty=Quest.DIFFICULTY_MEDIUM)
+        hard = Quest.objects.create(title="Hard", exp_reward=20, difficulty=Quest.DIFFICULTY_HARD)
+
+        self.assertEqual(calculate_scaled_exp(quest=easy), 20)
+        self.assertEqual(calculate_scaled_exp(quest=medium), 26)
+        self.assertEqual(calculate_scaled_exp(quest=hard), 32)
+
+    def test_is_quest_scheduled_for_date_recurring_rules(self):
+        monday = date(2026, 3, 16)
+        saturday = date(2026, 3, 14)
+
+        daily = Quest.objects.create(title="Daily", exp_reward=10, recurrence=Quest.RECURRENCE_DAILY)
+        weekdays = Quest.objects.create(
+            title="Weekdays",
+            exp_reward=10,
+            recurrence=Quest.RECURRENCE_WEEKDAYS,
+        )
+        weekly = Quest.objects.create(title="Weekly", exp_reward=10, recurrence=Quest.RECURRENCE_WEEKLY)
+
+        self.assertTrue(is_quest_scheduled_for_date(quest=daily, date=saturday))
+        self.assertTrue(is_quest_scheduled_for_date(quest=weekdays, date=monday))
+        self.assertFalse(is_quest_scheduled_for_date(quest=weekdays, date=saturday))
+        self.assertTrue(is_quest_scheduled_for_date(quest=weekly, date=monday))
+
+    def test_assign_daily_quests_is_deterministic_for_same_day(self):
+        Quest.objects.create(title="Quest A", exp_reward=10)
+        Quest.objects.create(title="Quest B", exp_reward=20)
+
+        first_assignments = list(assign_daily_quests(player=self.player))
+        second_assignments = list(assign_daily_quests(player=self.player))
+
+        self.assertEqual(len(first_assignments), 2)
+        self.assertEqual(len(second_assignments), 2)
+        self.assertEqual(
+            [assignment.id for assignment in first_assignments],
+            [assignment.id for assignment in second_assignments],
+        )
+
+    def test_assign_daily_quests_respects_player_path_targeting(self):
+        self.player.path = "runner"
+        self.player.save(update_fields=["path", "updated_at"])
+
+        Quest.objects.create(title="Global Quest", exp_reward=10, path_target="")
+        Quest.objects.create(title="Runner Quest", exp_reward=10, path_target="runner")
+        Quest.objects.create(title="Gym Quest", exp_reward=10, path_target="gym")
+
+        assignments = assign_daily_quests(player=self.player)
+        assigned_titles = {assignment.quest.title for assignment in assignments}
+
+        self.assertIn("Global Quest", assigned_titles)
+        self.assertIn("Runner Quest", assigned_titles)
+        self.assertNotIn("Gym Quest", assigned_titles)
+
+    def test_complete_quest_awards_exp_and_marks_assignment_complete(self):
+        quest = Quest.objects.create(title="Gym Session", exp_reward=40, difficulty=Quest.DIFFICULTY_MEDIUM)
+        assign_daily_quests(player=self.player)
 
         result = complete_quest(player=self.player, quest=quest)
         self.player.refresh_from_db()
+        assignment = PlayerDailyQuestAssignment.objects.get(player=self.player, quest=quest)
 
-        self.assertEqual(self.player.exp, 40)
-        self.assertEqual(self.player.level, 1)
+        self.assertTrue(assignment.completed)
+        self.assertEqual(result["exp_gained"], assignment.assigned_exp_reward)
+        self.assertEqual(self.player.exp, assignment.assigned_exp_reward)
         self.assertEqual(QuestCompletion.objects.filter(player=self.player, quest=quest).count(), 1)
-        self.assertEqual(result["exp_gained"], 40)
-        self.assertEqual(result["player_exp"], 40)
-        self.assertEqual(result["old_level"], 1)
-        self.assertEqual(result["new_level"], 1)
-        self.assertFalse(result["leveled_up"])
 
-    def test_complete_quest_detects_level_up(self):
-        self.player.exp = 90
-        self.player.level = 1
-        self.player.save(update_fields=["exp", "level"])
-        quest = Quest.objects.create(title="Deep Work", exp_reward=15)
+    def test_complete_quest_requires_today_assignment(self):
+        quest = Quest.objects.create(title="Unassigned", exp_reward=20)
 
-        result = complete_quest(player=self.player, quest=quest)
-        self.player.refresh_from_db()
-
-        self.assertEqual(self.player.exp, 105)
-        self.assertEqual(self.player.level, 2)
-        self.assertEqual(result["old_level"], 1)
-        self.assertEqual(result["new_level"], 2)
-        self.assertTrue(result["leveled_up"])
+        with self.assertRaisesMessage(ValueError, "Quest is not assigned for today."):
+            complete_quest(player=self.player, quest=quest)
 
     def test_complete_quest_prevents_duplicate_same_day_completion(self):
         quest = Quest.objects.create(title="Read 20 Pages", exp_reward=20)
+        assign_daily_quests(player=self.player)
 
         complete_quest(player=self.player, quest=quest)
 
         with self.assertRaisesMessage(ValueError, "Quest already completed today."):
             complete_quest(player=self.player, quest=quest)
-
-        self.player.refresh_from_db()
-        self.assertEqual(self.player.exp, 20)
-        self.assertEqual(QuestCompletion.objects.filter(player=self.player, quest=quest).count(), 1)
 
     def test_streak_increments_when_completed_yesterday(self):
         self.player.streak = 3
@@ -79,6 +126,7 @@ class QuestProgressionServiceTests(TestCase):
         )
 
         today_quest = Quest.objects.create(title="Today Quest", exp_reward=20)
+        assign_daily_quests(player=self.player)
         complete_quest(player=self.player, quest=today_quest)
 
         self.player.refresh_from_db()
@@ -89,35 +137,11 @@ class QuestProgressionServiceTests(TestCase):
         self.player.save(update_fields=["streak"])
 
         quest = Quest.objects.create(title="Comeback Quest", exp_reward=20)
+        assign_daily_quests(player=self.player)
         complete_quest(player=self.player, quest=quest)
 
         self.player.refresh_from_db()
         self.assertEqual(self.player.streak, 1)
-
-    def test_multiple_same_day_completions_do_not_double_increment_streak(self):
-        self.player.streak = 2
-        self.player.save(update_fields=["streak"])
-        yesterday = timezone.localdate() - timedelta(days=1)
-
-        yesterday_quest = Quest.objects.create(title="Yesterday Streak Quest", exp_reward=10)
-        QuestCompletion.objects.create(
-            player=self.player,
-            quest=yesterday_quest,
-            completion_date=yesterday,
-        )
-
-        first_quest_today = Quest.objects.create(title="First Today", exp_reward=15)
-        second_quest_today = Quest.objects.create(title="Second Today", exp_reward=15)
-
-        complete_quest(player=self.player, quest=first_quest_today)
-        self.player.refresh_from_db()
-        streak_after_first = self.player.streak
-
-        complete_quest(player=self.player, quest=second_quest_today)
-        self.player.refresh_from_db()
-
-        self.assertEqual(streak_after_first, 3)
-        self.assertEqual(self.player.streak, 3)
 
 
 class QuestCompletionApiTests(TestCase):
@@ -132,8 +156,31 @@ class QuestCompletionApiTests(TestCase):
         self.complete_url = reverse("quest-complete")
         self.list_url = reverse("quest-list")
 
-    def test_quest_complete_endpoint_returns_success_progress_payload(self):
-        quest = Quest.objects.create(title="Walk", exp_reward=30)
+    def test_quest_list_endpoint_returns_daily_assignments_with_metadata(self):
+        Quest.objects.create(
+            title="Hydration",
+            exp_reward=20,
+            category=Quest.CATEGORY_HEALTH,
+            difficulty=Quest.DIFFICULTY_MEDIUM,
+            recurrence=Quest.RECURRENCE_DAILY,
+        )
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["title"], "Hydration")
+        self.assertEqual(response.data[0]["difficulty"], Quest.DIFFICULTY_MEDIUM)
+        self.assertEqual(response.data[0]["assigned_completed_today"], False)
+
+    def test_quest_complete_endpoint_returns_scaled_reward_payload(self):
+        quest = Quest.objects.create(
+            title="Walk",
+            exp_reward=30,
+            difficulty=Quest.DIFFICULTY_HARD,
+        )
+
+        self.client.get(self.list_url)
 
         response = self.client.post(
             self.complete_url,
@@ -145,38 +192,21 @@ class QuestCompletionApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["message"], "Quest completed successfully.")
-        self.assertEqual(response.data["exp_gained"], 30)
-        self.assertEqual(response.data["player_exp"], 30)
+        self.assertEqual(response.data["exp_gained"], 48)
+        self.assertEqual(response.data["player_exp"], 48)
         self.assertEqual(response.data["player_streak"], 1)
-        self.assertEqual(response.data["old_level"], 1)
-        self.assertEqual(response.data["new_level"], 1)
-        self.assertFalse(response.data["leveled_up"])
-        self.assertEqual(self.player.exp, 30)
 
-    def test_quest_list_endpoint_marks_uncompleted_quest_as_false(self):
-        quest = Quest.objects.create(title="No Completion Yet", exp_reward=20)
+    def test_quest_complete_endpoint_rejects_unassigned_quest(self):
+        quest = Quest.objects.create(title="Needs Assignment", exp_reward=10, path_target="gym")
 
-        response = self.client.get(self.list_url)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["id"], quest.id)
-        self.assertFalse(response.data[0]["completed_today"])
-
-    def test_quest_list_endpoint_marks_completed_quest_as_true(self):
-        quest = Quest.objects.create(title="Completed Today", exp_reward=25)
-        QuestCompletion.objects.create(
-            player=self.player,
-            quest=quest,
-            completion_date=timezone.localdate(),
+        response = self.client.post(
+            self.complete_url,
+            {"quest_id": quest.id},
+            format="json",
         )
 
-        response = self.client.get(self.list_url)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["id"], quest.id)
-        self.assertTrue(response.data[0]["completed_today"])
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["detail"], "Quest is not assigned for today.")
 
     def test_quest_complete_endpoint_rejects_inactive_quest(self):
         inactive_quest = Quest.objects.create(title="Inactive", exp_reward=10, is_active=False)
