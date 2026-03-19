@@ -1,91 +1,184 @@
+import { useCallback, useEffect, useState } from 'react';
+import {
+  clearTokens,
+  completeQuest,
+  getAccessToken,
+  getPlayerMe,
+  getQuests,
+  login,
+  setTokens,
+  signup,
+} from './api';
+import Layout from './components/Layout';
+import DashboardPage from './pages/DashboardPage';
+import LoginPage from './pages/LoginPage';
+import OnboardingPage from './pages/OnboardingPage';
+import ProfilePage from './pages/ProfilePage';
+import SignupPage from './pages/SignupPage';
 
-import { useEffect, useState } from "react";
+const PUBLIC_ROUTES = ['/login', '/signup'];
 
-export default function App() {
-  const [health, setHealth] = useState(null);
+function useRoute() {
+  const [route, setRoute] = useState(window.location.pathname || '/');
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/health/")
-      .then((r) => r.json())
-      .then(setHealth)
-      .catch((e) => setHealth({ status: "error", message: String(e) }));
+    const onPopState = () => setRoute(window.location.pathname || '/');
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900/50 p-6 shadow">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold tracking-wide">
-            DISCIPLINE SYSTEM
-          </h1>
-          <span className="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-200">
-            Phase 0
-          </span>
-        </div>
+  const navigate = useCallback((path) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+      setRoute(path);
+    }
+  }, []);
 
-        <p className="mt-3 text-slate-300">
-          Player Status Window (Prototype)
-        </p>
-
-        <div className="mt-6 grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-slate-800 p-3">
-            <p className="text-xs text-slate-400">LEVEL</p>
-            <p className="text-lg font-bold">1</p>
-          </div>
-          <div className="rounded-xl border border-slate-800 p-3">
-            <p className="text-xs text-slate-400">EXP</p>
-            <p className="text-lg font-bold">0 / 100</p>
-          </div>
-          <div className="rounded-xl border border-slate-800 p-3">
-            <p className="text-xs text-slate-400">STREAK</p>
-            <p className="text-lg font-bold">0</p>
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-          <p className="text-sm text-slate-400">API Health Check</p>
-          <pre className="mt-2 text-sm overflow-auto">
-            {health ? JSON.stringify(health, null, 2) : "Loading..."}
-          </pre>
-        </div>
-      </div>
-    </div>
-  );
+  return [route, navigate];
 }
 
-// import { useState } from 'react'
-// import reactLogo from './assets/react.svg'
-// import viteLogo from '/vite.svg'
-// import './App.css'
+export default function App() {
+  const [route, navigate] = useRoute();
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAccessToken()));
+  const [player, setPlayer] = useState(null);
+  const [quests, setQuests] = useState([]);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
+  const [dashboardError, setDashboardError] = useState('');
+  const [completingQuestId, setCompletingQuestId] = useState(null);
+  const [selectedPath, setSelectedPath] = useState(localStorage.getItem('discipline_path') || '');
+
+  const loadDashboard = useCallback(async () => {
+    setLoadingDashboard(true);
+    setDashboardError('');
+
+    try {
+      const [playerData, questData] = await Promise.all([getPlayerMe(), getQuests()]);
+      setPlayer(playerData);
+      setQuests(questData);
+    } catch (error) {
+      if (error.status === 401) {
+        clearTokens();
+        setIsAuthenticated(false);
+        setPlayer(null);
+        navigate('/login');
+      }
+      setDashboardError(error.message || 'Could not load dashboard data.');
+    } finally {
+      setLoadingDashboard(false);
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    const protectedRoute = !PUBLIC_ROUTES.includes(route);
+
+    if (!isAuthenticated && protectedRoute) {
+      navigate('/login');
+      return;
+    }
+
+    if (isAuthenticated && route === '/') {
+      navigate('/dashboard');
+      return;
+    }
+
+    if (!isAuthenticated && route === '/') {
+      navigate('/login');
+      return;
+    }
+
+    if (isAuthenticated && (route === '/dashboard' || route === '/profile')) {
+      loadDashboard();
+    }
+  }, [isAuthenticated, loadDashboard, navigate, route]);
+
+  async function handleLogin(username, password) {
+    const tokenData = await login(username, password);
+    setTokens(tokenData.access, tokenData.refresh);
+    setIsAuthenticated(true);
+    navigate('/dashboard');
+  }
+
+  async function handleSignup(username, password) {
+    await signup(username, password);
+  }
+
+  function handleLogout() {
+    clearTokens();
+    setIsAuthenticated(false);
+    setPlayer(null);
+    setQuests([]);
+    navigate('/login');
+  }
+
+  function handleSelectPath(path) {
+    setSelectedPath(path);
+    localStorage.setItem('discipline_path', path);
+  }
+
+  async function handleCompleteQuest(questId) {
+    setCompletingQuestId(questId);
+
+    try {
+      const response = await completeQuest(questId);
+
+      setPlayer((previous) => {
+        if (!previous) return previous;
+        return {
+          ...previous,
+          exp: response.player_exp,
+          level: response.new_level,
+          streak: response.player_streak,
+        };
+      });
+
+      setQuests((previous) =>
+        previous.map((quest) =>
+          quest.id === questId ? { ...quest, completed_today: true } : quest,
+        ),
+      );
+    } catch (error) {
+      setDashboardError(error.message || 'Quest completion failed.');
+    } finally {
+      setCompletingQuestId(null);
+    }
+  }
+
+  let page;
+
+  if (route === '/login') {
+    page = <LoginPage onLogin={handleLogin} onNavigate={navigate} />;
+  } else if (route === '/signup') {
+    page = <SignupPage onSignup={handleSignup} onNavigate={navigate} />;
+  } else if (route === '/onboarding') {
+    page = (
+      <OnboardingPage
+        selectedPath={selectedPath}
+        onSelectPath={handleSelectPath}
+        onNavigate={navigate}
+      />
+    );
+  } else if (route === '/profile') {
+    page = <ProfilePage player={player} selectedPath={selectedPath} />;
+  } else {
+    page = (
+      <DashboardPage
+        player={player}
+        quests={quests}
+        loading={loadingDashboard}
+        error={dashboardError}
+        onRefresh={loadDashboard}
+        onCompleteQuest={handleCompleteQuest}
+        completingQuestId={completingQuestId}
+        selectedPath={selectedPath}
+        onNavigate={navigate}
+      />
+    );
+  }
 
 
-// function App() {
-//   const [count, setCount] = useState(0)
-
-//   return (
-//     <>
-//       <div>
-//         <a href="https://vite.dev" target="_blank">
-//           <img src={viteLogo} className="logo" alt="Vite logo" />
-//         </a>
-//         <a href="https://react.dev" target="_blank">
-//           <img src={reactLogo} className="logo react" alt="React logo" />
-//         </a>
-//       </div>
-//       <h1>Vite + React</h1>
-//       <div className="card">
-//         <button onClick={() => setCount((count) => count + 1)}>
-//           count is {count}
-//         </button>
-//         <p>
-//           Edit <code>src/App.jsx</code> and save to test HMR
-//         </p>
-//       </div>
-//       <p className="read-the-docs">
-//         Click on the Vite and React logos to learn more
-//       </p>
-//     </>
-//   )
-// }
-
-// export default App
+  return (
+    <Layout onNavigate={navigate} isAuthenticated={isAuthenticated} onLogout={handleLogout}>
+      {page}
+    </Layout>
+  );
+}

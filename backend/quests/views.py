@@ -1,9 +1,10 @@
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Quest
+from .models import Quest, QuestCompletion
 from .serializers import QuestSerializer, QuestCompleteSerializer
 from .services import complete_quest
 
@@ -28,8 +29,22 @@ class QuestListView(APIView):
         # Fetch only active quests from the database
         quests = Quest.objects.filter(is_active=True)
 
+        # Determine which active quests were completed by this player today
+        today = timezone.localdate()
+        completed_today_quest_ids = set(
+            QuestCompletion.objects.filter(
+                player=request.user.player,
+                completion_date=today,
+                quest__in=quests,
+            ).values_list("quest_id", flat=True)
+        )
+
         # Convert queryset into JSON using the serializer
-        serializer = QuestSerializer(quests, many=True)
+        serializer = QuestSerializer(
+            quests,
+            many=True,
+            context={"completed_today_quest_ids": completed_today_quest_ids},
+        )
 
         # Return serialized data as API response
         return Response(serializer.data)

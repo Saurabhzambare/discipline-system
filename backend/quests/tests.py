@@ -130,6 +130,7 @@ class QuestCompletionApiTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.complete_url = reverse("quest-complete")
+        self.list_url = reverse("quest-list")
 
     def test_quest_complete_endpoint_returns_success_progress_payload(self):
         quest = Quest.objects.create(title="Walk", exp_reward=30)
@@ -146,10 +147,36 @@ class QuestCompletionApiTests(TestCase):
         self.assertEqual(response.data["message"], "Quest completed successfully.")
         self.assertEqual(response.data["exp_gained"], 30)
         self.assertEqual(response.data["player_exp"], 30)
+        self.assertEqual(response.data["player_streak"], 1)
         self.assertEqual(response.data["old_level"], 1)
         self.assertEqual(response.data["new_level"], 1)
         self.assertFalse(response.data["leveled_up"])
         self.assertEqual(self.player.exp, 30)
+
+    def test_quest_list_endpoint_marks_uncompleted_quest_as_false(self):
+        quest = Quest.objects.create(title="No Completion Yet", exp_reward=20)
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], quest.id)
+        self.assertFalse(response.data[0]["completed_today"])
+
+    def test_quest_list_endpoint_marks_completed_quest_as_true(self):
+        quest = Quest.objects.create(title="Completed Today", exp_reward=25)
+        QuestCompletion.objects.create(
+            player=self.player,
+            quest=quest,
+            completion_date=timezone.localdate(),
+        )
+
+        response = self.client.get(self.list_url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], quest.id)
+        self.assertTrue(response.data[0]["completed_today"])
 
     def test_quest_complete_endpoint_rejects_inactive_quest(self):
         inactive_quest = Quest.objects.create(title="Inactive", exp_reward=10, is_active=False)
