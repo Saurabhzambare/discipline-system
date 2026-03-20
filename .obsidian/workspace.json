@@ -41,12 +41,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "README.md",
+                "file": "docs/web-development-roadmap.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "web-development-roadmap"
             }
           }
         ],
@@ -214,6 +214,11 @@
   },
   "active": "2edab75e131dffb7",
   "lastOpenFiles": [
+    "docs/Phase-6-social-platform.md",
+    "docs/web-development-roadmap.md",
+    "backend/quests/migrations/__pycache__/0003_playerdailyquestassignment_quests_play_player__5ea607_idx.cpython-311.pyc",
+    "backend/quests/migrations/0003_playerdailyquestassignment_quests_play_player__5ea607_idx.py",
+    "README.md",
     "docs/phase-4-frontend-foundation.md",
     "docs/templates/execution-plan.md",
     "docs/templates",
@@ -228,15 +233,12 @@
     "phase-4-frontend-foundation.md/phase-0-setup.md",
     "phase-4-frontend-foundation.md",
     "AGENTS.md",
-    "README.md",
     "Untitled.md",
     "Untitled",
     "backend/quests/__pycache__/services.cpython-311.pyc",
     "backend/quests/__pycache__/serializers.cpython-311.pyc",
     "backend/quests/__pycache__/views.cpython-311.pyc",
     "backend/quests/__pycache__/urls.cpython-311.pyc",
-    "backend/users/__pycache__/tests.cpython-311.pyc",
-    "backend/quests/__pycache__/tests.cpython-311.pyc",
     "docs/Phase-3-Progression.md"
   ]
 }
