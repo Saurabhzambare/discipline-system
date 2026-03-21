@@ -1,0 +1,41 @@
+from django.urls import path
+
+from .views import (
+    FriendRemoveView,
+    FriendRequestAcceptView,
+    FriendRequestCancelView,
+    FriendRequestDeclineView,
+    FriendRequestListCreateView,
+    FriendsListView,
+    GroupFeedView,
+    GroupJoinView,
+    GroupLeaveView,
+    GroupListCreateView,
+    GroupMembershipListView,
+    PostCommentDetailView,
+    PostCommentListCreateView,
+    PostReactionView,
+    PublicProfileView,
+    SocialPostDetailView,
+    SocialPostListCreateView,
+)
+
+urlpatterns = [
+    path("friends/requests/", FriendRequestListCreateView.as_view(), name="social-friend-request-list-create"),
+    path("friends/requests/<int:request_id>/accept/", FriendRequestAcceptView.as_view(), name="social-friend-request-accept"),
+    path("friends/requests/<int:request_id>/decline/", FriendRequestDeclineView.as_view(), name="social-friend-request-decline"),
+    path("friends/requests/<int:request_id>/cancel/", FriendRequestCancelView.as_view(), name="social-friend-request-cancel"),
+    path("friends/", FriendsListView.as_view(), name="social-friends-list"),
+    path("friends/<int:player_id>/", FriendRemoveView.as_view(), name="social-friend-remove"),
+    path("profiles/<str:identifier>/", PublicProfileView.as_view(), name="social-public-profile"),
+    path("posts/", SocialPostListCreateView.as_view(), name="social-post-list-create"),
+    path("posts/<int:post_id>/", SocialPostDetailView.as_view(), name="social-post-detail"),
+    path("posts/<int:post_id>/comments/", PostCommentListCreateView.as_view(), name="social-post-comment-list-create"),
+    path("posts/<int:post_id>/comments/<int:comment_id>/", PostCommentDetailView.as_view(), name="social-post-comment-detail"),
+    path("posts/<int:post_id>/reaction/", PostReactionView.as_view(), name="social-post-reaction"),
+    path("groups/", GroupListCreateView.as_view(), name="social-group-list-create"),
+    path("groups/<int:group_id>/join/", GroupJoinView.as_view(), name="social-group-join"),
+    path("groups/<int:group_id>/leave/", GroupLeaveView.as_view(), name="social-group-leave"),
+    path("groups/<int:group_id>/members/", GroupMembershipListView.as_view(), name="social-group-members"),
+    path("groups/<int:group_id>/feed/", GroupFeedView.as_view(), name="social-group-feed"),
+]
