@@ -96,11 +96,6 @@ export default function App() {
       return;
     }
 
-    if (!isAuthenticated && route === '/') {
-      navigate('/login');
-      return;
-    }
-
     if (isAuthenticated && (route === '/dashboard' || route === '/profile' || route === '/onboarding')) {
       loadDashboard();
     }
