@@ -2,16 +2,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   clearTokens,
   completeQuest,
+  createPostComment,
+  createSocialPost,
+  deletePostComment,
   getAccessToken,
   getPlayerMe,
   getQuests,
+  getSocialPost,
+  getSocialPosts,
   login,
+  removePostReaction,
+  setPostReaction,
   setTokens,
   signup,
   updatePlayerPath,
+  updatePostComment,
 } from './api';
 import Layout from './components/Layout';
 import DashboardPage from './pages/DashboardPage';
+import FeedPage from './pages/FeedPage';
 import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
 import ProfilePage from './pages/ProfilePage';
@@ -43,8 +52,11 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAccessToken()));
   const [player, setPlayer] = useState(null);
   const [quests, setQuests] = useState([]);
+  const [feedPosts, setFeedPosts] = useState([]);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
+  const [loadingFeed, setLoadingFeed] = useState(false);
   const [dashboardError, setDashboardError] = useState('');
+  const [feedError, setFeedError] = useState('');
   const [completingQuestId, setCompletingQuestId] = useState(null);
   const [savingPath, setSavingPath] = useState(false);
   const [flashMessage, setFlashMessage] = useState(null);
@@ -58,10 +70,25 @@ export default function App() {
       setIsAuthenticated(false);
       setPlayer(null);
       setQuests([]);
+      setFeedPosts([]);
       setFlashMessage({ type: 'error', text: message });
       navigate('/login');
     },
     [navigate],
+  );
+
+  const withSocialAuth = useCallback(
+    async (handler) => {
+      try {
+        return await handler();
+      } catch (error) {
+        if (error.status === 401) {
+          handleAuthExpired(error.message);
+        }
+        throw error;
+      }
+    },
+    [handleAuthExpired],
   );
 
   const loadDashboard = useCallback(async () => {
@@ -83,6 +110,93 @@ export default function App() {
     }
   }, [handleAuthExpired]);
 
+  const loadFeed = useCallback(
+    async ({ showLoading = true, throwOnError = false } = {}) => {
+      if (showLoading) {
+        setLoadingFeed(true);
+      }
+      setFeedError('');
+
+      try {
+        const posts = await getSocialPosts();
+        setFeedPosts(posts);
+      } catch (error) {
+        if (error.status === 401) {
+          handleAuthExpired(error.message);
+        }
+
+        setFeedError(error.message || 'Could not load social feed.');
+
+        if (throwOnError) {
+          throw error;
+        }
+      } finally {
+        if (showLoading) {
+          setLoadingFeed(false);
+        }
+      }
+    },
+    [handleAuthExpired],
+  );
+
+  const refreshPost = useCallback(
+    async (postId) => {
+      return withSocialAuth(async () => {
+        const updatedPost = await getSocialPost(postId);
+        setFeedPosts((previousPosts) =>
+          previousPosts.map((post) => (post.id === postId ? updatedPost : post)),
+        );
+      });
+    },
+    [withSocialAuth],
+  );
+
+  const handleCreatePost = useCallback(
+    async ({ content, visibility }) => {
+      return withSocialAuth(async () => {
+        await createSocialPost({ content, visibility });
+        await loadFeed({ showLoading: false, throwOnError: true });
+        setFlashMessage({ type: 'success', text: 'Post shared successfully.' });
+      });
+    },
+    [loadFeed, withSocialAuth],
+  );
+
+  const handleAddComment = useCallback(
+    async (postId, content) => {
+      return withSocialAuth(async () => createPostComment(postId, content));
+    },
+    [withSocialAuth],
+  );
+
+  const handleUpdateComment = useCallback(
+    async (postId, commentId, content) => {
+      return withSocialAuth(async () => updatePostComment(postId, commentId, content));
+    },
+    [withSocialAuth],
+  );
+
+  const handleDeleteComment = useCallback(
+    async (postId, commentId) => {
+      return withSocialAuth(async () => deletePostComment(postId, commentId));
+    },
+    [withSocialAuth],
+  );
+
+  const handleSetReaction = useCallback(
+    async (postId, reactionType) => {
+      return withSocialAuth(async () => setPostReaction(postId, reactionType));
+    },
+    [withSocialAuth],
+  );
+
+  const handleRemoveReaction = useCallback(
+    async (postId) => {
+      return withSocialAuth(async () => removePostReaction(postId));
+    },
+    [withSocialAuth],
+  );
+
   useEffect(() => {
     const protectedRoute = !PUBLIC_ROUTES.includes(route);
 
@@ -96,10 +210,24 @@ export default function App() {
       return;
     }
 
+    if (isAuthenticated && !player) {
+      getPlayerMe()
+        .then((playerData) => setPlayer(playerData))
+        .catch((error) => {
+          if (error.status === 401) {
+            handleAuthExpired(error.message);
+          }
+        });
+    }
+
     if (isAuthenticated && (route === '/dashboard' || route === '/profile' || route === '/onboarding')) {
       loadDashboard();
     }
-  }, [isAuthenticated, loadDashboard, navigate, route]);
+
+    if (isAuthenticated && route === '/feed') {
+      loadFeed();
+    }
+  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, navigate, player, route]);
 
   async function handleLogin(username, password) {
     const tokenData = await login(username, password);
@@ -119,6 +247,7 @@ export default function App() {
     setIsAuthenticated(false);
     setPlayer(null);
     setQuests([]);
+    setFeedPosts([]);
     setFlashMessage({ type: 'success', text: 'You have been logged out.' });
     navigate('/login');
   }
@@ -198,6 +327,23 @@ export default function App() {
     );
   } else if (route === '/profile') {
     page = <ProfilePage player={player} selectedPathDisplay={selectedPathDisplay} onNavigate={navigate} />;
+  } else if (route === '/feed') {
+    page = (
+      <FeedPage
+        posts={feedPosts}
+        loading={loadingFeed}
+        error={feedError}
+        onRefresh={loadFeed}
+        onCreatePost={handleCreatePost}
+        currentPlayerId={player?.id}
+        onRefreshPost={refreshPost}
+        onAddComment={handleAddComment}
+        onUpdateComment={handleUpdateComment}
+        onDeleteComment={handleDeleteComment}
+        onSetReaction={handleSetReaction}
+        onRemoveReaction={handleRemoveReaction}
+      />
+    );
   } else {
     page = (
       <DashboardPage
