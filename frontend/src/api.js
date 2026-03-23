@@ -53,6 +53,15 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
     throw error;
   }
 
+  if (response.status === 204) {
+    return null;
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    return null;
+  }
+
   return response.json();
 }
 
@@ -127,5 +136,61 @@ export async function completeQuest(questId) {
   return authedRequest('/api/quests/complete/', {
     method: 'POST',
     body: { quest_id: questId },
+  });
+}
+
+export async function getSocialPosts() {
+  return authedRequest('/api/social/posts/');
+}
+
+export async function getSocialPost(postId) {
+  return authedRequest(`/api/social/posts/${postId}/`);
+}
+
+export async function createSocialPost({ content, visibility }) {
+  return authedRequest('/api/social/posts/', {
+    method: 'POST',
+    body: {
+      content,
+      visibility,
+      post_type: 'update',
+    },
+  });
+}
+
+export async function getPostComments(postId) {
+  return authedRequest(`/api/social/posts/${postId}/comments/`);
+}
+
+export async function createPostComment(postId, content) {
+  return authedRequest(`/api/social/posts/${postId}/comments/`, {
+    method: 'POST',
+    body: { content },
+  });
+}
+
+export async function updatePostComment(postId, commentId, content) {
+  return authedRequest(`/api/social/posts/${postId}/comments/${commentId}/`, {
+    method: 'PATCH',
+    body: { content },
+  });
+}
+
+export async function deletePostComment(postId, commentId) {
+  return authedRequest(`/api/social/posts/${postId}/comments/${commentId}/`, {
+    method: 'DELETE',
+  });
+}
+
+export async function setPostReaction(postId, reactionType) {
+  return authedRequest(`/api/social/posts/${postId}/reaction/`, {
+    method: 'PUT',
+    body: { reaction_type: reactionType },
+  });
+}
+
+export async function removePostReaction(postId) {
+  return authedRequest(`/api/social/posts/${postId}/reaction/`, {
+    method: 'DELETE',
   });
 }

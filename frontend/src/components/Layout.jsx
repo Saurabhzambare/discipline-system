@@ -39,6 +39,13 @@ export default function Layout({
             <div className="flex items-center gap-3">
               <button
                 type="button"
+                onClick={() => onNavigate('/feed')}
+                className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-cyan-500/50 hover:text-cyan-200"
+              >
+                Feed
+              </button>
+              <button
+                type="button"
                 onClick={() => onNavigate('/profile')}
                 className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-cyan-500/50 hover:text-cyan-200"
               >
