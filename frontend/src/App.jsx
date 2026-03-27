@@ -227,7 +227,8 @@ export default function App() {
     if (isAuthenticated && route === '/feed') {
       loadFeed();
     }
-  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, navigate, player, route]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, navigate, route]);
 
   async function handleLogin(username, password) {
     const tokenData = await login(username, password);
