@@ -368,6 +368,8 @@ export default function App() {
       onLogout={handleLogout}
       flashMessage={flashMessage}
       onDismissFlash={() => setFlashMessage(null)}
+      route={route}
+      playerName={player?.username}
     >
       {page}
     </Layout>

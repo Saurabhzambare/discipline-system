@@ -1,35 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 
 const REACTION_OPTIONS = [
-  { value: 'like', label: 'Like' },
-  { value: 'fire', label: 'Fire' },
-  { value: 'respect', label: 'Respect' },
-  { value: 'clap', label: 'Clap' },
+  { value: 'like', emoji: '👍' },
+  { value: 'fire', emoji: '🔥' },
+  { value: 'respect', emoji: '💪' },
+  { value: 'clap', emoji: '👏' },
 ];
 
-function formatPostType(postType) {
-  if (!postType) return 'Update';
-  return postType
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatVisibility(visibility) {
-  if (!visibility) return 'Public';
-  return visibility
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
-function formatCreatedAt(createdAt) {
-  if (!createdAt) return 'Unknown date';
-
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return 'Unknown date';
-
-  return date.toLocaleString();
+function timeAgo(isoString) {
+  if (!isoString) return '';
+  const diff = Math.floor((Date.now() - new Date(isoString)) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
 }
 
 export default function PostCard({
@@ -48,89 +32,61 @@ export default function PostCard({
   const [commentActionLoadingId, setCommentActionLoadingId] = useState(null);
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingCommentContent, setEditingCommentContent] = useState('');
-
   const [reactionLoading, setReactionLoading] = useState(false);
   const [reactionError, setReactionError] = useState('');
+  const [showComments, setShowComments] = useState(false);
 
   useEffect(() => {
     setCommentError('');
     setReactionError('');
-
     if (editingCommentId) {
-      const targetComment = post.comments?.find((comment) => comment.id === editingCommentId);
-      if (!targetComment) {
-        setEditingCommentId(null);
-        setEditingCommentContent('');
-      }
+      const found = post.comments?.find((c) => c.id === editingCommentId);
+      if (!found) { setEditingCommentId(null); setEditingCommentContent(''); }
     }
   }, [editingCommentId, post.comments]);
 
   const reactionSummary = useMemo(() => {
-    const summary = { like: 0, fire: 0, respect: 0, clap: 0 };
-    (post.reactions || []).forEach((reaction) => {
-      if (summary[reaction.reaction_type] !== undefined) {
-        summary[reaction.reaction_type] += 1;
-      }
-    });
-    return summary;
+    const s = { like: 0, fire: 0, respect: 0, clap: 0 };
+    (post.reactions || []).forEach((r) => { if (s[r.reaction_type] !== undefined) s[r.reaction_type] += 1; });
+    return s;
   }, [post.reactions]);
 
   const myReaction = useMemo(
-    () => (post.reactions || []).find((reaction) => reaction.player?.id === currentPlayerId) || null,
+    () => (post.reactions || []).find((r) => r.player?.id === currentPlayerId) || null,
     [currentPlayerId, post.reactions],
   );
 
+  const commentCount = post.comments?.length ?? 0;
+
   async function handleAddComment(event) {
     event.preventDefault();
-    const trimmedComment = newComment.trim();
-
-    if (!trimmedComment) {
-      setCommentError('Please write a comment before submitting.');
-      return;
-    }
-
+    const text = newComment.trim();
+    if (!text) { setCommentError('Please write a comment first.'); return; }
     setSubmittingComment(true);
     setCommentError('');
-
     try {
-      await onAddComment(post.id, trimmedComment);
+      await onAddComment(post.id, text);
       setNewComment('');
       await onRefreshPost(post.id);
-    } catch (error) {
-      setCommentError(error.message || 'Could not add comment.');
+    } catch (err) {
+      setCommentError(err.message || 'Could not add comment.');
     } finally {
       setSubmittingComment(false);
     }
   }
 
-  function startEditing(comment) {
-    setEditingCommentId(comment.id);
-    setEditingCommentContent(comment.content);
-    setCommentError('');
-  }
-
-  function cancelEditing() {
-    setEditingCommentId(null);
-    setEditingCommentContent('');
-  }
-
   async function handleSaveComment(commentId) {
-    const trimmedComment = editingCommentContent.trim();
-
-    if (!trimmedComment) {
-      setCommentError('Edited comment cannot be empty.');
-      return;
-    }
-
+    const text = editingCommentContent.trim();
+    if (!text) { setCommentError('Comment cannot be empty.'); return; }
     setCommentActionLoadingId(commentId);
     setCommentError('');
-
     try {
-      await onUpdateComment(post.id, commentId, trimmedComment);
-      cancelEditing();
+      await onUpdateComment(post.id, commentId, text);
+      setEditingCommentId(null);
+      setEditingCommentContent('');
       await onRefreshPost(post.id);
-    } catch (error) {
-      setCommentError(error.message || 'Could not update comment.');
+    } catch (err) {
+      setCommentError(err.message || 'Could not update comment.');
     } finally {
       setCommentActionLoadingId(null);
     }
@@ -139,29 +95,25 @@ export default function PostCard({
   async function handleDeleteComment(commentId) {
     setCommentActionLoadingId(commentId);
     setCommentError('');
-
     try {
       await onDeleteComment(post.id, commentId);
-      if (editingCommentId === commentId) {
-        cancelEditing();
-      }
+      if (editingCommentId === commentId) { setEditingCommentId(null); setEditingCommentContent(''); }
       await onRefreshPost(post.id);
-    } catch (error) {
-      setCommentError(error.message || 'Could not delete comment.');
+    } catch (err) {
+      setCommentError(err.message || 'Could not delete comment.');
     } finally {
       setCommentActionLoadingId(null);
     }
   }
 
-  async function handleReactionSelect(reactionType) {
+  async function handleReactionSelect(value) {
     setReactionLoading(true);
     setReactionError('');
-
     try {
-      await onSetReaction(post.id, reactionType);
+      await onSetReaction(post.id, value);
       await onRefreshPost(post.id);
-    } catch (error) {
-      setReactionError(error.message || 'Could not update reaction.');
+    } catch (err) {
+      setReactionError(err.message || 'Could not update reaction.');
     } finally {
       setReactionLoading(false);
     }
@@ -170,178 +122,155 @@ export default function PostCard({
   async function handleReactionRemove() {
     setReactionLoading(true);
     setReactionError('');
-
     try {
       await onRemoveReaction(post.id);
       await onRefreshPost(post.id);
-    } catch (error) {
-      setReactionError(error.message || 'Could not remove reaction.');
+    } catch (err) {
+      setReactionError(err.message || 'Could not remove reaction.');
     } finally {
       setReactionLoading(false);
     }
   }
 
   return (
-    <article className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 text-cyan-300">
-          {formatPostType(post.post_type)}
-        </span>
-        <span className="rounded-full border border-slate-700 bg-slate-800/80 px-2 py-1 text-slate-300">
-          {formatVisibility(post.visibility)}
-        </span>
-      </div>
-
-      <p className="mt-3 text-sm text-slate-300">
-        <span className="text-slate-400">Author:</span>{' '}
-        <span className="font-medium text-slate-100">{post.author?.username || 'Unknown Hunter'}</span>
-      </p>
-
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-200">{post.content}</p>
-
-      <p className="mt-4 text-xs text-slate-400">Posted: {formatCreatedAt(post.created_at)}</p>
-
-      <div className="mt-4 border-t border-slate-800 pt-4">
-        <h4 className="text-sm font-semibold text-slate-200">Reactions</h4>
-
-        <div className="mt-2 flex flex-wrap gap-2">
-          {REACTION_OPTIONS.map((option) => {
-            const active = myReaction?.reaction_type === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => handleReactionSelect(option.value)}
-                disabled={reactionLoading}
-                className={`rounded-lg border px-3 py-1 text-xs transition ${
-                  active
-                    ? 'border-cyan-500/70 bg-cyan-500/20 text-cyan-200'
-                    : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-200'
-                } disabled:cursor-not-allowed disabled:opacity-60`}
-              >
-                {option.label} ({reactionSummary[option.value] || 0})
-              </button>
-            );
-          })}
-
-          {myReaction ? (
-            <button
-              type="button"
-              onClick={handleReactionRemove}
-              disabled={reactionLoading}
-              className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-3 py-1 text-xs text-rose-200 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Remove reaction
-            </button>
-          ) : null}
+    <article className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-5">
+      {/* Author row */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-[#1a3a5c] bg-[#060d1a] text-xs font-bold text-cyan-400">
+          {(post.author?.username || '?').charAt(0).toUpperCase()}
         </div>
-
-        {reactionError ? <p className="mt-2 text-xs text-rose-300">{reactionError}</p> : null}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-200">{post.author?.username || 'Unknown Hunter'}</p>
+          <p className="text-[10px] text-slate-600">{timeAgo(post.created_at)}</p>
+        </div>
+        <span className="rounded-full border border-[#1a3a5c] px-2 py-0.5 text-[10px] text-slate-500">
+          {post.visibility === 'friends_only' ? '🔒 Friends' : '🌐 Public'}
+        </span>
       </div>
 
-      <div className="mt-4 border-t border-slate-800 pt-4">
-        <h4 className="text-sm font-semibold text-slate-200">Comments</h4>
+      {/* Content */}
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{post.content}</p>
 
-        {!post.comments || post.comments.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-400">No comments yet.</p>
-        ) : (
-          <div className="mt-3 space-y-3">
-            {post.comments.map((comment) => {
+      {/* Reactions */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {REACTION_OPTIONS.map((opt) => {
+          const active = myReaction?.reaction_type === opt.value;
+          const count = reactionSummary[opt.value] || 0;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => active ? handleReactionRemove() : handleReactionSelect(opt.value)}
+              disabled={reactionLoading}
+              className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs transition ${
+                active
+                  ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-200'
+                  : 'border-[#1a3a5c] bg-[#060d1a] text-slate-400 hover:border-cyan-500/30 hover:text-slate-200'
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              <span>{opt.emoji}</span>
+              {count > 0 && <span>{count}</span>}
+            </button>
+          );
+        })}
+
+        {/* Comment toggle */}
+        <button
+          type="button"
+          onClick={() => setShowComments((v) => !v)}
+          className="ml-auto flex items-center gap-1.5 rounded-lg border border-[#1a3a5c] px-2.5 py-1 text-xs text-slate-500 transition hover:border-cyan-500/30 hover:text-slate-300"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+          {commentCount > 0 ? commentCount : ''} {showComments ? 'Hide' : 'Comments'}
+        </button>
+      </div>
+
+      {reactionError ? <p className="mt-2 text-xs text-rose-400">{reactionError}</p> : null}
+
+      {/* Comments section */}
+      {showComments && (
+        <div className="mt-4 border-t border-[#1a3a5c]/60 pt-4 space-y-3">
+          {commentCount === 0 ? (
+            <p className="text-xs text-slate-600">No comments yet.</p>
+          ) : (
+            post.comments.map((comment) => {
               const isEditing = editingCommentId === comment.id;
               const isMine = currentPlayerId && comment.author?.id === currentPlayerId;
-              const commentBusy = commentActionLoadingId === comment.id;
+              const busy = commentActionLoadingId === comment.id;
 
               return (
-                <div key={comment.id} className="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
-                  <p className="text-xs text-slate-400">{comment.author?.username || 'Unknown Hunter'}</p>
+                <div key={comment.id} className="rounded-lg border border-[#1a3a5c]/60 bg-[#060d1a] p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0a1628] text-[9px] font-bold text-slate-400">
+                      {(comment.author?.username || '?').charAt(0).toUpperCase()}
+                    </div>
+                    <p className="text-xs font-medium text-slate-400">{comment.author?.username || 'Unknown'}</p>
+                    <p className="ml-auto text-[10px] text-slate-600">{timeAgo(comment.created_at)}</p>
+                  </div>
 
                   {isEditing ? (
                     <div className="mt-2 space-y-2">
                       <textarea
                         value={editingCommentContent}
-                        onChange={(event) => setEditingCommentContent(event.target.value)}
-                        rows={3}
-                        disabled={commentBusy}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none ring-cyan-400/40 transition focus:ring disabled:opacity-70"
+                        onChange={(e) => setEditingCommentContent(e.target.value)}
+                        rows={2}
+                        disabled={busy}
+                        className="w-full rounded-lg border border-[#1a3a5c] bg-[#06101e] px-2.5 py-2 text-xs text-slate-100 outline-none focus:ring focus:ring-cyan-400/20 disabled:opacity-70"
                       />
                       <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSaveComment(comment.id)}
-                          disabled={commentBusy}
-                          className="rounded-lg border border-cyan-500/60 bg-cyan-500/20 px-3 py-1 text-xs text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {commentBusy ? 'Saving...' : 'Save'}
+                        <button type="button" onClick={() => handleSaveComment(comment.id)} disabled={busy}
+                          className="rounded border border-cyan-500/50 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-200 disabled:opacity-60">
+                          {busy ? 'Saving...' : 'Save'}
                         </button>
-                        <button
-                          type="button"
-                          onClick={cancelEditing}
-                          disabled={commentBusy}
-                          className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
+                        <button type="button" onClick={() => { setEditingCommentId(null); setEditingCommentContent(''); }} disabled={busy}
+                          className="rounded border border-[#1a3a5c] px-2.5 py-1 text-xs text-slate-400 disabled:opacity-60">
                           Cancel
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-slate-200">{comment.content}</p>
+                    <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-300">{comment.content}</p>
                   )}
-
-                  <p className="mt-2 text-xs text-slate-500">{formatCreatedAt(comment.created_at)}</p>
 
                   {isMine && !isEditing ? (
                     <div className="mt-2 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => startEditing(comment)}
-                        disabled={commentBusy}
-                        className="rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
+                      <button type="button" onClick={() => { setEditingCommentId(comment.id); setEditingCommentContent(comment.content); }} disabled={busy}
+                        className="text-[10px] text-slate-500 hover:text-slate-300 disabled:opacity-60">
                         Edit
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteComment(comment.id)}
-                        disabled={commentBusy}
-                        className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-2 py-1 text-xs text-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {commentBusy ? 'Deleting...' : 'Delete'}
+                      <button type="button" onClick={() => handleDeleteComment(comment.id)} disabled={busy}
+                        className="text-[10px] text-rose-500 hover:text-rose-400 disabled:opacity-60">
+                        {busy ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
                   ) : null}
                 </div>
               );
-            })}
-          </div>
-        )}
+            })
+          )}
 
-        <form className="mt-4 space-y-2" onSubmit={handleAddComment}>
-          <label className="block space-y-1">
-            <span className="text-xs uppercase tracking-[0.08em] text-slate-400">Add comment</span>
-            <textarea
+          <form className="flex gap-2" onSubmit={handleAddComment}>
+            <input
               value={newComment}
-              onChange={(event) => {
-                setNewComment(event.target.value);
-                if (commentError) setCommentError('');
-              }}
-              rows={2}
+              onChange={(e) => { setNewComment(e.target.value); if (commentError) setCommentError(''); }}
               disabled={submittingComment}
-              placeholder="Write a comment..."
-              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none ring-cyan-400/40 transition focus:ring disabled:opacity-70"
+              placeholder="Add a comment..."
+              className="flex-1 rounded-lg border border-[#1a3a5c] bg-[#06101e] px-3 py-2 text-xs text-slate-100 outline-none focus:ring focus:ring-cyan-400/20 disabled:opacity-70 placeholder:text-slate-600"
             />
-          </label>
+            <button
+              type="submit"
+              disabled={submittingComment}
+              className="rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200 disabled:opacity-60"
+            >
+              {submittingComment ? '...' : 'Post'}
+            </button>
+          </form>
 
-          <button
-            type="submit"
-            disabled={submittingComment}
-            className="rounded-lg border border-cyan-500/60 bg-cyan-500/20 px-3 py-1 text-xs text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submittingComment ? 'Commenting...' : 'Add comment'}
-          </button>
-        </form>
-
-        {commentError ? <p className="mt-2 text-xs text-rose-300">{commentError}</p> : null}
-      </div>
+          {commentError ? <p className="text-xs text-rose-400">{commentError}</p> : null}
+        </div>
+      )}
     </article>
   );
 }

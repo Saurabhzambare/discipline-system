@@ -16,18 +16,19 @@ export default function FeedPage({
   onRemoveReaction,
 }) {
   return (
-    <section className="space-y-4">
-      <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-800 p-6 shadow-[0_0_30px_rgba(14,165,233,0.12)]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-2xl space-y-5">
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-2xl border border-[#1a3a5c] bg-[#0a1628] p-5">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Community</p>
-            <h1 className="mt-2 text-2xl font-bold text-slate-100">Social Feed</h1>
-            <p className="mt-1 text-sm text-slate-400">Recent public and friends-only updates you can view.</p>
+            <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-400/70">Community</p>
+            <h1 className="mt-1 text-xl font-bold text-slate-100">Social Feed</h1>
           </div>
           <button
             type="button"
             onClick={onRefresh}
-            className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:border-cyan-500/50 hover:text-cyan-200"
+            className="rounded-lg border border-[#1a3a5c] px-3 py-1.5 text-xs text-slate-400 transition hover:border-cyan-500/40 hover:text-cyan-300"
           >
             Refresh
           </button>
@@ -37,19 +38,19 @@ export default function FeedPage({
       <PostComposer onCreatePost={onCreatePost} />
 
       {loading ? (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
-          <p className="text-sm text-slate-300">Loading social feed...</p>
+        <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-5">
+          <p className="text-sm text-slate-500">Loading feed...</p>
         </div>
       ) : null}
 
       {!loading && error ? (
-        <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-4 text-rose-200">
+        <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-300">
           <p className="font-semibold">Could not load feed</p>
           <p className="mt-1 text-sm">{error}</p>
           <button
             type="button"
             onClick={onRefresh}
-            className="mt-3 rounded-lg border border-rose-400/50 px-3 py-2 text-sm"
+            className="mt-3 rounded-lg border border-rose-400/40 px-3 py-1.5 text-sm"
           >
             Retry
           </button>
@@ -57,13 +58,13 @@ export default function FeedPage({
       ) : null}
 
       {!loading && !error && posts.length === 0 ? (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
-          <p className="text-sm text-slate-400">No posts yet. The social feed is currently empty.</p>
+        <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-8 text-center">
+          <p className="text-sm text-slate-500">No posts yet. Be the first to share an update.</p>
         </div>
       ) : null}
 
       {!loading && !error && posts.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {posts.map((post) => (
             <PostCard
               key={post.id}
@@ -79,6 +80,6 @@ export default function FeedPage({
           ))}
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }

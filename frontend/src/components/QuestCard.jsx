@@ -1,43 +1,49 @@
 export default function QuestCard({ quest, onComplete, loading }) {
   const completed = quest.assigned_completed_today ?? quest.completed_today;
-  const statusClass = completed
-    ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300'
-    : 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300';
 
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-900/70 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-slate-100">{quest.title}</h3>
-          <p className="mt-1 text-sm text-slate-400">{quest.description}</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border border-slate-700 bg-slate-800/80 px-2 py-1 text-slate-300">
-              {quest.category_display || quest.category}
-            </span>
-            <span className="rounded-full border border-slate-700 bg-slate-800/80 px-2 py-1 text-slate-300">
-              {quest.difficulty_display || quest.difficulty}
-            </span>
-            <span className="rounded-full border border-slate-700 bg-slate-800/80 px-2 py-1 text-slate-300">
-              {quest.recurrence_display || quest.recurrence}
-            </span>
-          </div>
+    <div className={`flex items-center gap-4 py-3.5 px-1 transition ${completed ? 'opacity-60' : ''}`}>
+      {/* Checkbox */}
+      <button
+        type="button"
+        onClick={() => !completed && onComplete(quest.id)}
+        disabled={loading || completed}
+        aria-label={completed ? 'Quest completed' : 'Complete quest'}
+        className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded border-2 transition ${
+          completed
+            ? 'border-cyan-500/60 bg-cyan-500/20 text-cyan-300'
+            : loading
+              ? 'border-slate-600 bg-slate-800 text-slate-600'
+              : 'border-slate-600 bg-transparent hover:border-cyan-500/60 hover:bg-cyan-500/10'
+        } disabled:cursor-not-allowed`}
+      >
+        {completed ? (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        ) : loading ? (
+          <span className="block h-2.5 w-2.5 animate-spin rounded-full border border-slate-500 border-t-cyan-400" />
+        ) : null}
+      </button>
+
+      {/* Quest info */}
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium ${completed ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+          {quest.title}
+        </p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+          <span>{quest.category_display || quest.category}</span>
+          <span>·</span>
+          <span>{quest.difficulty_display || quest.difficulty}</span>
+          <span>·</span>
+          <span>{quest.recurrence_display || quest.recurrence}</span>
         </div>
-        <span className={`rounded-full border px-3 py-1 text-xs font-medium ${statusClass}`}>
-          {completed ? 'Completed today' : 'Available'}
-        </span>
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <p className="text-sm font-medium text-amber-300">+{quest.exp_reward} EXP</p>
-        <button
-          type="button"
-          onClick={() => onComplete(quest.id)}
-          disabled={loading || completed}
-          className="rounded-lg border border-cyan-500/60 bg-cyan-500/20 px-4 py-2 text-sm font-medium text-cyan-200 transition hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-800 disabled:text-slate-500"
-        >
-          {completed ? 'Done' : loading ? 'Completing...' : 'Complete'}
-        </button>
-      </div>
+      {/* EXP reward */}
+      <span className={`flex-shrink-0 text-sm font-bold ${completed ? 'text-slate-600' : 'text-amber-400'}`}>
+        +{quest.exp_reward} EXP
+      </span>
     </div>
   );
 }
