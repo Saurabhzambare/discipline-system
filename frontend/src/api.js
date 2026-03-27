@@ -194,3 +194,49 @@ export async function removePostReaction(postId) {
     method: 'DELETE',
   });
 }
+
+// ── Friends ──────────────────────────────────────────────────────────────────
+
+export async function getFriends() {
+  return authedRequest('/api/social/friends/');
+}
+
+export async function getFriendRequests(direction) {
+  const query = direction ? `?direction=${direction}` : '';
+  return authedRequest(`/api/social/friends/requests/${query}`);
+}
+
+export async function sendFriendRequest(toPlayerId) {
+  return authedRequest('/api/social/friends/requests/', {
+    method: 'POST',
+    body: { to_player_id: toPlayerId },
+  });
+}
+
+export async function acceptFriendRequest(requestId) {
+  return authedRequest(`/api/social/friends/requests/${requestId}/accept/`, {
+    method: 'POST',
+  });
+}
+
+export async function declineFriendRequest(requestId) {
+  return authedRequest(`/api/social/friends/requests/${requestId}/decline/`, {
+    method: 'POST',
+  });
+}
+
+export async function cancelFriendRequest(requestId) {
+  return authedRequest(`/api/social/friends/requests/${requestId}/cancel/`, {
+    method: 'POST',
+  });
+}
+
+export async function removeFriend(playerId) {
+  return authedRequest(`/api/social/friends/${playerId}/`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getPublicProfile(identifier) {
+  return authedRequest(`/api/social/profiles/${identifier}/`);
+}

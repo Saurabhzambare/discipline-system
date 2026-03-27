@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  acceptFriendRequest,
+  cancelFriendRequest,
   clearTokens,
   completeQuest,
   createPostComment,
   createSocialPost,
+  declineFriendRequest,
   deletePostComment,
   getAccessToken,
+  getFriendRequests,
+  getFriends,
   getPlayerMe,
+  getPublicProfile,
   getQuests,
   getSocialPost,
   getSocialPosts,
   login,
   removePostReaction,
+  removeFriend,
+  sendFriendRequest,
   setPostReaction,
   setTokens,
   signup,
@@ -60,6 +68,11 @@ export default function App() {
   const [completingQuestId, setCompletingQuestId] = useState(null);
   const [savingPath, setSavingPath] = useState(false);
   const [flashMessage, setFlashMessage] = useState(null);
+  const [friends, setFriends] = useState([]);
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
+  const [friendsError, setFriendsError] = useState('');
 
   const selectedPath = useMemo(() => player?.path || '', [player?.path]);
   const selectedPathDisplay = useMemo(() => player?.path_display || '', [player?.path_display]);
@@ -138,6 +151,55 @@ export default function App() {
     },
     [handleAuthExpired],
   );
+
+  const loadFriends = useCallback(async () => {
+    setLoadingFriends(true);
+    setFriendsError('');
+    try {
+      const [friendsList, incoming, outgoing] = await Promise.all([
+        getFriends(),
+        getFriendRequests('incoming'),
+        getFriendRequests('outgoing'),
+      ]);
+      setFriends(friendsList);
+      setIncomingRequests(incoming);
+      setOutgoingRequests(outgoing);
+    } catch (error) {
+      if (error.status === 401) { handleAuthExpired(error.message); return; }
+      setFriendsError(error.message || 'Could not load friends.');
+    } finally {
+      setLoadingFriends(false);
+    }
+  }, [handleAuthExpired]);
+
+  const handleSendFriendRequest = useCallback(async (username) => {
+    const profile = await getPublicProfile(username);
+    await sendFriendRequest(profile.id);
+    await loadFriends();
+    setFlashMessage({ type: 'success', text: `Friend request sent to ${username}.` });
+  }, [loadFriends]);
+
+  const handleAcceptRequest = useCallback(async (requestId) => {
+    await acceptFriendRequest(requestId);
+    await loadFriends();
+    setFlashMessage({ type: 'success', text: 'Friend request accepted.' });
+  }, [loadFriends]);
+
+  const handleDeclineRequest = useCallback(async (requestId) => {
+    await declineFriendRequest(requestId);
+    await loadFriends();
+  }, [loadFriends]);
+
+  const handleCancelRequest = useCallback(async (requestId) => {
+    await cancelFriendRequest(requestId);
+    await loadFriends();
+  }, [loadFriends]);
+
+  const handleRemoveFriend = useCallback(async (playerId) => {
+    await removeFriend(playerId);
+    await loadFriends();
+    setFlashMessage({ type: 'success', text: 'Friend removed.' });
+  }, [loadFriends]);
 
   const refreshPost = useCallback(
     async (postId) => {
@@ -224,11 +286,15 @@ export default function App() {
       loadDashboard();
     }
 
+    if (isAuthenticated && route === '/profile') {
+      loadFriends();
+    }
+
     if (isAuthenticated && route === '/feed') {
       loadFeed();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, navigate, route]);
+  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, loadFriends, navigate, route]);
 
   async function handleLogin(username, password) {
     const tokenData = await login(username, password);
@@ -327,7 +393,24 @@ export default function App() {
       />
     );
   } else if (route === '/profile') {
-    page = <ProfilePage player={player} selectedPathDisplay={selectedPathDisplay} onNavigate={navigate} />;
+    page = (
+      <ProfilePage
+        player={player}
+        selectedPathDisplay={selectedPathDisplay}
+        onNavigate={navigate}
+        friends={friends}
+        incomingRequests={incomingRequests}
+        outgoingRequests={outgoingRequests}
+        loadingFriends={loadingFriends}
+        friendsError={friendsError}
+        onSendFriendRequest={handleSendFriendRequest}
+        onAcceptRequest={handleAcceptRequest}
+        onDeclineRequest={handleDeclineRequest}
+        onCancelRequest={handleCancelRequest}
+        onRemoveFriend={handleRemoveFriend}
+        onRefreshFriends={loadFriends}
+      />
+    );
   } else if (route === '/feed') {
     page = (
       <FeedPage
