@@ -170,7 +170,9 @@ def list_friends_queryset(*, player):
 
 
 def friend_requests_queryset(*, player, direction=None):
-    base_qs = FriendRequest.objects.select_related("from_player__user", "to_player__user")
+    base_qs = FriendRequest.objects.select_related("from_player__user", "to_player__user").filter(
+        status=FriendRequest.STATUS_PENDING
+    )
 
     if direction == "incoming":
         return base_qs.filter(to_player=player)
