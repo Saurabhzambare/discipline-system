@@ -240,3 +240,32 @@ export async function removeFriend(playerId) {
 export async function getPublicProfile(identifier) {
   return authedRequest(`/api/social/profiles/${identifier}/`);
 }
+
+// ── Groups ────────────────────────────────────────────────────────────────────
+
+export async function getGroups() {
+  return authedRequest('/api/social/groups/');
+}
+
+export async function createGroup({ name, description, is_private }) {
+  return authedRequest('/api/social/groups/', {
+    method: 'POST',
+    body: { name, description, is_private },
+  });
+}
+
+export async function joinGroup(groupId) {
+  return authedRequest(`/api/social/groups/${groupId}/join/`, { method: 'POST' });
+}
+
+export async function leaveGroup(groupId) {
+  return authedRequest(`/api/social/groups/${groupId}/leave/`, { method: 'POST' });
+}
+
+export async function getGroupMembers(groupId) {
+  return authedRequest(`/api/social/groups/${groupId}/members/`);
+}
+
+export async function getGroupFeed(groupId) {
+  return authedRequest(`/api/social/groups/${groupId}/feed/`);
+}

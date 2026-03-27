@@ -139,6 +139,7 @@ class GroupCreateSerializer(serializers.Serializer):
 class GroupSerializer(serializers.ModelSerializer):
     owner = serializers.SerializerMethodField()
     member_count = serializers.IntegerField(read_only=True)
+    is_member = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = SocialGroup
@@ -150,6 +151,7 @@ class GroupSerializer(serializers.ModelSerializer):
             "owner",
             "is_private",
             "member_count",
+            "is_member",
             "created_at",
             "updated_at",
         ]

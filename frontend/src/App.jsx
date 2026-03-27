@@ -4,6 +4,7 @@ import {
   cancelFriendRequest,
   clearTokens,
   completeQuest,
+  createGroup,
   createPostComment,
   createSocialPost,
   declineFriendRequest,
@@ -11,11 +12,16 @@ import {
   getAccessToken,
   getFriendRequests,
   getFriends,
+  getGroupFeed,
+  getGroupMembers,
+  getGroups,
   getPlayerMe,
   getPublicProfile,
   getQuests,
   getSocialPost,
   getSocialPosts,
+  joinGroup,
+  leaveGroup,
   login,
   removePostReaction,
   removeFriend,
@@ -29,6 +35,7 @@ import {
 import Layout from './components/Layout';
 import DashboardPage from './pages/DashboardPage';
 import FeedPage from './pages/FeedPage';
+import GroupsPage from './pages/GroupsPage';
 import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
 import ProfilePage from './pages/ProfilePage';
@@ -73,6 +80,9 @@ export default function App() {
   const [outgoingRequests, setOutgoingRequests] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [friendsError, setFriendsError] = useState('');
+  const [groups, setGroups] = useState([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState('');
 
   const selectedPath = useMemo(() => player?.path || '', [player?.path]);
   const selectedPathDisplay = useMemo(() => player?.path_display || '', [player?.path_display]);
@@ -201,6 +211,38 @@ export default function App() {
     setFlashMessage({ type: 'success', text: 'Friend removed.' });
   }, [loadFriends]);
 
+  const loadGroups = useCallback(async () => {
+    setLoadingGroups(true);
+    setGroupsError('');
+    try {
+      const data = await getGroups();
+      setGroups(data);
+    } catch (error) {
+      if (error.status === 401) { handleAuthExpired(error.message); return; }
+      setGroupsError(error.message || 'Could not load groups.');
+    } finally {
+      setLoadingGroups(false);
+    }
+  }, [handleAuthExpired]);
+
+  const handleCreateGroup = useCallback(async ({ name, description, is_private }) => {
+    await createGroup({ name, description, is_private });
+    await loadGroups();
+    setFlashMessage({ type: 'success', text: `Group "${name}" created.` });
+  }, [loadGroups]);
+
+  const handleJoinGroup = useCallback(async (groupId) => {
+    await joinGroup(groupId);
+    await loadGroups();
+    setFlashMessage({ type: 'success', text: 'Joined group.' });
+  }, [loadGroups]);
+
+  const handleLeaveGroup = useCallback(async (groupId) => {
+    await leaveGroup(groupId);
+    await loadGroups();
+    setFlashMessage({ type: 'success', text: 'Left group.' });
+  }, [loadGroups]);
+
   const refreshPost = useCallback(
     async (postId) => {
       return withSocialAuth(async () => {
@@ -293,8 +335,12 @@ export default function App() {
     if (isAuthenticated && route === '/feed') {
       loadFeed();
     }
+
+    if (isAuthenticated && route === '/groups') {
+      loadGroups();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, loadFriends, navigate, route]);
+  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, loadFriends, loadGroups, navigate, route]);
 
   async function handleLogin(username, password) {
     const tokenData = await login(username, password);
@@ -409,6 +455,24 @@ export default function App() {
         onCancelRequest={handleCancelRequest}
         onRemoveFriend={handleRemoveFriend}
         onRefreshFriends={loadFriends}
+      />
+    );
+  } else if (route === '/groups') {
+    page = (
+      <GroupsPage
+        groups={groups}
+        loading={loadingGroups}
+        error={groupsError}
+        currentPlayerId={player?.id}
+        onRefresh={loadGroups}
+        onCreateGroup={handleCreateGroup}
+        onJoinGroup={handleJoinGroup}
+        onLeaveGroup={handleLeaveGroup}
+        onAddComment={handleAddComment}
+        onUpdateComment={handleUpdateComment}
+        onDeleteComment={handleDeleteComment}
+        onSetReaction={handleSetReaction}
+        onRemoveReaction={handleRemoveReaction}
       />
     );
   } else if (route === '/feed') {

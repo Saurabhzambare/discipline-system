@@ -1,13 +1,13 @@
 """HTTP API endpoints for social features with thin view logic."""
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Count
+from django.db.models import Count, Exists, OuterRef
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import PostComment, SocialGroup
+from .models import GroupMembership, PostComment, SocialGroup
 from .selectors import (
     profile_activity_queryset,
     profile_posts_queryset,
@@ -372,7 +372,12 @@ class PostReactionView(SocialBaseView):
 
 class GroupListCreateView(SocialBaseView):
     def get(self, request):
-        groups = visible_groups_queryset_for_player(player=request.user.player).annotate(member_count=Count("memberships"))
+        groups = visible_groups_queryset_for_player(player=request.user.player).annotate(
+            member_count=Count("memberships"),
+            is_member=Exists(
+                GroupMembership.objects.filter(group=OuterRef("pk"), player=request.user.player)
+            ),
+        )
         return Response(GroupSerializer(groups, many=True).data)
 
     def post(self, request):
