@@ -37,6 +37,7 @@ import DashboardPage from './pages/DashboardPage';
 import FeedPage from './pages/FeedPage';
 import GroupsPage from './pages/GroupsPage';
 import LoginPage from './pages/LoginPage';
+import PreviewPage from './pages/PreviewPage';
 import OnboardingPage from './pages/OnboardingPage';
 import ProfilePage from './pages/ProfilePage';
 import SignupPage from './pages/SignupPage';
@@ -457,6 +458,8 @@ export default function App() {
         onRefreshFriends={loadFriends}
       />
     );
+  } else if (route === '/preview') {
+    page = <PreviewPage />;
   } else if (route === '/groups') {
     page = (
       <GroupsPage
