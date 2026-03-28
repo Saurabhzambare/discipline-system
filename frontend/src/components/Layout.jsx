@@ -61,6 +61,7 @@ export default function Layout({
   onDismissFlash,
   route,
   playerName,
+  incomingRequestCount,
 }) {
   useEffect(() => {
     if (!flashMessage) return undefined;
@@ -99,13 +100,14 @@ export default function Layout({
         <nav className="flex flex-1 flex-col items-center gap-1">
           {NAV_ITEMS.map((item) => {
             const active = route === item.path;
+            const showBadge = item.path === '/profile' && incomingRequestCount > 0;
             return (
               <button
                 key={item.path}
                 type="button"
                 onClick={() => onNavigate(item.path)}
                 title={item.label}
-                className={`flex flex-col items-center gap-1 rounded-xl px-2 py-3 text-[10px] font-medium transition w-14 ${
+                className={`relative flex flex-col items-center gap-1 rounded-xl px-2 py-3 text-[10px] font-medium transition w-14 ${
                   active
                     ? 'border border-cyan-500/50 bg-cyan-500/10 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]'
                     : 'border border-transparent text-slate-500 hover:border-[#1a3a5c] hover:text-slate-300'
@@ -113,6 +115,11 @@ export default function Layout({
               >
                 {item.icon}
                 <span>{item.label}</span>
+                {showBadge && (
+                  <span className="absolute -right-0.5 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-bold text-slate-900">
+                    {incomingRequestCount > 9 ? '9+' : incomingRequestCount}
+                  </span>
+                )}
               </button>
             );
           })}

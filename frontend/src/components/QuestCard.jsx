@@ -1,8 +1,40 @@
-export default function QuestCard({ quest, onComplete, loading }) {
+import { useEffect, useRef, useState } from 'react';
+
+export default function QuestCard({ quest, onComplete, loading, onShare }) {
   const completed = quest.assigned_completed_today ?? quest.completed_today;
+  const prevCompletedRef = useRef(completed);
+  const [justCompleted, setJustCompleted] = useState(false);
+  const [shareFlash, setShareFlash] = useState(false);
+
+  // Detect transition from not-completed → completed to trigger glow
+  useEffect(() => {
+    if (!prevCompletedRef.current && completed) {
+      setJustCompleted(true);
+      const t = setTimeout(() => setJustCompleted(false), 2000);
+      return () => clearTimeout(t);
+    }
+    prevCompletedRef.current = completed;
+  }, [completed]);
+
+  async function handleShare() {
+    setShareFlash(true);
+    try {
+      await onShare(quest);
+    } finally {
+      setTimeout(() => setShareFlash(false), 1500);
+    }
+  }
 
   return (
-    <div className={`flex items-center gap-4 py-3.5 px-1 transition ${completed ? 'opacity-60' : ''}`}>
+    <div
+      className={`flex items-center gap-4 py-3.5 px-1 transition-all duration-500 rounded-lg ${
+        justCompleted
+          ? 'bg-emerald-500/10 shadow-[0_0_16px_rgba(16,185,129,0.2)]'
+          : completed
+            ? 'opacity-60'
+            : ''
+      }`}
+    >
       {/* Checkbox */}
       <button
         type="button"
@@ -40,10 +72,25 @@ export default function QuestCard({ quest, onComplete, loading }) {
         </div>
       </div>
 
-      {/* EXP reward */}
-      <span className={`flex-shrink-0 text-sm font-bold ${completed ? 'text-slate-600' : 'text-amber-400'}`}>
-        +{quest.exp_reward} EXP
-      </span>
+      {/* Right side: EXP + share button */}
+      <div className="flex flex-shrink-0 items-center gap-2">
+        {completed && onShare ? (
+          <button
+            type="button"
+            onClick={handleShare}
+            className={`rounded-md border px-2 py-1 text-[10px] font-medium transition ${
+              shareFlash
+                ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300'
+                : 'border-[#1a3a5c] text-slate-500 hover:border-cyan-500/40 hover:text-cyan-300'
+            }`}
+          >
+            {shareFlash ? 'Shared!' : 'Share'}
+          </button>
+        ) : null}
+        <span className={`text-sm font-bold ${completed ? 'text-slate-600' : 'text-amber-400'}`}>
+          +{quest.exp_reward} EXP
+        </span>
+      </div>
     </div>
   );
 }

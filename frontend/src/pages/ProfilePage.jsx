@@ -1,46 +1,99 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { searchPlayers } from '../api';
 
-/* ── Send friend request panel ─────────────────────────────────────────── */
+/* ── Send friend request panel with live search ─────────────────────────── */
 function SendRequestPanel({ onSend }) {
-  const [username, setUsername] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [sendingId, setSendingId] = useState(null);
+  const [sentIds, setSentIds] = useState(new Set());
   const [error, setError] = useState('');
+  const debounceRef = useRef(null);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    const name = username.trim();
-    if (!name) return;
-    setLoading(true);
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setResults([]); return; }
+
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const data = await searchPlayers(q);
+        setResults(data);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(debounceRef.current);
+  }, [query]);
+
+  async function handleSend(player) {
+    setSendingId(player.id);
     setError('');
     try {
-      await onSend(name);
-      setUsername('');
+      await onSend(player.username);
+      setSentIds((prev) => new Set([...prev, player.id]));
     } catch (err) {
       setError(err.message || 'Could not send request.');
     } finally {
-      setLoading(false);
+      setSendingId(null);
     }
   }
 
   return (
     <div className="rounded-xl border border-[#1a3a5c] bg-[#060d1a] p-4">
-      <p className="mb-3 text-sm font-semibold text-slate-200">Add a Hunter</p>
-      <form className="flex gap-2" onSubmit={handleSubmit}>
+      <p className="mb-3 text-sm font-semibold text-slate-200">Find a Hunter</p>
+      <div className="relative">
         <input
-          value={username}
-          onChange={(e) => { setUsername(e.target.value); if (error) setError(''); }}
-          placeholder="Enter username..."
-          disabled={loading}
-          className="flex-1 rounded-lg border border-[#1a3a5c] bg-[#06101e] px-3 py-2 text-sm text-slate-100 outline-none focus:ring focus:ring-cyan-400/20 disabled:opacity-70 placeholder:text-slate-600"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); if (error) setError(''); }}
+          placeholder="Search by username..."
+          className="w-full rounded-lg border border-[#1a3a5c] bg-[#06101e] px-3 py-2 text-sm text-slate-100 outline-none focus:ring focus:ring-cyan-400/20 placeholder:text-slate-600"
         />
-        <button
-          type="submit"
-          disabled={loading || !username.trim()}
-          className="rounded-lg border border-cyan-500/50 bg-cyan-500/15 px-4 py-2 text-sm font-medium text-cyan-200 transition hover:bg-cyan-500/25 disabled:cursor-not-allowed disabled:border-[#1a3a5c] disabled:bg-transparent disabled:text-slate-600"
-        >
-          {loading ? '...' : 'Send'}
-        </button>
-      </form>
+        {searching && (
+          <span className="absolute right-3 top-2.5 block h-4 w-4 animate-spin rounded-full border border-slate-600 border-t-cyan-400" />
+        )}
+      </div>
+
+      {results.length > 0 && (
+        <ul className="mt-2 divide-y divide-[#1a3a5c]/40 rounded-lg border border-[#1a3a5c] bg-[#06101e]">
+          {results.map((p) => {
+            const sent = sentIds.has(p.id);
+            return (
+              <li key={p.id} className="flex items-center gap-3 px-3 py-2.5">
+                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-[#1a3a5c] bg-[#0a1628] text-xs font-bold text-cyan-400">
+                  {p.username.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-200 truncate">{p.username}</p>
+                  <p className="text-[10px] text-slate-500">Level {p.level}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSend(p)}
+                  disabled={sent || sendingId === p.id}
+                  className={`rounded-lg border px-3 py-1 text-xs font-medium transition ${
+                    sent
+                      ? 'border-emerald-500/40 text-emerald-400'
+                      : 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-60'
+                  }`}
+                >
+                  {sent ? '✓ Sent' : sendingId === p.id ? '...' : 'Add'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {query.trim().length >= 2 && !searching && results.length === 0 && (
+        <p className="mt-2 text-xs text-slate-500">No players found.</p>
+      )}
+
       {error ? <p className="mt-2 text-xs text-rose-400">{error}</p> : null}
     </div>
   );

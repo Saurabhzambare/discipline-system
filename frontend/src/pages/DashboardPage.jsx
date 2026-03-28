@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import QuestCard from '../components/QuestCard';
 
 function calcExpProgress(exp) {
@@ -46,6 +47,79 @@ function ArcGauge({ value, max, sublabel }) {
     </svg>
   );
 }
+
+/* ── Level-up overlay ── */
+function LevelUpOverlay({ newLevel, onDismiss }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'radial-gradient(ellipse at center, rgba(251,191,36,0.18) 0%, rgba(5,13,26,0.92) 70%)' }}
+      onClick={onDismiss}
+    >
+      <div className="relative flex flex-col items-center gap-4 px-8 py-10 text-center" onClick={(e) => e.stopPropagation()}>
+        {/* Ping rings */}
+        <span className="absolute inset-0 m-auto h-48 w-48 animate-ping rounded-full border border-amber-400/20" />
+        <span className="absolute inset-0 m-auto h-64 w-64 animate-ping rounded-full border border-amber-400/10 delay-300" style={{ animationDelay: '0.3s' }} />
+
+        <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-2 border-amber-400/60 bg-amber-500/10 shadow-[0_0_40px_rgba(251,191,36,0.4)]">
+          <span className="text-4xl">⬆</span>
+        </div>
+
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-amber-400/70">Rank Achieved</p>
+          <h2 className="mt-1 text-5xl font-black text-amber-300">Level {newLevel}</h2>
+          <p className="mt-2 text-sm text-slate-400">You have grown stronger, Hunter.</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="mt-2 rounded-xl border border-amber-500/40 bg-amber-500/15 px-8 py-3 text-sm font-semibold text-amber-200 transition hover:bg-amber-500/25"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Streak warning banner ── */
+function StreakWarning({ quests }) {
+  const total = quests.length;
+  if (total === 0) return null;
+
+  const remaining = quests.filter((q) => !(q.completed_today || q.assigned_completed_today)).length;
+  const allDone = remaining === 0;
+
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-all ${
+        allDone
+          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+          : 'border-orange-500/30 bg-orange-500/10 text-orange-300'
+      }`}
+    >
+      <span className="text-base">{allDone ? '✅' : '⚡'}</span>
+      {allDone ? (
+        <span>All quests complete! Your streak is safe.</span>
+      ) : (
+        <span>
+          <strong>{remaining}</strong> quest{remaining !== 1 ? 's' : ''} remaining — complete them to protect your streak!
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ── Quest filter pills ── */
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'remaining', label: 'Remaining' },
+  { key: 'fitness', label: 'Fitness' },
+  { key: 'discipline', label: 'Discipline' },
+  { key: 'health', label: 'Health' },
+  { key: 'mindset', label: 'Mindset' },
+];
 
 /* ── Right progress panel ── */
 function ProgressPanel({ player, quests }) {
@@ -133,8 +207,18 @@ export default function DashboardPage({
   completingQuestId,
   selectedPathDisplay,
   onNavigate,
+  levelUpInfo,
+  onDismissLevelUp,
+  onShareQuest,
 }) {
   const expProgress = calcExpProgress(player?.exp || 0);
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  const filteredQuests = quests.filter((q) => {
+    if (activeFilter === 'remaining') return !(q.completed_today || q.assigned_completed_today);
+    if (activeFilter === 'all') return true;
+    return (q.category_display || q.category || '').toLowerCase() === activeFilter;
+  });
 
   if (loading) {
     return (
@@ -145,115 +229,145 @@ export default function DashboardPage({
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_280px]">
-      {/* ── Center column ── */}
-      <div className="space-y-5">
-        {error ? (
-          <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-200">
-            <p className="font-semibold">Action failed</p>
-            <p className="mt-1 text-sm">{error}</p>
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="mt-3 rounded-lg border border-rose-400/40 px-3 py-2 text-sm"
-            >
-              Retry
-            </button>
-          </div>
-        ) : null}
+    <>
+      {/* Level-up overlay (Features 1) */}
+      {levelUpInfo && (
+        <LevelUpOverlay newLevel={levelUpInfo.newLevel} onDismiss={onDismissLevelUp} />
+      )}
 
-        {/* Character panel */}
-        <div className="relative overflow-hidden rounded-2xl border border-[#1a3a5c] bg-gradient-to-br from-[#0a1628] via-[#0d1f38] to-[#071020] p-6 shadow-[0_0_40px_rgba(6,182,212,0.08)]">
-          {/* Subtle top glow line */}
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
+      <div className="grid gap-6 xl:grid-cols-[1fr_280px]">
+        {/* ── Center column ── */}
+        <div className="space-y-5">
+          {error ? (
+            <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-rose-200">
+              <p className="font-semibold">Action failed</p>
+              <p className="mt-1 text-sm">{error}</p>
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="mt-3 rounded-lg border border-rose-400/40 px-3 py-2 text-sm"
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
 
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-400/70">Player Status</p>
-              <h1 className="mt-1 text-3xl font-bold text-slate-100">{player?.username || 'Unknown Hunter'}</h1>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
-                  Level {player?.level ?? 1}
-                </span>
-                <span className="flex items-center gap-1 text-xs text-orange-400">
-                  🔥 Streak: <strong>{player?.streak ?? 0} days</strong>
-                </span>
+          {/* Streak warning banner (Feature 3) */}
+          {quests.length > 0 && <StreakWarning quests={quests} />}
+
+          {/* Character panel */}
+          <div className="relative overflow-hidden rounded-2xl border border-[#1a3a5c] bg-gradient-to-br from-[#0a1628] via-[#0d1f38] to-[#071020] p-6 shadow-[0_0_40px_rgba(6,182,212,0.08)]">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
+
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-400/70">Player Status</p>
+                <h1 className="mt-1 text-3xl font-bold text-slate-100">{player?.username || 'Unknown Hunter'}</h1>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
+                    Level {player?.level ?? 1}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-orange-400">
+                    🔥 Streak: <strong>{player?.streak ?? 0} days</strong>
+                  </span>
+                </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => onNavigate('/onboarding')}
+                className="rounded-lg border border-[#1a3a5c] bg-[#070f1e] px-3 py-2 text-xs text-slate-400 transition hover:border-cyan-500/40 hover:text-cyan-300"
+              >
+                Path: {selectedPathDisplay || 'Choose'}
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => onNavigate('/onboarding')}
-              className="rounded-lg border border-[#1a3a5c] bg-[#070f1e] px-3 py-2 text-xs text-slate-400 transition hover:border-cyan-500/40 hover:text-cyan-300"
-            >
-              Path: {selectedPathDisplay || 'Choose'}
-            </button>
-          </div>
-
-          {/* EXP bar */}
-          <div className="mt-5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400">EXP to next level</span>
-              <span className="font-medium text-amber-300">{expProgress.inLevel} / 100</span>
-            </div>
-            <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#1a3a5c]/60">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-amber-400 transition-all duration-500"
-                style={{ width: `${expProgress.percent}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Stat chips row */}
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            {[
-              { label: 'Level', value: player?.level ?? 1, color: 'text-cyan-300' },
-              { label: 'Total EXP', value: player?.exp ?? 0, color: 'text-amber-300' },
-              { label: 'Streak', value: `${player?.streak ?? 0}d`, color: 'text-emerald-300' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="rounded-lg border border-[#1a3a5c]/80 bg-[#060d1a]/80 px-3 py-3 text-center">
-                <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
-                <p className={`mt-1 text-xl font-bold ${color}`}>{value}</p>
+            {/* EXP bar */}
+            <div className="mt-5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">EXP to next level</span>
+                <span className="font-medium text-amber-300">{expProgress.inLevel} / 100</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quest list */}
-        <div className="rounded-2xl border border-[#1a3a5c] bg-[#0a1628] p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-100">Today&apos;s Quests</h2>
-              <p className="text-xs text-slate-500">Complete your assigned set to protect your streak.</p>
-            </div>
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="rounded-lg border border-[#1a3a5c] px-3 py-1.5 text-xs text-slate-400 transition hover:border-cyan-500/40 hover:text-cyan-300"
-            >
-              Refresh
-            </button>
-          </div>
-
-          {quests.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-500">No quests assigned yet for today.</p>
-          ) : (
-            <div className="divide-y divide-[#1a3a5c]/40">
-              {quests.map((quest) => (
-                <QuestCard
-                  key={quest.id}
-                  quest={quest}
-                  onComplete={onCompleteQuest}
-                  loading={completingQuestId === quest.id}
+              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#1a3a5c]/60">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-amber-400 transition-all duration-500"
+                  style={{ width: `${expProgress.percent}%` }}
                 />
+              </div>
+            </div>
+
+            {/* Stat chips row */}
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {[
+                { label: 'Level', value: player?.level ?? 1, color: 'text-cyan-300' },
+                { label: 'Total EXP', value: player?.exp ?? 0, color: 'text-amber-300' },
+                { label: 'Streak', value: `${player?.streak ?? 0}d`, color: 'text-emerald-300' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="rounded-lg border border-[#1a3a5c]/80 bg-[#060d1a]/80 px-3 py-3 text-center">
+                  <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
+                  <p className={`mt-1 text-xl font-bold ${color}`}>{value}</p>
+                </div>
               ))}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* ── Right panel ── */}
-      <ProgressPanel player={player} quests={quests} />
-    </div>
+          {/* Quest list */}
+          <div className="rounded-2xl border border-[#1a3a5c] bg-[#0a1628] p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-100">Today&apos;s Quests</h2>
+                <p className="text-xs text-slate-500">Complete your assigned set to protect your streak.</p>
+              </div>
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="rounded-lg border border-[#1a3a5c] px-3 py-1.5 text-xs text-slate-400 transition hover:border-cyan-500/40 hover:text-cyan-300"
+              >
+                Refresh
+              </button>
+            </div>
+
+            {/* Filter pills (Feature 8) */}
+            <div className="mb-4 flex flex-wrap gap-2">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setActiveFilter(f.key)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition border ${
+                    activeFilter === f.key
+                      ? 'border-cyan-500/50 bg-cyan-500/15 text-cyan-300'
+                      : 'border-[#1a3a5c] text-slate-500 hover:border-[#2a4a6c] hover:text-slate-300'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {quests.length === 0 ? (
+              <p className="py-4 text-center text-sm text-slate-500">No quests assigned yet for today.</p>
+            ) : filteredQuests.length === 0 ? (
+              <p className="py-4 text-center text-sm text-slate-500">No quests match this filter.</p>
+            ) : (
+              <div className="divide-y divide-[#1a3a5c]/40">
+                {filteredQuests.map((quest) => (
+                  <QuestCard
+                    key={quest.id}
+                    quest={quest}
+                    onComplete={onCompleteQuest}
+                    loading={completingQuestId === quest.id}
+                    onShare={onShareQuest}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Right panel ── */}
+        <ProgressPanel player={player} quests={quests} />
+      </div>
+    </>
   );
 }

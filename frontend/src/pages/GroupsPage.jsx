@@ -144,7 +144,7 @@ function GroupCard({ group, currentPlayerId, onJoin, onOpen }) {
 }
 
 /* ── Group detail view ───────────────────────────────────────────────────── */
-function GroupDetail({ group, currentPlayerId, onLeave, onBack, onAddComment, onUpdateComment, onDeleteComment, onSetReaction, onRemoveReaction }) {
+function GroupDetail({ group, currentPlayerId, onLeave, onBack, onAddComment, onUpdateComment, onDeleteComment, onSetReaction, onRemoveReaction, onViewProfile, onUpdatePost, onDeletePost }) {
   const [members, setMembers] = useState([]);
   const [feed, setFeed] = useState([]);
   const [loadingDetail, setLoadingDetail] = useState(true);
@@ -248,6 +248,9 @@ function GroupDetail({ group, currentPlayerId, onLeave, onBack, onAddComment, on
                   onDeleteComment={onDeleteComment}
                   onSetReaction={onSetReaction}
                   onRemoveReaction={onRemoveReaction}
+                  onViewProfile={onViewProfile}
+                  onUpdatePost={onUpdatePost}
+                  onDeletePost={onDeletePost ? (postId) => onDeletePost(postId, loadDetail) : undefined}
                 />
               ))
             )}
@@ -295,9 +298,13 @@ export default function GroupsPage({
   onDeleteComment,
   onSetReaction,
   onRemoveReaction,
+  onViewProfile,
+  onUpdatePost,
+  onDeletePost,
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
+  const [activeTab, setActiveTab] = useState('mine');
 
   async function handleJoin(groupId) {
     await onJoinGroup(groupId);
@@ -315,9 +322,16 @@ export default function GroupsPage({
         onDeleteComment={onDeleteComment}
         onSetReaction={onSetReaction}
         onRemoveReaction={onRemoveReaction}
+        onViewProfile={onViewProfile}
+        onUpdatePost={onUpdatePost}
+        onDeletePost={onDeletePost}
       />
     );
   }
+
+  const myGroups = groups.filter((g) => g.is_member || g.owner?.id === currentPlayerId);
+  const exploreGroups = groups.filter((g) => !g.is_member && g.owner?.id !== currentPlayerId);
+  const displayGroups = activeTab === 'mine' ? myGroups : exploreGroups;
 
   return (
     <div className="space-y-5">
@@ -356,6 +370,32 @@ export default function GroupsPage({
         />
       )}
 
+      {/* Tabs (Feature 9) */}
+      <div className="flex gap-1 rounded-xl border border-[#1a3a5c] bg-[#070f1e] p-1">
+        {[
+          { id: 'mine', label: `My Groups`, count: myGroups.length },
+          { id: 'explore', label: 'Explore', count: exploreGroups.length },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition ${
+              activeTab === tab.id
+                ? 'bg-[#0a1628] text-slate-100 shadow-sm'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            {tab.label}
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+              activeTab === tab.id ? 'bg-cyan-500/20 text-cyan-300' : 'bg-[#1a3a5c]/60 text-slate-500'
+            }`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-6 text-center">
           <p className="text-sm text-slate-500">Loading groups...</p>
@@ -365,13 +405,17 @@ export default function GroupsPage({
           <p className="text-sm">{error}</p>
           <button type="button" onClick={onRefresh} className="mt-2 text-xs hover:text-rose-200">Retry</button>
         </div>
-      ) : groups.length === 0 ? (
+      ) : displayGroups.length === 0 ? (
         <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-8 text-center">
-          <p className="text-sm text-slate-500">No groups yet. Create one to get started.</p>
+          <p className="text-sm text-slate-500">
+            {activeTab === 'mine'
+              ? "You haven't joined any groups yet. Check Explore to find one."
+              : 'No other groups to explore. Create a new one!'}
+          </p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {groups.map((group) => (
+          {displayGroups.map((group) => (
             <GroupCard
               key={group.id}
               group={group}

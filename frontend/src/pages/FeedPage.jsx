@@ -14,6 +14,9 @@ export default function FeedPage({
   onDeleteComment,
   onSetReaction,
   onRemoveReaction,
+  onViewProfile,
+  onUpdatePost,
+  onDeletePost,
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-5">
@@ -76,6 +79,9 @@ export default function FeedPage({
               onDeleteComment={onDeleteComment}
               onSetReaction={onSetReaction}
               onRemoveReaction={onRemoveReaction}
+              onViewProfile={onViewProfile}
+              onUpdatePost={onUpdatePost}
+              onDeletePost={onDeletePost}
             />
           ))}
         </div>

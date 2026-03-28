@@ -7,6 +7,11 @@ const REACTION_OPTIONS = [
   { value: 'clap', emoji: '👏' },
 ];
 
+const VISIBILITY_OPTIONS = [
+  { value: 'public', label: 'Public' },
+  { value: 'friends_only', label: 'Friends Only' },
+];
+
 function timeAgo(isoString) {
   if (!isoString) return '';
   const diff = Math.floor((Date.now() - new Date(isoString)) / 1000);
@@ -25,6 +30,9 @@ export default function PostCard({
   onDeleteComment,
   onSetReaction,
   onRemoveReaction,
+  onViewProfile,
+  onUpdatePost,
+  onDeletePost,
 }) {
   const [newComment, setNewComment] = useState('');
   const [commentError, setCommentError] = useState('');
@@ -35,6 +43,15 @@ export default function PostCard({
   const [reactionLoading, setReactionLoading] = useState(false);
   const [reactionError, setReactionError] = useState('');
   const [showComments, setShowComments] = useState(false);
+
+  // Post-level edit state (Feature 10)
+  const [editingPost, setEditingPost] = useState(false);
+  const [editContent, setEditContent] = useState('');
+  const [editVisibility, setEditVisibility] = useState('public');
+  const [postActionBusy, setPostActionBusy] = useState(false);
+  const [postError, setPostError] = useState('');
+
+  const isMyPost = currentPlayerId && post.author?.id === currentPlayerId;
 
   useEffect(() => {
     setCommentError('');
@@ -57,6 +74,40 @@ export default function PostCard({
   );
 
   const commentCount = post.comments?.length ?? 0;
+
+  function startEditPost() {
+    setEditContent(post.content);
+    setEditVisibility(post.visibility || 'public');
+    setEditingPost(true);
+    setPostError('');
+  }
+
+  async function handleSavePost() {
+    const text = editContent.trim();
+    if (!text) return;
+    setPostActionBusy(true);
+    setPostError('');
+    try {
+      await onUpdatePost(post.id, { content: text, visibility: editVisibility });
+      await onRefreshPost(post.id);
+      setEditingPost(false);
+    } catch (err) {
+      setPostError(err.message || 'Could not update post.');
+    } finally {
+      setPostActionBusy(false);
+    }
+  }
+
+  async function handleDeletePost() {
+    if (!window.confirm('Delete this post?')) return;
+    setPostActionBusy(true);
+    try {
+      await onDeletePost(post.id);
+    } catch (err) {
+      setPostError(err.message || 'Could not delete post.');
+      setPostActionBusy(false);
+    }
+  }
 
   async function handleAddComment(event) {
     event.preventDefault();
@@ -140,16 +191,80 @@ export default function PostCard({
           {(post.author?.username || '?').charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-200">{post.author?.username || 'Unknown Hunter'}</p>
+          {/* Clickable username (Feature 4) */}
+          <button
+            type="button"
+            onClick={() => onViewProfile && onViewProfile(post.author?.username)}
+            className={`text-sm font-semibold text-slate-200 ${onViewProfile ? 'hover:text-cyan-300 transition' : ''}`}
+          >
+            {post.author?.username || 'Unknown Hunter'}
+          </button>
           <p className="text-[10px] text-slate-600">{timeAgo(post.created_at)}</p>
         </div>
         <span className="rounded-full border border-[#1a3a5c] px-2 py-0.5 text-[10px] text-slate-500">
           {post.visibility === 'friends_only' ? '🔒 Friends' : '🌐 Public'}
         </span>
+
+        {/* Post edit/delete buttons (Feature 10) */}
+        {isMyPost && onUpdatePost && !editingPost && (
+          <div className="flex gap-1 ml-1">
+            <button
+              type="button"
+              onClick={startEditPost}
+              disabled={postActionBusy}
+              className="rounded px-2 py-1 text-[10px] text-slate-500 hover:text-cyan-300 transition"
+            >
+              Edit
+            </button>
+            {onDeletePost && (
+              <button
+                type="button"
+                onClick={handleDeletePost}
+                disabled={postActionBusy}
+                className="rounded px-2 py-1 text-[10px] text-slate-500 hover:text-rose-400 transition"
+              >
+                {postActionBusy ? '...' : 'Delete'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Content */}
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{post.content}</p>
+      {/* Content or inline edit */}
+      {editingPost ? (
+        <div className="mt-3 space-y-2">
+          <textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            rows={3}
+            disabled={postActionBusy}
+            className="w-full rounded-lg border border-[#1a3a5c] bg-[#06101e] px-3 py-2 text-sm text-slate-100 outline-none focus:ring focus:ring-cyan-400/20 disabled:opacity-70"
+          />
+          <div className="flex items-center gap-2">
+            <select
+              value={editVisibility}
+              onChange={(e) => setEditVisibility(e.target.value)}
+              disabled={postActionBusy}
+              className="rounded-lg border border-[#1a3a5c] bg-[#06101e] px-2 py-1.5 text-xs text-slate-300 outline-none"
+            >
+              {VISIBILITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <button type="button" onClick={handleSavePost} disabled={postActionBusy || !editContent.trim()}
+              className="rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-200 disabled:opacity-60">
+              {postActionBusy ? 'Saving...' : 'Save'}
+            </button>
+            <button type="button" onClick={() => setEditingPost(false)} disabled={postActionBusy}
+              className="rounded-lg border border-[#1a3a5c] px-3 py-1.5 text-xs text-slate-400">
+              Cancel
+            </button>
+          </div>
+          {postError && <p className="text-xs text-rose-400">{postError}</p>}
+        </div>
+      ) : (
+        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{post.content}</p>
+      )}
 
       {/* Reactions */}
       <div className="mt-4 flex flex-wrap items-center gap-2">

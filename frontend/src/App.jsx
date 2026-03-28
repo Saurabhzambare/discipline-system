@@ -9,6 +9,7 @@ import {
   createSocialPost,
   declineFriendRequest,
   deletePostComment,
+  deleteSocialPost,
   getAccessToken,
   getFriendRequests,
   getFriends,
@@ -31,8 +32,10 @@ import {
   signup,
   updatePlayerPath,
   updatePostComment,
+  updateSocialPost,
 } from './api';
 import Layout from './components/Layout';
+import PlayerProfileModal from './components/PlayerProfileModal';
 import DashboardPage from './pages/DashboardPage';
 import FeedPage from './pages/FeedPage';
 import GroupsPage from './pages/GroupsPage';
@@ -84,6 +87,8 @@ export default function App() {
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupsError, setGroupsError] = useState('');
+  const [levelUpInfo, setLevelUpInfo] = useState(null);
+  const [viewingProfile, setViewingProfile] = useState(null); // username string
 
   const selectedPath = useMemo(() => player?.path || '', [player?.path]);
   const selectedPathDisplay = useMemo(() => player?.path_display || '', [player?.path_display]);
@@ -243,6 +248,44 @@ export default function App() {
     await loadGroups();
     setFlashMessage({ type: 'success', text: 'Left group.' });
   }, [loadGroups]);
+
+  const handleShareQuest = useCallback(
+    async (quest) => {
+      return withSocialAuth(async () => {
+        await createSocialPost({
+          content: `Just completed: "${quest.title}" — +${quest.exp_reward} EXP earned! 💪`,
+          visibility: 'public',
+        });
+        setFlashMessage({ type: 'success', text: 'Quest shared to feed!' });
+      });
+    },
+    [withSocialAuth],
+  );
+
+  const handleUpdatePost = useCallback(
+    async (postId, { content, visibility }) => {
+      return withSocialAuth(async () => {
+        await updateSocialPost(postId, { content, visibility });
+        await loadFeed({ showLoading: false });
+      });
+    },
+    [loadFeed, withSocialAuth],
+  );
+
+  const handleDeletePost = useCallback(
+    async (postId, onSuccess) => {
+      return withSocialAuth(async () => {
+        await deleteSocialPost(postId);
+        if (onSuccess) {
+          await onSuccess();
+        } else {
+          setFeedPosts((prev) => prev.filter((p) => p.id !== postId));
+        }
+        setFlashMessage({ type: 'success', text: 'Post deleted.' });
+      });
+    },
+    [withSocialAuth],
+  );
 
   const refreshPost = useCallback(
     async (postId) => {
@@ -407,12 +450,11 @@ export default function App() {
         ),
       );
 
-      setFlashMessage({
-        type: 'success',
-        text: response.leveled_up
-          ? `Quest complete! +${response.exp_gained} EXP. Level up!`
-          : `Quest complete! +${response.exp_gained} EXP.`,
-      });
+      if (response.leveled_up) {
+        setLevelUpInfo({ newLevel: response.new_level });
+      } else {
+        setFlashMessage({ type: 'success', text: `Quest complete! +${response.exp_gained} EXP.` });
+      }
     } catch (error) {
       if (error.status === 401) {
         handleAuthExpired(error.message);
@@ -476,6 +518,9 @@ export default function App() {
         onDeleteComment={handleDeleteComment}
         onSetReaction={handleSetReaction}
         onRemoveReaction={handleRemoveReaction}
+        onViewProfile={setViewingProfile}
+        onUpdatePost={handleUpdatePost}
+        onDeletePost={handleDeletePost}
       />
     );
   } else if (route === '/feed') {
@@ -493,6 +538,9 @@ export default function App() {
         onDeleteComment={handleDeleteComment}
         onSetReaction={handleSetReaction}
         onRemoveReaction={handleRemoveReaction}
+        onViewProfile={setViewingProfile}
+        onUpdatePost={handleUpdatePost}
+        onDeletePost={handleDeletePost}
       />
     );
   } else {
@@ -507,6 +555,9 @@ export default function App() {
         completingQuestId={completingQuestId}
         selectedPathDisplay={selectedPathDisplay}
         onNavigate={navigate}
+        levelUpInfo={levelUpInfo}
+        onDismissLevelUp={() => setLevelUpInfo(null)}
+        onShareQuest={handleShareQuest}
       />
     );
   }
@@ -520,8 +571,17 @@ export default function App() {
       onDismissFlash={() => setFlashMessage(null)}
       route={route}
       playerName={player?.username}
+      incomingRequestCount={incomingRequests.length}
     >
       {page}
+      {viewingProfile && (
+        <PlayerProfileModal
+          username={viewingProfile}
+          onClose={() => setViewingProfile(null)}
+          onSendRequest={handleSendFriendRequest}
+          currentPlayerId={player?.id}
+        />
+      )}
     </Layout>
   );
 }

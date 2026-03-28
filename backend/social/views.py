@@ -7,6 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from players.models import Player
+
 from .models import GroupMembership, PostComment, SocialGroup
 from .selectors import (
     profile_activity_queryset,
@@ -447,3 +449,25 @@ class GroupFeedView(SocialBaseView):
             return self.not_found(error)
 
         return Response(SocialPostSerializer(posts, many=True).data)
+
+
+class PlayerSearchView(SocialBaseView):
+    """Search players by username prefix for friend discovery."""
+
+    def get(self, request):
+        q = request.query_params.get("q", "").strip()
+        if len(q) < 2:
+            return Response([])
+
+        players = (
+            Player.objects.select_related("user")
+            .filter(user__username__icontains=q)
+            .exclude(id=request.user.player.id)
+            .order_by("user__username")[:10]
+        )
+
+        results = [
+            {"id": p.id, "username": p.user.username, "level": p.level}
+            for p in players
+        ]
+        return Response(results)

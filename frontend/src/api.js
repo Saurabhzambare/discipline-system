@@ -147,15 +147,31 @@ export async function getSocialPost(postId) {
   return authedRequest(`/api/social/posts/${postId}/`);
 }
 
-export async function createSocialPost({ content, visibility }) {
+export async function createSocialPost({ content, visibility, group_id } = {}) {
   return authedRequest('/api/social/posts/', {
     method: 'POST',
     body: {
       content,
       visibility,
       post_type: 'update',
+      ...(group_id != null ? { group_id } : {}),
     },
   });
+}
+
+export async function updateSocialPost(postId, { content, visibility }) {
+  return authedRequest(`/api/social/posts/${postId}/`, {
+    method: 'PATCH',
+    body: { content, visibility },
+  });
+}
+
+export async function deleteSocialPost(postId) {
+  return authedRequest(`/api/social/posts/${postId}/`, { method: 'DELETE' });
+}
+
+export async function searchPlayers(q) {
+  return authedRequest(`/api/social/players/search/?q=${encodeURIComponent(q)}`);
 }
 
 export async function getPostComments(postId) {
