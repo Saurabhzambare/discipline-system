@@ -183,11 +183,26 @@ export default function PostCard({
     }
   }
 
+  const isQuestPost = post.post_type === 'quest_completion';
+
   return (
-    <article className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-5">
+    <article className={`relative overflow-hidden rounded-xl border p-5 ${
+      isQuestPost
+        ? 'border-amber-500/30 bg-gradient-to-br from-[#0a1628] to-[#120a00] shadow-[0_0_20px_rgba(245,158,11,0.06)]'
+        : 'border-[#1a3a5c] bg-[#0a1628]'
+    }`}>
+      {/* Quest post top glow line */}
+      {isQuestPost && (
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent rounded-t-xl" />
+      )}
+
       {/* Author row */}
       <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-[#1a3a5c] bg-[#060d1a] text-xs font-bold text-cyan-400">
+        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+          isQuestPost
+            ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+            : 'border-[#1a3a5c] bg-[#060d1a] text-cyan-400'
+        }`}>
           {(post.author?.username || '?').charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
@@ -201,9 +216,17 @@ export default function PostCard({
           </button>
           <p className="text-[10px] text-slate-600">{timeAgo(post.created_at)}</p>
         </div>
+        {isQuestPost && (
+          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+            ⚔️ Quest
+          </span>
+        )}
         <span className="rounded-full border border-[#1a3a5c] px-2 py-0.5 text-[10px] text-slate-500">
           {post.visibility === 'friends_only' ? '🔒 Friends' : '🌐 Public'}
         </span>
+        {post.is_edited && (
+          <span className="text-[10px] text-slate-600 italic">edited</span>
+        )}
 
         {/* Post edit/delete buttons (Feature 10) */}
         {isMyPost && onUpdatePost && !editingPost && (

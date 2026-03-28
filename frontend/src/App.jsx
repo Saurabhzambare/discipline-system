@@ -11,6 +11,7 @@ import {
   deletePostComment,
   deleteSocialPost,
   getAccessToken,
+  getNotifications,
   getFriendRequests,
   getFriends,
   getGroupFeed,
@@ -88,7 +89,8 @@ export default function App() {
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [groupsError, setGroupsError] = useState('');
   const [levelUpInfo, setLevelUpInfo] = useState(null);
-  const [viewingProfile, setViewingProfile] = useState(null); // username string
+  const [viewingProfile, setViewingProfile] = useState(null);
+  const [notifications, setNotifications] = useState([]);
 
   const selectedPath = useMemo(() => player?.path || '', [player?.path]);
   const selectedPathDisplay = useMemo(() => player?.path_display || '', [player?.path_display]);
@@ -249,12 +251,25 @@ export default function App() {
     setFlashMessage({ type: 'success', text: 'Left group.' });
   }, [loadGroups]);
 
+  const loadNotifications = useCallback(async () => {
+    try {
+      const data = await getNotifications();
+      setNotifications(data);
+    } catch {
+      // non-critical — silently ignore
+    }
+  }, []);
+
   const handleShareQuest = useCallback(
-    async (quest) => {
+    async (quest, note) => {
       return withSocialAuth(async () => {
+        const body = note
+          ? `Just completed: "${quest.title}" — +${quest.exp_reward} EXP\n\n${note}`
+          : `Just completed: "${quest.title}" — +${quest.exp_reward} EXP earned! 💪`;
         await createSocialPost({
-          content: `Just completed: "${quest.title}" — +${quest.exp_reward} EXP earned! 💪`,
+          content: body,
           visibility: 'public',
+          post_type: 'quest_completion',
         });
         setFlashMessage({ type: 'success', text: 'Quest shared to feed!' });
       });
@@ -383,8 +398,12 @@ export default function App() {
     if (isAuthenticated && route === '/groups') {
       loadGroups();
     }
+
+    if (isAuthenticated) {
+      loadNotifications();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, loadFriends, loadGroups, navigate, route]);
+  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, loadFriends, loadGroups, loadNotifications, navigate, route]);
 
   async function handleLogin(username, password) {
     const tokenData = await login(username, password);
@@ -428,8 +447,9 @@ export default function App() {
     }
   }
 
-  async function handleCompleteQuest(questId) {
+  async function handleCompleteQuest(questId, note) {
     setCompletingQuestId(questId);
+    const questForShare = quests.find((q) => q.id === questId);
 
     try {
       const response = await completeQuest(questId);
@@ -450,10 +470,26 @@ export default function App() {
         ),
       );
 
+      // Auto-share to feed when note is provided (Feature B)
+      if (note && questForShare) {
+        try {
+          await createSocialPost({
+            content: `Just completed: "${questForShare.title}" — +${questForShare.exp_reward} EXP\n\n${note}`,
+            visibility: 'public',
+            post_type: 'quest_completion',
+          });
+        } catch {
+          // share failure is non-critical
+        }
+      }
+
       if (response.leveled_up) {
         setLevelUpInfo({ newLevel: response.new_level });
       } else {
-        setFlashMessage({ type: 'success', text: `Quest complete! +${response.exp_gained} EXP.` });
+        setFlashMessage({
+          type: 'success',
+          text: note ? `Quest complete! +${response.exp_gained} EXP — shared to feed.` : `Quest complete! +${response.exp_gained} EXP.`,
+        });
       }
     } catch (error) {
       if (error.status === 401) {
@@ -541,6 +577,9 @@ export default function App() {
         onViewProfile={setViewingProfile}
         onUpdatePost={handleUpdatePost}
         onDeletePost={handleDeletePost}
+        player={player}
+        friends={friends}
+        onNavigate={navigate}
       />
     );
   } else {
@@ -572,6 +611,7 @@ export default function App() {
       route={route}
       playerName={player?.username}
       incomingRequestCount={incomingRequests.length}
+      notifications={notifications}
     >
       {page}
       {viewingProfile && (

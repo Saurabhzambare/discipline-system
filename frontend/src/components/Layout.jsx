@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const NAV_ITEMS = [
   {
@@ -52,6 +52,99 @@ function FlashBanner({ flashMessage }) {
   );
 }
 
+function timeAgo(isoString) {
+  if (!isoString) return '';
+  const diff = Math.floor((Date.now() - new Date(isoString)) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+const NOTIF_ICONS = {
+  comment: '💬',
+  reaction: '❤️',
+  friend_request: '👤',
+};
+
+function NotificationBell({ notifications, onNavigate }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const count = notifications.length;
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-[#1a3a5c] text-slate-400 transition hover:border-cyan-500/40 hover:text-cyan-300"
+        title="Notifications"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        {count > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
+            {count > 9 ? '9+' : count}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-10 z-50 w-80 overflow-hidden rounded-xl border border-[#1a3a5c] bg-[#070f1e] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+          <div className="flex items-center justify-between border-b border-[#1a3a5c]/60 px-4 py-3">
+            <p className="text-sm font-semibold text-slate-200">Notifications</p>
+            {count > 0 && (
+              <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] text-rose-300">{count}</span>
+            )}
+          </div>
+
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-slate-500">No new notifications.</p>
+            ) : (
+              <ul className="divide-y divide-[#1a3a5c]/40">
+                {notifications.map((n) => (
+                  <li key={n.id} className="flex gap-3 px-4 py-3 hover:bg-[#0a1628]/60 transition">
+                    <span className="mt-0.5 text-base flex-shrink-0">{NOTIF_ICONS[n.type] || '🔔'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-200">{n.text}</p>
+                      {n.preview && (
+                        <p className="mt-0.5 truncate text-[10px] text-slate-500">{n.preview}</p>
+                      )}
+                      <p className="mt-0.5 text-[10px] text-slate-600">{timeAgo(n.created_at)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {notifications.some((n) => n.type === 'friend_request') && (
+            <div className="border-t border-[#1a3a5c]/60 px-4 py-2">
+              <button
+                type="button"
+                onClick={() => { onNavigate('/profile'); setOpen(false); }}
+                className="text-xs text-cyan-400 hover:text-cyan-300"
+              >
+                View friend requests →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Layout({
   children,
   onNavigate,
@@ -62,6 +155,7 @@ export default function Layout({
   route,
   playerName,
   incomingRequestCount,
+  notifications,
 }) {
   useEffect(() => {
     if (!flashMessage) return undefined;
@@ -142,11 +236,12 @@ export default function Layout({
       {/* ── Main content ── */}
       <div className="ml-[72px] flex min-h-screen flex-1 flex-col">
         {/* Top greeting bar */}
-        <header className="border-b border-[#1a3a5c]/40 bg-[#070f1e]/80 px-6 py-4 backdrop-blur">
+        <header className="flex items-center justify-between border-b border-[#1a3a5c]/40 bg-[#070f1e]/80 px-6 py-4 backdrop-blur">
           <p className="text-sm text-slate-400">
             Welcome back,{' '}
             <span className="font-semibold text-slate-100">{playerName || 'Hunter'}</span>
           </p>
+          <NotificationBell notifications={notifications || []} onNavigate={onNavigate} />
         </header>
 
         <main className="flex-1 px-6 py-6">

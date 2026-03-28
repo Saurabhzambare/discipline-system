@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from players.models import Player
 
-from .models import GroupMembership, PostComment, SocialGroup
+from .models import FriendRequest, GroupMembership, PostComment, PostReaction, SocialGroup
 from .selectors import (
     profile_activity_queryset,
     profile_posts_queryset,
@@ -471,3 +471,64 @@ class PlayerSearchView(SocialBaseView):
             for p in players
         ]
         return Response(results)
+
+
+class NotificationsView(SocialBaseView):
+    """Aggregated recent notifications: comments, reactions, and friend requests."""
+
+    EMOJI = {"like": "👍", "fire": "🔥", "respect": "💪", "clap": "👏"}
+
+    def get(self, request):
+        player = request.user.player
+        notifications = []
+
+        # Comments on my posts by others
+        comments = (
+            PostComment.objects.filter(post__author=player)
+            .exclude(author=player)
+            .select_related("author__user", "post")
+            .order_by("-created_at")[:15]
+        )
+        for c in comments:
+            notifications.append({
+                "id": f"comment_{c.id}",
+                "type": "comment",
+                "text": f"{c.author.user.username} commented on your post",
+                "preview": c.content[:120],
+                "created_at": c.created_at.isoformat(),
+            })
+
+        # Reactions on my posts by others
+        reactions = (
+            PostReaction.objects.filter(post__author=player)
+            .exclude(player=player)
+            .select_related("player__user", "post")
+            .order_by("-created_at")[:15]
+        )
+        for r in reactions:
+            emoji = self.EMOJI.get(r.reaction_type, "❤️")
+            notifications.append({
+                "id": f"reaction_{r.id}",
+                "type": "reaction",
+                "text": f"{r.player.user.username} reacted {emoji} to your post",
+                "preview": r.post.content[:120],
+                "created_at": r.created_at.isoformat(),
+            })
+
+        # Pending incoming friend requests
+        friend_requests = (
+            FriendRequest.objects.filter(to_player=player, status=FriendRequest.STATUS_PENDING)
+            .select_related("from_player__user")
+            .order_by("-created_at")[:10]
+        )
+        for fr in friend_requests:
+            notifications.append({
+                "id": f"fr_{fr.id}",
+                "type": "friend_request",
+                "text": f"{fr.from_player.user.username} sent you a friend request",
+                "preview": None,
+                "created_at": fr.created_at.isoformat(),
+            })
+
+        notifications.sort(key=lambda x: x["created_at"], reverse=True)
+        return Response(notifications[:25])

@@ -174,6 +174,10 @@ export async function searchPlayers(q) {
   return authedRequest(`/api/social/players/search/?q=${encodeURIComponent(q)}`);
 }
 
+export async function getNotifications() {
+  return authedRequest('/api/social/notifications/');
+}
+
 export async function getPostComments(postId) {
   return authedRequest(`/api/social/posts/${postId}/comments/`);
 }
