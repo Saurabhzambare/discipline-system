@@ -147,13 +147,21 @@ export async function getSocialPost(postId) {
   return authedRequest(`/api/social/posts/${postId}/`);
 }
 
-export async function createSocialPost({ content, visibility, group_id } = {}) {
+export async function googleAuth(credential) {
+  return request('/api/auth/google/', {
+    method: 'POST',
+    body: { credential },
+    auth: false,
+  });
+}
+
+export async function createSocialPost({ content, visibility, group_id, post_type } = {}) {
   return authedRequest('/api/social/posts/', {
     method: 'POST',
     body: {
       content,
       visibility,
-      post_type: 'update',
+      post_type: post_type || 'update',
       ...(group_id != null ? { group_id } : {}),
     },
   });

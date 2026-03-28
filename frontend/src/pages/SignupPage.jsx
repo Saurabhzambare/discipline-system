@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import AuthCard from '../components/AuthCard';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
-export default function SignupPage({ onSignup, onNavigate }) {
+export default function SignupPage({ onSignup, onGoogleAuth, onNavigate }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,6 +18,18 @@ export default function SignupPage({ onSignup, onNavigate }) {
       onNavigate('/login');
     } catch (submitError) {
       setError(submitError.message || 'Signup failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleCredential(credential) {
+    setError('');
+    setLoading(true);
+    try {
+      await onGoogleAuth(credential);
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed.');
     } finally {
       setLoading(false);
     }
@@ -43,6 +56,16 @@ export default function SignupPage({ onSignup, onNavigate }) {
           </>
         }
       >
+        <div className="mb-4">
+          <GoogleSignInButton onCredential={handleGoogleCredential} disabled={loading} />
+        </div>
+
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex-1 border-t border-[#1a3a5c]" />
+          <span className="text-xs text-slate-600">or create with username</span>
+          <div className="flex-1 border-t border-[#1a3a5c]" />
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block space-y-1.5">
             <span className="text-xs uppercase tracking-wide text-slate-500">Username</span>

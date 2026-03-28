@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import AuthCard from '../components/AuthCard';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
-export default function LoginPage({ onLogin, onNavigate }) {
+export default function LoginPage({ onLogin, onGoogleAuth, onNavigate }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,6 +17,18 @@ export default function LoginPage({ onLogin, onNavigate }) {
       await onLogin(username, password);
     } catch (submitError) {
       setError(submitError.message || 'Login failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleCredential(credential) {
+    setError('');
+    setLoading(true);
+    try {
+      await onGoogleAuth(credential);
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed.');
     } finally {
       setLoading(false);
     }
@@ -76,6 +89,16 @@ export default function LoginPage({ onLogin, onNavigate }) {
             {loading ? 'Signing in...' : 'Login'}
           </button>
         </form>
+
+        <div className="mt-4 flex items-center gap-3">
+          <div className="flex-1 border-t border-[#1a3a5c]" />
+          <span className="text-xs text-slate-600">or</span>
+          <div className="flex-1 border-t border-[#1a3a5c]" />
+        </div>
+
+        <div className="mt-4">
+          <GoogleSignInButton onCredential={handleGoogleCredential} disabled={loading} />
+        </div>
       </AuthCard>
     </div>
   );

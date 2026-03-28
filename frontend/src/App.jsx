@@ -22,6 +22,7 @@ import {
   getQuests,
   getSocialPost,
   getSocialPosts,
+  googleAuth,
   joinGroup,
   leaveGroup,
   login,
@@ -37,12 +38,13 @@ import {
 } from './api';
 import Layout from './components/Layout';
 import PlayerProfileModal from './components/PlayerProfileModal';
+import ComingSoonPage from './pages/ComingSoonPage';
 import DashboardPage from './pages/DashboardPage';
 import FeedPage from './pages/FeedPage';
 import GroupsPage from './pages/GroupsPage';
 import LoginPage from './pages/LoginPage';
-import PreviewPage from './pages/PreviewPage';
 import OnboardingPage from './pages/OnboardingPage';
+import PreviewPage from './pages/PreviewPage';
 import ProfilePage from './pages/ProfilePage';
 import SignupPage from './pages/SignupPage';
 
@@ -360,6 +362,13 @@ export default function App() {
     [withSocialAuth],
   );
 
+  // Enforce onboarding for users who haven't chosen a path yet
+  useEffect(() => {
+    if (isAuthenticated && player && !player.path && route !== '/onboarding') {
+      navigate('/onboarding');
+    }
+  }, [isAuthenticated, player, route, navigate]);
+
   useEffect(() => {
     const protectedRoute = !PUBLIC_ROUTES.includes(route);
 
@@ -416,6 +425,17 @@ export default function App() {
   async function handleSignup(username, password) {
     await signup(username, password);
     setFlashMessage({ type: 'success', text: 'Account created. You can now sign in.' });
+  }
+
+  async function handleGoogleAuth(credential) {
+    const data = await googleAuth(credential);
+    setTokens(data.access, data.refresh);
+    setIsAuthenticated(true);
+    setFlashMessage({
+      type: 'success',
+      text: data.is_new ? 'Welcome, Hunter. Your account has been created.' : 'Welcome back, Hunter.',
+    });
+    navigate('/dashboard');
   }
 
   function handleLogout() {
@@ -505,9 +525,9 @@ export default function App() {
   let page;
 
   if (route === '/login') {
-    page = <LoginPage onLogin={handleLogin} onNavigate={navigate} />;
+    page = <LoginPage onLogin={handleLogin} onGoogleAuth={handleGoogleAuth} onNavigate={navigate} />;
   } else if (route === '/signup') {
-    page = <SignupPage onSignup={handleSignup} onNavigate={navigate} />;
+    page = <SignupPage onSignup={handleSignup} onGoogleAuth={handleGoogleAuth} onNavigate={navigate} />;
   } else if (route === '/onboarding') {
     page = (
       <OnboardingPage
@@ -515,6 +535,7 @@ export default function App() {
         onSelectPath={handleSelectPath}
         onNavigate={navigate}
         savingPath={savingPath}
+        isRequired={!player?.path}
       />
     );
   } else if (route === '/profile') {
@@ -536,6 +557,8 @@ export default function App() {
         onRefreshFriends={loadFriends}
       />
     );
+  } else if (route === '/coming-soon') {
+    page = <ComingSoonPage onNavigate={navigate} />;
   } else if (route === '/preview') {
     page = <PreviewPage />;
   } else if (route === '/groups') {
