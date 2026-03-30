@@ -1,28 +1,50 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  acceptFriendRequest,
+  cancelFriendRequest,
   clearTokens,
   completeQuest,
+  createGroup,
   createPostComment,
   createSocialPost,
+  declineFriendRequest,
   deletePostComment,
+  deleteSocialPost,
   getAccessToken,
+  getNotifications,
+  getFriendRequests,
+  getFriends,
+  getGroupFeed,
+  getGroupMembers,
+  getGroups,
   getPlayerMe,
+  getPublicProfile,
   getQuests,
   getSocialPost,
   getSocialPosts,
+  googleAuth,
+  joinGroup,
+  leaveGroup,
   login,
   removePostReaction,
+  removeFriend,
+  sendFriendRequest,
   setPostReaction,
   setTokens,
   signup,
   updatePlayerPath,
   updatePostComment,
+  updateSocialPost,
 } from './api';
 import Layout from './components/Layout';
+import PlayerProfileModal from './components/PlayerProfileModal';
+import ComingSoonPage from './pages/ComingSoonPage';
 import DashboardPage from './pages/DashboardPage';
 import FeedPage from './pages/FeedPage';
+import GroupsPage from './pages/GroupsPage';
 import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
+import PreviewPage from './pages/PreviewPage';
 import ProfilePage from './pages/ProfilePage';
 import SignupPage from './pages/SignupPage';
 
@@ -60,6 +82,17 @@ export default function App() {
   const [completingQuestId, setCompletingQuestId] = useState(null);
   const [savingPath, setSavingPath] = useState(false);
   const [flashMessage, setFlashMessage] = useState(null);
+  const [friends, setFriends] = useState([]);
+  const [incomingRequests, setIncomingRequests] = useState([]);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
+  const [friendsError, setFriendsError] = useState('');
+  const [groups, setGroups] = useState([]);
+  const [loadingGroups, setLoadingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState('');
+  const [levelUpInfo, setLevelUpInfo] = useState(null);
+  const [viewingProfile, setViewingProfile] = useState(null);
+  const [notifications, setNotifications] = useState([]);
 
   const selectedPath = useMemo(() => player?.path || '', [player?.path]);
   const selectedPathDisplay = useMemo(() => player?.path_display || '', [player?.path_display]);
@@ -139,6 +172,138 @@ export default function App() {
     [handleAuthExpired],
   );
 
+  const loadFriends = useCallback(async () => {
+    setLoadingFriends(true);
+    setFriendsError('');
+    try {
+      const [friendsList, incoming, outgoing] = await Promise.all([
+        getFriends(),
+        getFriendRequests('incoming'),
+        getFriendRequests('outgoing'),
+      ]);
+      setFriends(friendsList);
+      setIncomingRequests(incoming);
+      setOutgoingRequests(outgoing);
+    } catch (error) {
+      if (error.status === 401) { handleAuthExpired(error.message); return; }
+      setFriendsError(error.message || 'Could not load friends.');
+    } finally {
+      setLoadingFriends(false);
+    }
+  }, [handleAuthExpired]);
+
+  const handleSendFriendRequest = useCallback(async (username) => {
+    const profile = await getPublicProfile(username);
+    await sendFriendRequest(profile.id);
+    await loadFriends();
+    setFlashMessage({ type: 'success', text: `Friend request sent to ${username}.` });
+  }, [loadFriends]);
+
+  const handleAcceptRequest = useCallback(async (requestId) => {
+    await acceptFriendRequest(requestId);
+    await loadFriends();
+    setFlashMessage({ type: 'success', text: 'Friend request accepted.' });
+  }, [loadFriends]);
+
+  const handleDeclineRequest = useCallback(async (requestId) => {
+    await declineFriendRequest(requestId);
+    await loadFriends();
+  }, [loadFriends]);
+
+  const handleCancelRequest = useCallback(async (requestId) => {
+    await cancelFriendRequest(requestId);
+    await loadFriends();
+  }, [loadFriends]);
+
+  const handleRemoveFriend = useCallback(async (playerId) => {
+    await removeFriend(playerId);
+    await loadFriends();
+    setFlashMessage({ type: 'success', text: 'Friend removed.' });
+  }, [loadFriends]);
+
+  const loadGroups = useCallback(async () => {
+    setLoadingGroups(true);
+    setGroupsError('');
+    try {
+      const data = await getGroups();
+      setGroups(data);
+    } catch (error) {
+      if (error.status === 401) { handleAuthExpired(error.message); return; }
+      setGroupsError(error.message || 'Could not load groups.');
+    } finally {
+      setLoadingGroups(false);
+    }
+  }, [handleAuthExpired]);
+
+  const handleCreateGroup = useCallback(async ({ name, description, is_private }) => {
+    await createGroup({ name, description, is_private });
+    await loadGroups();
+    setFlashMessage({ type: 'success', text: `Group "${name}" created.` });
+  }, [loadGroups]);
+
+  const handleJoinGroup = useCallback(async (groupId) => {
+    await joinGroup(groupId);
+    await loadGroups();
+    setFlashMessage({ type: 'success', text: 'Joined group.' });
+  }, [loadGroups]);
+
+  const handleLeaveGroup = useCallback(async (groupId) => {
+    await leaveGroup(groupId);
+    await loadGroups();
+    setFlashMessage({ type: 'success', text: 'Left group.' });
+  }, [loadGroups]);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const data = await getNotifications();
+      setNotifications(data);
+    } catch {
+      // non-critical — silently ignore
+    }
+  }, []);
+
+  const handleShareQuest = useCallback(
+    async (quest, note) => {
+      return withSocialAuth(async () => {
+        const body = note
+          ? `Just completed: "${quest.title}" — +${quest.exp_reward} EXP\n\n${note}`
+          : `Just completed: "${quest.title}" — +${quest.exp_reward} EXP earned! 💪`;
+        await createSocialPost({
+          content: body,
+          visibility: 'public',
+          post_type: 'quest_completion',
+        });
+        setFlashMessage({ type: 'success', text: 'Quest shared to feed!' });
+      });
+    },
+    [withSocialAuth],
+  );
+
+  const handleUpdatePost = useCallback(
+    async (postId, { content, visibility }) => {
+      return withSocialAuth(async () => {
+        await updateSocialPost(postId, { content, visibility });
+        await loadFeed({ showLoading: false });
+      });
+    },
+    [loadFeed, withSocialAuth],
+  );
+
+  const handleDeletePost = useCallback(
+    async (postId, onSuccess) => {
+      return withSocialAuth(async () => {
+        await deleteSocialPost(postId);
+        if (onSuccess) {
+          await onSuccess();
+        } else {
+          setFeedPosts((prev) => prev.filter((p) => p.id !== postId));
+        }
+        setFlashMessage({ type: 'success', text: 'Post deleted.' });
+      });
+    },
+    [withSocialAuth],
+  );
+
   const refreshPost = useCallback(
     async (postId) => {
       return withSocialAuth(async () => {
@@ -197,6 +362,13 @@ export default function App() {
     [withSocialAuth],
   );
 
+  // Enforce onboarding for users who haven't chosen a path yet
+  useEffect(() => {
+    if (isAuthenticated && player && !player.path && route !== '/onboarding') {
+      navigate('/onboarding');
+    }
+  }, [isAuthenticated, player, route, navigate]);
+
   useEffect(() => {
     const protectedRoute = !PUBLIC_ROUTES.includes(route);
 
@@ -224,10 +396,23 @@ export default function App() {
       loadDashboard();
     }
 
+    if (isAuthenticated && route === '/profile') {
+      loadFriends();
+    }
+
     if (isAuthenticated && route === '/feed') {
       loadFeed();
     }
-  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, navigate, player, route]);
+
+    if (isAuthenticated && route === '/groups') {
+      loadGroups();
+    }
+
+    if (isAuthenticated) {
+      loadNotifications();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, loadFriends, loadGroups, loadNotifications, navigate, route]);
 
   async function handleLogin(username, password) {
     const tokenData = await login(username, password);
@@ -240,6 +425,17 @@ export default function App() {
   async function handleSignup(username, password) {
     await signup(username, password);
     setFlashMessage({ type: 'success', text: 'Account created. You can now sign in.' });
+  }
+
+  async function handleGoogleAuth(credential) {
+    const data = await googleAuth(credential);
+    setTokens(data.access, data.refresh);
+    setIsAuthenticated(true);
+    setFlashMessage({
+      type: 'success',
+      text: data.is_new ? 'Welcome, Hunter. Your account has been created.' : 'Welcome back, Hunter.',
+    });
+    navigate('/dashboard');
   }
 
   function handleLogout() {
@@ -271,8 +467,9 @@ export default function App() {
     }
   }
 
-  async function handleCompleteQuest(questId) {
+  async function handleCompleteQuest(questId, note) {
     setCompletingQuestId(questId);
+    const questForShare = quests.find((q) => q.id === questId);
 
     try {
       const response = await completeQuest(questId);
@@ -293,12 +490,27 @@ export default function App() {
         ),
       );
 
-      setFlashMessage({
-        type: 'success',
-        text: response.leveled_up
-          ? `Quest complete! +${response.exp_gained} EXP. Level up!`
-          : `Quest complete! +${response.exp_gained} EXP.`,
-      });
+      // Auto-share to feed when note is provided (Feature B)
+      if (note && questForShare) {
+        try {
+          await createSocialPost({
+            content: `Just completed: "${questForShare.title}" — +${questForShare.exp_reward} EXP\n\n${note}`,
+            visibility: 'public',
+            post_type: 'quest_completion',
+          });
+        } catch {
+          // share failure is non-critical
+        }
+      }
+
+      if (response.leveled_up) {
+        setLevelUpInfo({ newLevel: response.new_level });
+      } else {
+        setFlashMessage({
+          type: 'success',
+          text: note ? `Quest complete! +${response.exp_gained} EXP — shared to feed.` : `Quest complete! +${response.exp_gained} EXP.`,
+        });
+      }
     } catch (error) {
       if (error.status === 401) {
         handleAuthExpired(error.message);
@@ -313,9 +525,9 @@ export default function App() {
   let page;
 
   if (route === '/login') {
-    page = <LoginPage onLogin={handleLogin} onNavigate={navigate} />;
+    page = <LoginPage onLogin={handleLogin} onGoogleAuth={handleGoogleAuth} onNavigate={navigate} />;
   } else if (route === '/signup') {
-    page = <SignupPage onSignup={handleSignup} onNavigate={navigate} />;
+    page = <SignupPage onSignup={handleSignup} onGoogleAuth={handleGoogleAuth} onNavigate={navigate} />;
   } else if (route === '/onboarding') {
     page = (
       <OnboardingPage
@@ -323,10 +535,53 @@ export default function App() {
         onSelectPath={handleSelectPath}
         onNavigate={navigate}
         savingPath={savingPath}
+        isRequired={!player?.path}
       />
     );
   } else if (route === '/profile') {
-    page = <ProfilePage player={player} selectedPathDisplay={selectedPathDisplay} onNavigate={navigate} />;
+    page = (
+      <ProfilePage
+        player={player}
+        selectedPathDisplay={selectedPathDisplay}
+        onNavigate={navigate}
+        friends={friends}
+        incomingRequests={incomingRequests}
+        outgoingRequests={outgoingRequests}
+        loadingFriends={loadingFriends}
+        friendsError={friendsError}
+        onSendFriendRequest={handleSendFriendRequest}
+        onAcceptRequest={handleAcceptRequest}
+        onDeclineRequest={handleDeclineRequest}
+        onCancelRequest={handleCancelRequest}
+        onRemoveFriend={handleRemoveFriend}
+        onRefreshFriends={loadFriends}
+      />
+    );
+  } else if (route === '/coming-soon') {
+    page = <ComingSoonPage onNavigate={navigate} />;
+  } else if (route === '/preview') {
+    page = <PreviewPage />;
+  } else if (route === '/groups') {
+    page = (
+      <GroupsPage
+        groups={groups}
+        loading={loadingGroups}
+        error={groupsError}
+        currentPlayerId={player?.id}
+        onRefresh={loadGroups}
+        onCreateGroup={handleCreateGroup}
+        onJoinGroup={handleJoinGroup}
+        onLeaveGroup={handleLeaveGroup}
+        onAddComment={handleAddComment}
+        onUpdateComment={handleUpdateComment}
+        onDeleteComment={handleDeleteComment}
+        onSetReaction={handleSetReaction}
+        onRemoveReaction={handleRemoveReaction}
+        onViewProfile={setViewingProfile}
+        onUpdatePost={handleUpdatePost}
+        onDeletePost={handleDeletePost}
+      />
+    );
   } else if (route === '/feed') {
     page = (
       <FeedPage
@@ -342,6 +597,12 @@ export default function App() {
         onDeleteComment={handleDeleteComment}
         onSetReaction={handleSetReaction}
         onRemoveReaction={handleRemoveReaction}
+        onViewProfile={setViewingProfile}
+        onUpdatePost={handleUpdatePost}
+        onDeletePost={handleDeletePost}
+        player={player}
+        friends={friends}
+        onNavigate={navigate}
       />
     );
   } else {
@@ -356,6 +617,9 @@ export default function App() {
         completingQuestId={completingQuestId}
         selectedPathDisplay={selectedPathDisplay}
         onNavigate={navigate}
+        levelUpInfo={levelUpInfo}
+        onDismissLevelUp={() => setLevelUpInfo(null)}
+        onShareQuest={handleShareQuest}
       />
     );
   }
@@ -367,8 +631,20 @@ export default function App() {
       onLogout={handleLogout}
       flashMessage={flashMessage}
       onDismissFlash={() => setFlashMessage(null)}
+      route={route}
+      playerName={player?.username}
+      incomingRequestCount={incomingRequests.length}
+      notifications={notifications}
     >
       {page}
+      {viewingProfile && (
+        <PlayerProfileModal
+          username={viewingProfile}
+          onClose={() => setViewingProfile(null)}
+          onSendRequest={handleSendFriendRequest}
+          currentPlayerId={player?.id}
+        />
+      )}
     </Layout>
   );
 }

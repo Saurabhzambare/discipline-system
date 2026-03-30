@@ -1,13 +1,15 @@
 """HTTP API endpoints for social features with thin view logic."""
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Count
+from django.db.models import Count, Exists, OuterRef
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import PostComment, SocialGroup
+from players.models import Player
+
+from .models import FriendRequest, GroupMembership, PostComment, PostReaction, SocialGroup
 from .selectors import (
     profile_activity_queryset,
     profile_posts_queryset,
@@ -372,7 +374,12 @@ class PostReactionView(SocialBaseView):
 
 class GroupListCreateView(SocialBaseView):
     def get(self, request):
-        groups = visible_groups_queryset_for_player(player=request.user.player).annotate(member_count=Count("memberships"))
+        groups = visible_groups_queryset_for_player(player=request.user.player).annotate(
+            member_count=Count("memberships"),
+            is_member=Exists(
+                GroupMembership.objects.filter(group=OuterRef("pk"), player=request.user.player)
+            ),
+        )
         return Response(GroupSerializer(groups, many=True).data)
 
     def post(self, request):
@@ -442,3 +449,86 @@ class GroupFeedView(SocialBaseView):
             return self.not_found(error)
 
         return Response(SocialPostSerializer(posts, many=True).data)
+
+
+class PlayerSearchView(SocialBaseView):
+    """Search players by username prefix for friend discovery."""
+
+    def get(self, request):
+        q = request.query_params.get("q", "").strip()
+        if len(q) < 2:
+            return Response([])
+
+        players = (
+            Player.objects.select_related("user")
+            .filter(user__username__icontains=q)
+            .exclude(id=request.user.player.id)
+            .order_by("user__username")[:10]
+        )
+
+        results = [
+            {"id": p.id, "username": p.user.username, "level": p.level}
+            for p in players
+        ]
+        return Response(results)
+
+
+class NotificationsView(SocialBaseView):
+    """Aggregated recent notifications: comments, reactions, and friend requests."""
+
+    EMOJI = {"like": "👍", "fire": "🔥", "respect": "💪", "clap": "👏"}
+
+    def get(self, request):
+        player = request.user.player
+        notifications = []
+
+        # Comments on my posts by others
+        comments = (
+            PostComment.objects.filter(post__author=player)
+            .exclude(author=player)
+            .select_related("author__user", "post")
+            .order_by("-created_at")[:15]
+        )
+        for c in comments:
+            notifications.append({
+                "id": f"comment_{c.id}",
+                "type": "comment",
+                "text": f"{c.author.user.username} commented on your post",
+                "preview": c.content[:120],
+                "created_at": c.created_at.isoformat(),
+            })
+
+        # Reactions on my posts by others
+        reactions = (
+            PostReaction.objects.filter(post__author=player)
+            .exclude(player=player)
+            .select_related("player__user", "post")
+            .order_by("-created_at")[:15]
+        )
+        for r in reactions:
+            emoji = self.EMOJI.get(r.reaction_type, "❤️")
+            notifications.append({
+                "id": f"reaction_{r.id}",
+                "type": "reaction",
+                "text": f"{r.player.user.username} reacted {emoji} to your post",
+                "preview": r.post.content[:120],
+                "created_at": r.created_at.isoformat(),
+            })
+
+        # Pending incoming friend requests
+        friend_requests = (
+            FriendRequest.objects.filter(to_player=player, status=FriendRequest.STATUS_PENDING)
+            .select_related("from_player__user")
+            .order_by("-created_at")[:10]
+        )
+        for fr in friend_requests:
+            notifications.append({
+                "id": f"fr_{fr.id}",
+                "type": "friend_request",
+                "text": f"{fr.from_player.user.username} sent you a friend request",
+                "preview": None,
+                "created_at": fr.created_at.isoformat(),
+            })
+
+        notifications.sort(key=lambda x: x["created_at"], reverse=True)
+        return Response(notifications[:25])

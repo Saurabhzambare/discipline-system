@@ -147,15 +147,43 @@ export async function getSocialPost(postId) {
   return authedRequest(`/api/social/posts/${postId}/`);
 }
 
-export async function createSocialPost({ content, visibility }) {
+export async function googleAuth(credential) {
+  return request('/api/auth/google/', {
+    method: 'POST',
+    body: { credential },
+    auth: false,
+  });
+}
+
+export async function createSocialPost({ content, visibility, group_id, post_type } = {}) {
   return authedRequest('/api/social/posts/', {
     method: 'POST',
     body: {
       content,
       visibility,
-      post_type: 'update',
+      post_type: post_type || 'update',
+      ...(group_id != null ? { group_id } : {}),
     },
   });
+}
+
+export async function updateSocialPost(postId, { content, visibility }) {
+  return authedRequest(`/api/social/posts/${postId}/`, {
+    method: 'PATCH',
+    body: { content, visibility },
+  });
+}
+
+export async function deleteSocialPost(postId) {
+  return authedRequest(`/api/social/posts/${postId}/`, { method: 'DELETE' });
+}
+
+export async function searchPlayers(q) {
+  return authedRequest(`/api/social/players/search/?q=${encodeURIComponent(q)}`);
+}
+
+export async function getNotifications() {
+  return authedRequest('/api/social/notifications/');
 }
 
 export async function getPostComments(postId) {
@@ -193,4 +221,79 @@ export async function removePostReaction(postId) {
   return authedRequest(`/api/social/posts/${postId}/reaction/`, {
     method: 'DELETE',
   });
+}
+
+// ── Friends ──────────────────────────────────────────────────────────────────
+
+export async function getFriends() {
+  return authedRequest('/api/social/friends/');
+}
+
+export async function getFriendRequests(direction) {
+  const query = direction ? `?direction=${direction}` : '';
+  return authedRequest(`/api/social/friends/requests/${query}`);
+}
+
+export async function sendFriendRequest(toPlayerId) {
+  return authedRequest('/api/social/friends/requests/', {
+    method: 'POST',
+    body: { to_player_id: toPlayerId },
+  });
+}
+
+export async function acceptFriendRequest(requestId) {
+  return authedRequest(`/api/social/friends/requests/${requestId}/accept/`, {
+    method: 'POST',
+  });
+}
+
+export async function declineFriendRequest(requestId) {
+  return authedRequest(`/api/social/friends/requests/${requestId}/decline/`, {
+    method: 'POST',
+  });
+}
+
+export async function cancelFriendRequest(requestId) {
+  return authedRequest(`/api/social/friends/requests/${requestId}/cancel/`, {
+    method: 'POST',
+  });
+}
+
+export async function removeFriend(playerId) {
+  return authedRequest(`/api/social/friends/${playerId}/`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getPublicProfile(identifier) {
+  return authedRequest(`/api/social/profiles/${identifier}/`);
+}
+
+// ── Groups ────────────────────────────────────────────────────────────────────
+
+export async function getGroups() {
+  return authedRequest('/api/social/groups/');
+}
+
+export async function createGroup({ name, description, is_private }) {
+  return authedRequest('/api/social/groups/', {
+    method: 'POST',
+    body: { name, description, is_private },
+  });
+}
+
+export async function joinGroup(groupId) {
+  return authedRequest(`/api/social/groups/${groupId}/join/`, { method: 'POST' });
+}
+
+export async function leaveGroup(groupId) {
+  return authedRequest(`/api/social/groups/${groupId}/leave/`, { method: 'POST' });
+}
+
+export async function getGroupMembers(groupId) {
+  return authedRequest(`/api/social/groups/${groupId}/members/`);
+}
+
+export async function getGroupFeed(groupId) {
+  return authedRequest(`/api/social/groups/${groupId}/feed/`);
 }

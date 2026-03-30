@@ -12,6 +12,8 @@ from .views import (
     GroupLeaveView,
     GroupListCreateView,
     GroupMembershipListView,
+    NotificationsView,
+    PlayerSearchView,
     PostCommentDetailView,
     PostCommentListCreateView,
     PostReactionView,
@@ -38,4 +40,6 @@ urlpatterns = [
     path("groups/<int:group_id>/leave/", GroupLeaveView.as_view(), name="social-group-leave"),
     path("groups/<int:group_id>/members/", GroupMembershipListView.as_view(), name="social-group-members"),
     path("groups/<int:group_id>/feed/", GroupFeedView.as_view(), name="social-group-feed"),
+    path("players/search/", PlayerSearchView.as_view(), name="social-player-search"),
+    path("notifications/", NotificationsView.as_view(), name="social-notifications"),
 ]
