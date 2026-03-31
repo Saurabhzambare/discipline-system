@@ -11,18 +11,27 @@ PATH_CHOICES = [
 # ── PATH DISCOVERY ────────────────────────────────────────────────────────────
 
 class PathDiscoveryQuiz(models.Model):
-    """9-question quiz that determines path fit scores for a player."""
-    player = models.OneToOneField(
+    """
+    9-question identity quiz that determines path fit scores.
+    Multiple records can exist per player — retakes create new records.
+    Previous quiz records are NEVER deleted (see path-discovery.md).
+    """
+    player = models.ForeignKey(
         "players.Player",
         on_delete=models.CASCADE,
-        related_name="path_discovery_quiz",
+        related_name="path_discovery_quizzes",
     )
-    answers_json = models.JSONField(default=dict)  # {q_index: answer_value}
+    completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
+    retake_count = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["-created_at"]
+
     def __str__(self):
-        return f"{self.player.user.username} — quiz"
+        label = f"retake #{self.retake_count}" if self.retake_count else "initial"
+        return f"{self.player.user.username} — quiz ({label})"
 
 
 class QuizAnswer(models.Model):
@@ -32,16 +41,16 @@ class QuizAnswer(models.Model):
         on_delete=models.CASCADE,
         related_name="answers",
     )
-    question_index = models.PositiveSmallIntegerField()  # 0–8
-    answer_value = models.SmallIntegerField()             # e.g. 1–5 Likert scale
+    question_number = models.PositiveSmallIntegerField()  # 1–9
+    answer_key = models.CharField(max_length=1)           # A / B / C / D / E
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = [("quiz", "question_index")]
+        unique_together = [("quiz", "question_number")]
 
     def __str__(self):
-        return f"Quiz {self.quiz_id} Q{self.question_index}={self.answer_value}"
+        return f"Quiz {self.quiz_id} Q{self.question_number}={self.answer_key}"
 
 
 class PathMatchScore(models.Model):
@@ -52,14 +61,15 @@ class PathMatchScore(models.Model):
         related_name="scores",
     )
     path = models.CharField(max_length=30, choices=PATH_CHOICES)
-    score = models.FloatField()
+    raw_score = models.PositiveSmallIntegerField(default=0)
+    match_percentage = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self):
-        return f"Quiz {self.quiz_id} — {self.path}: {self.score}"
+        return f"Quiz {self.quiz_id} — {self.path}: {self.match_percentage}%"
 
 
 class UserPathSelection(models.Model):
-    """The path the player committed to after seeing quiz results."""
+    """The path(s) the player has committed to."""
     player = models.OneToOneField(
         "players.Player",
         on_delete=models.CASCADE,
@@ -68,6 +78,9 @@ class UserPathSelection(models.Model):
     path = models.CharField(max_length=30, choices=PATH_CHOICES)
     committed_at = models.DateTimeField(auto_now_add=True)
     onboarding_complete = models.BooleanField(default=False)
+    # Multi-path unlock: additional paths unlocked after 30-day milestones
+    multi_paths_active = models.JSONField(default=list)   # e.g. ["fitness_warrior", "mindset_sage"]
+    multi_path_unlock_day = models.PositiveSmallIntegerField(default=30)  # day threshold for next unlock
 
     def __str__(self):
         return f"{self.player.user.username} → {self.path}"
