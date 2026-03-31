@@ -1,0 +1,470 @@
+from django.db import models
+
+PATH_CHOICES = [
+    ("fitness_warrior", "Fitness Warrior"),
+    ("mindset_sage", "Mindset Sage"),
+    ("health_alchemist", "Health Alchemist"),
+    ("discipline_knight", "Discipline Knight"),
+    ("grind_visionary", "Grind Visionary"),
+]
+
+# ── PATH DISCOVERY ────────────────────────────────────────────────────────────
+
+class PathDiscoveryQuiz(models.Model):
+    """9-question quiz that determines path fit scores for a player."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="path_discovery_quiz",
+    )
+    answers_json = models.JSONField(default=dict)  # {q_index: answer_value}
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — quiz"
+
+
+class QuizAnswer(models.Model):
+    """Individual answer record per question within a quiz."""
+    quiz = models.ForeignKey(
+        PathDiscoveryQuiz,
+        on_delete=models.CASCADE,
+        related_name="answers",
+    )
+    question_index = models.PositiveSmallIntegerField()  # 0–8
+    answer_value = models.SmallIntegerField()             # e.g. 1–5 Likert scale
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("quiz", "question_index")]
+
+    def __str__(self):
+        return f"Quiz {self.quiz_id} Q{self.question_index}={self.answer_value}"
+
+
+class PathMatchScore(models.Model):
+    """Computed fit score per path after quiz completion."""
+    quiz = models.ForeignKey(
+        PathDiscoveryQuiz,
+        on_delete=models.CASCADE,
+        related_name="scores",
+    )
+    path = models.CharField(max_length=30, choices=PATH_CHOICES)
+    score = models.FloatField()
+
+    def __str__(self):
+        return f"Quiz {self.quiz_id} — {self.path}: {self.score}"
+
+
+class UserPathSelection(models.Model):
+    """The path the player committed to after seeing quiz results."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="path_selection",
+    )
+    path = models.CharField(max_length=30, choices=PATH_CHOICES)
+    committed_at = models.DateTimeField(auto_now_add=True)
+    onboarding_complete = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.player.user.username} → {self.path}"
+
+
+# ── FITNESS WARRIOR ───────────────────────────────────────────────────────────
+
+class SplitDayState(models.Model):
+    """Tracks which muscle-group split day the Warrior is currently on."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="split_day_state",
+    )
+    current_split = models.CharField(max_length=30, default="push")
+    last_updated = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — split: {self.current_split}"
+
+
+class WisdomLog(models.Model):
+    """Daily wisdom/reflection entry for Warrior journaling mechanic."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="wisdom_logs",
+    )
+    entry = models.TextField()
+    log_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "log_date")]
+        ordering = ["-log_date"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — wisdom {self.log_date}"
+
+
+# ── MINDSET SAGE ──────────────────────────────────────────────────────────────
+
+class FreedomDayToken(models.Model):
+    """One token = one earned rest day the Sage can cash in."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="freedom_tokens",
+    )
+    earned_on = models.DateField()
+    used_on = models.DateField(null=True, blank=True)
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["earned_on"]
+
+    def __str__(self):
+        status = "used" if self.is_used else "available"
+        return f"{self.player.user.username} — freedom token ({status})"
+
+
+# ── HEALTH ALCHEMIST ──────────────────────────────────────────────────────────
+
+class BodyJournal(models.Model):
+    """Daily body metrics log for the Alchemist."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="body_journals",
+    )
+    log_date = models.DateField()
+    weight_kg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    sleep_hours = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    energy_level = models.PositiveSmallIntegerField(null=True, blank=True)  # 1–10
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "log_date")]
+        ordering = ["-log_date"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — body journal {self.log_date}"
+
+
+class ElixirProgress(models.Model):
+    """Tracks the Alchemist's elixir-crafting progression."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="elixir_progress",
+    )
+    elixir_level = models.PositiveSmallIntegerField(default=1)
+    current_formula = models.CharField(max_length=100, blank=True, default="")
+    brews_completed = models.PositiveIntegerField(default=0)
+    last_brew_date = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — elixir lv{self.elixir_level}"
+
+
+class EquipmentProfile(models.Model):
+    """Equipment available to a player — used for quest filtering."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="equipment_profile",
+    )
+    equipment_list = models.JSONField(default=list)  # ["barbell", "resistance_band", ...]
+
+    def __str__(self):
+        return f"{self.player.user.username} — equipment profile"
+
+
+# ── DISCIPLINE KNIGHT ─────────────────────────────────────────────────────────
+
+class ArmorPiece(models.Model):
+    """Individual armor piece the Knight earns by completing quests."""
+    SLOT_CHOICES = [
+        ("helmet", "Helmet"),
+        ("chest", "Chest"),
+        ("gauntlets", "Gauntlets"),
+        ("legs", "Legs"),
+        ("boots", "Boots"),
+        ("shield", "Shield"),
+    ]
+
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="armor_pieces",
+    )
+    slot = models.CharField(max_length=20, choices=SLOT_CHOICES)
+    name = models.CharField(max_length=100)
+    earned_at = models.DateTimeField(auto_now_add=True)
+    is_equipped = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [("player", "slot")]
+
+    def __str__(self):
+        return f"{self.player.user.username} — {self.slot}: {self.name}"
+
+
+class DisciplineCode(models.Model):
+    """The Knight's personal code of honor — custom commitments."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="discipline_code",
+    )
+    code_items = models.JSONField(default=list)  # ["No excuses", "Train daily", ...]
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — discipline code"
+
+
+class GraceToken(models.Model):
+    """Allows the Knight to miss one quest without breaking their streak."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="grace_tokens",
+    )
+    earned_on = models.DateField()
+    used_on = models.DateField(null=True, blank=True)
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["earned_on"]
+
+    def __str__(self):
+        status = "used" if self.is_used else "available"
+        return f"{self.player.user.username} — grace token ({status})"
+
+
+class StreakShield(models.Model):
+    """Protects the Knight's streak from one failure day."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="streak_shield",
+    )
+    shields_available = models.PositiveSmallIntegerField(default=0)
+    last_earned_date = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — {self.shields_available} shield(s)"
+
+
+class TemptationLog(models.Model):
+    """Knight logs temptations resisted — builds willpower XP."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="temptation_logs",
+    )
+    description = models.TextField()
+    log_date = models.DateField()
+    resisted = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-log_date"]
+
+    def __str__(self):
+        outcome = "resisted" if self.resisted else "failed"
+        return f"{self.player.user.username} — temptation {outcome} {self.log_date}"
+
+
+class WarRoomEntry(models.Model):
+    """Knight's weekly battle plan and reflection."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="war_room_entries",
+    )
+    week_start = models.DateField()
+    objectives = models.JSONField(default=list)
+    reflection = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "week_start")]
+        ordering = ["-week_start"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — war room {self.week_start}"
+
+
+# ── GRIND VISIONARY ───────────────────────────────────────────────────────────
+
+class WeeklyReport(models.Model):
+    """Visionary's weekly output report — accountability document."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="weekly_reports",
+    )
+    week_start = models.DateField()
+    revenue_usd = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tasks_completed = models.PositiveIntegerField(default=0)
+    reflection = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "week_start")]
+        ordering = ["-week_start"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — weekly report {self.week_start}"
+
+
+class SingularGoal(models.Model):
+    """The Visionary's one obsessive goal at a time."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="singular_goal",
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    target_date = models.DateField(null=True, blank=True)
+    is_achieved = models.BooleanField(default=False)
+    achieved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — goal: {self.title}"
+
+
+class XPMultiplier(models.Model):
+    """Active XP multiplier for the Visionary's output quests."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="xp_multiplier",
+    )
+    multiplier = models.DecimalField(max_digits=4, decimal_places=2, default=1.0)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    source = models.CharField(max_length=100, blank=True, default="")
+
+    def __str__(self):
+        return f"{self.player.user.username} — {self.multiplier}x XP"
+
+
+class MultiplierProtection(models.Model):
+    """Prevents the Visionary's XP multiplier from resetting on a missed day."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="multiplier_protections",
+    )
+    earned_on = models.DateField()
+    used_on = models.DateField(null=True, blank=True)
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["earned_on"]
+
+    def __str__(self):
+        status = "used" if self.is_used else "available"
+        return f"{self.player.user.username} — multiplier protection ({status})"
+
+
+class OutputLog(models.Model):
+    """Daily output log for the Visionary — deep work hours, tasks shipped, revenue."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="output_logs",
+    )
+    log_date = models.DateField()
+    deep_work_hours = models.DecimalField(max_digits=4, decimal_places=2, default=0)
+    tasks_shipped = models.PositiveSmallIntegerField(default=0)
+    revenue_usd = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "log_date")]
+        ordering = ["-log_date"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — output {self.log_date}"
+
+
+# ── CROSS-PATH / SHARED ───────────────────────────────────────────────────────
+
+class SkillTree(models.Model):
+    """Per-player, per-path skill tree root."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="skill_trees",
+    )
+    path = models.CharField(max_length=30, choices=PATH_CHOICES)
+
+    class Meta:
+        unique_together = [("player", "path")]
+
+    def __str__(self):
+        return f"{self.player.user.username} — {self.path} skill tree"
+
+
+class SkillTreeNode(models.Model):
+    """Individual unlockable node in a skill tree."""
+    tree = models.ForeignKey(
+        SkillTree,
+        on_delete=models.CASCADE,
+        related_name="nodes",
+    )
+    node_key = models.CharField(max_length=50)
+    is_unlocked = models.BooleanField(default=False)
+    unlocked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = [("tree", "node_key")]
+
+    def __str__(self):
+        status = "unlocked" if self.is_unlocked else "locked"
+        return f"Tree {self.tree_id} — {self.node_key} ({status})"
+
+
+class AccountabilityPartner(models.Model):
+    """Links two players as mutual accountability partners."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="accountability_sent",
+    )
+    partner = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="accountability_received",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = [("player", "partner")]
+
+    def __str__(self):
+        return f"{self.player.user.username} ↔ {self.partner.user.username}"
+
+
+class PostFirstDollarChain(models.Model):
+    """Visionary milestone: consecutive days with revenue > $0."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="post_first_dollar_chain",
+    )
+    current_chain = models.PositiveIntegerField(default=0)
+    longest_chain = models.PositiveIntegerField(default=0)
+    last_revenue_date = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — ${self.current_chain}d chain"
