@@ -36,6 +36,9 @@ import {
   updatePostComment,
   updateSocialPost,
 } from './api';
+import { PathContext } from './contexts/PathContext';
+import { PlayerContext } from './contexts/PlayerContext';
+import { QuestContext } from './contexts/QuestContext';
 import Layout from './components/Layout';
 import PlayerProfileModal from './components/PlayerProfileModal';
 import ComingSoonPage from './pages/ComingSoonPage';
@@ -625,26 +628,57 @@ export default function App() {
   }
 
   return (
-    <Layout
-      onNavigate={navigate}
-      isAuthenticated={isAuthenticated}
-      onLogout={handleLogout}
-      flashMessage={flashMessage}
-      onDismissFlash={() => setFlashMessage(null)}
-      route={route}
-      playerName={player?.username}
-      incomingRequestCount={incomingRequests.length}
-      notifications={notifications}
+    <PlayerContext.Provider
+      value={{
+        player,
+        setPlayer,
+        loadingDashboard,
+        dashboardError,
+        levelUpInfo,
+        setLevelUpInfo,
+        loadDashboard,
+        handleAuthExpired,
+      }}
     >
-      {page}
-      {viewingProfile && (
-        <PlayerProfileModal
-          username={viewingProfile}
-          onClose={() => setViewingProfile(null)}
-          onSendRequest={handleSendFriendRequest}
-          currentPlayerId={player?.id}
-        />
-      )}
-    </Layout>
+      <QuestContext.Provider
+        value={{
+          quests,
+          setQuests,
+          completingQuestId,
+          handleCompleteQuest,
+        }}
+      >
+        <PathContext.Provider
+          value={{
+            selectedPath,
+            selectedPathDisplay,
+            savingPath,
+            handleSelectPath,
+          }}
+        >
+          <Layout
+            onNavigate={navigate}
+            isAuthenticated={isAuthenticated}
+            onLogout={handleLogout}
+            flashMessage={flashMessage}
+            onDismissFlash={() => setFlashMessage(null)}
+            route={route}
+            playerName={player?.username}
+            incomingRequestCount={incomingRequests.length}
+            notifications={notifications}
+          >
+            {page}
+            {viewingProfile && (
+              <PlayerProfileModal
+                username={viewingProfile}
+                onClose={() => setViewingProfile(null)}
+                onSendRequest={handleSendFriendRequest}
+                currentPlayerId={player?.id}
+              />
+            )}
+          </Layout>
+        </PathContext.Provider>
+      </QuestContext.Provider>
+    </PlayerContext.Provider>
   );
 }
