@@ -49,14 +49,35 @@ class Quest(models.Model):
     # Optional path targeting. Empty means quest is valid for all paths.
     PATH_TARGET_CHOICES = [
         ("", "All Paths"),
-        ("runner", "Runner"),
-        ("gym", "Gym"),
-        ("discipline", "Discipline"),
-        ("tournament", "Tournament"),
-        ("75_hard", "75 Hard"),
+        ("fitness_warrior", "Fitness Warrior"),
+        ("mindset_sage", "Mindset Sage"),
+        ("health_alchemist", "Health Alchemist"),
+        ("discipline_knight", "Discipline Knight"),
+        ("grind_visionary", "Grind Visionary"),
     ]
 
-    path_target = models.CharField(max_length=20, choices=PATH_TARGET_CHOICES, blank=True, default="")
+    RANK_CHOICES = [
+        ("E", "E"), ("D", "D"), ("C", "C"),
+        ("B", "B"), ("A", "A"), ("S", "S"),
+    ]
+
+    PILLAR_CHOICES = [
+        ("body", "Body"),
+        ("mind", "Mind"),
+        ("soul", "Soul"),
+        ("output", "Output"),
+    ]
+
+    path_target = models.CharField(max_length=30, choices=PATH_TARGET_CHOICES, blank=True, default="")
+    rank = models.CharField(max_length=10, choices=RANK_CHOICES, default="E")
+    pillar = models.CharField(max_length=20, choices=PILLAR_CHOICES, default="body")
+    pack_id = models.CharField(max_length=50, blank=True, default="")
+    cooldown_days = models.PositiveSmallIntegerField(default=0)
+    universal_daily = models.BooleanField(default=False)
+    is_rest_day_quest = models.BooleanField(default=False)
+    is_weekly_boss = models.BooleanField(default=False)
+    is_one_time_only = models.BooleanField(default=False)
+    equipment_required = models.CharField(max_length=100, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
