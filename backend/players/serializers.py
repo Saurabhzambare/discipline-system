@@ -18,6 +18,8 @@ class PlayerSerializer(serializers.ModelSerializer):
             "streak",
             "path",
             "path_display",
+            "timezone",
+            "last_active_date",
             "created_at",
             "updated_at",
         ]
