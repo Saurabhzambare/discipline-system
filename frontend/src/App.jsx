@@ -36,7 +36,7 @@ import {
   updatePostComment,
   updateSocialPost,
 } from './api';
-import { PathContext } from './contexts/PathContext';
+import { PathContext, PathProvider } from './contexts/PathContext';
 import { PlayerContext } from './contexts/PlayerContext';
 import { QuestContext } from './contexts/QuestContext';
 import Layout from './components/Layout';
@@ -648,14 +648,7 @@ export default function App() {
           handleCompleteQuest,
         }}
       >
-        <PathContext.Provider
-          value={{
-            selectedPath,
-            selectedPathDisplay,
-            savingPath,
-            handleSelectPath,
-          }}
-        >
+        <PathProvider onPathSelected={(updatedPlayer) => setPlayer(updatedPlayer)}>
           <Layout
             onNavigate={navigate}
             isAuthenticated={isAuthenticated}
@@ -677,7 +670,7 @@ export default function App() {
               />
             )}
           </Layout>
-        </PathContext.Provider>
+        </PathProvider>
       </QuestContext.Provider>
     </PlayerContext.Provider>
   );
