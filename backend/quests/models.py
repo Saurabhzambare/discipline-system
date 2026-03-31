@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import SET_NULL
 from django.utils import timezone
 
 
@@ -161,3 +162,174 @@ class QuestCompletion(models.Model):
 
     def __str__(self):
         return f"{self.player.user.username} - {self.quest.title} - {self.completion_date}"
+
+
+# ── DAILY QUEST LINEUP ────────────────────────────────────────────────────────
+
+class DailyQuestLineup(models.Model):
+    """
+    Ordered daily lineup of 5–7 quests generated for a player each day.
+    Immutable once generated — swaps are recorded separately in DailySwap.
+    """
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="daily_lineups",
+    )
+    lineup_date = models.DateField()
+    quest_ids = models.JSONField(default=list)  # ordered list of quest PKs
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "lineup_date")]
+        ordering = ["-lineup_date"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — lineup {self.lineup_date}"
+
+
+class QuestFeedback(models.Model):
+    """Player thumbs-up/down on a quest — feeds the assignment algorithm."""
+    RATING_UP = "up"
+    RATING_DOWN = "down"
+    RATING_CHOICES = [(RATING_UP, "Up"), (RATING_DOWN, "Down")]
+
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="quest_feedback",
+    )
+    quest = models.ForeignKey(
+        "quests.Quest",
+        on_delete=models.CASCADE,
+        related_name="feedback",
+    )
+    rating = models.CharField(max_length=4, choices=RATING_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "quest")]
+
+    def __str__(self):
+        return f"{self.player.user.username} — {self.quest.title}: {self.rating}"
+
+
+class QuestPreference(models.Model):
+    """Per-player preference weight for a quest — updated from feedback."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="quest_preferences",
+    )
+    quest = models.ForeignKey(
+        "quests.Quest",
+        on_delete=models.CASCADE,
+        related_name="preferences",
+    )
+    weight = models.FloatField(default=1.0)  # >1 = prefer, <1 = suppress
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("player", "quest")]
+
+    def __str__(self):
+        return f"{self.player.user.username} — {self.quest.title}: {self.weight}"
+
+
+class DailyIntention(models.Model):
+    """Player's one-line focus intention for the day."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="daily_intentions",
+    )
+    intention_date = models.DateField()
+    text = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "intention_date")]
+        ordering = ["-intention_date"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — intention {self.intention_date}"
+
+
+class DailySwap(models.Model):
+    """
+    Records a player swapping one quest out of their lineup for another.
+    Players have a limited number of swaps per day.
+    """
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="daily_swaps",
+    )
+    swap_date = models.DateField()
+    quest_removed = models.ForeignKey(
+        "quests.Quest",
+        on_delete=SET_NULL,
+        null=True,
+        related_name="swapped_out",
+    )
+    quest_added = models.ForeignKey(
+        "quests.Quest",
+        on_delete=SET_NULL,
+        null=True,
+        related_name="swapped_in",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-swap_date"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — swap {self.swap_date}"
+
+
+class CrossPathBonus(models.Model):
+    """
+    Bonus XP event triggered when a player completes quests across multiple
+    pillars in a single day (cross-path synergy reward).
+    """
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="cross_path_bonuses",
+    )
+    bonus_date = models.DateField()
+    pillars_completed = models.JSONField(default=list)  # e.g. ["body", "mind"]
+    bonus_exp = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "bonus_date")]
+        ordering = ["-bonus_date"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — cross-path bonus {self.bonus_date}"
+
+
+class DailyCompletionSummary(models.Model):
+    """
+    End-of-day snapshot: total EXP earned, quests completed, streak state.
+    Written once per player per day by the quest completion service.
+    """
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="daily_summaries",
+    )
+    summary_date = models.DateField()
+    quests_completed = models.PositiveSmallIntegerField(default=0)
+    total_exp_earned = models.PositiveIntegerField(default=0)
+    streak_maintained = models.BooleanField(default=True)
+    cross_path_bonus_earned = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "summary_date")]
+        ordering = ["-summary_date"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — summary {self.summary_date}"
