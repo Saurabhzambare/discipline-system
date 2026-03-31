@@ -1,3 +1,4 @@
+import math
 from datetime import timedelta
 
 from django.db import transaction
@@ -13,8 +14,26 @@ DIFFICULTY_MULTIPLIERS = {
 
 
 def calculate_level_from_exp(exp: int) -> int:
-    # Linear progression rule used across the backend as source of truth.
-    return (exp // 100) + 1
+    # Quadratic formula: EXP needed to reach level L = L² × 50 − 50.
+    # Inverse: max(1, floor(sqrt((exp + 50) / 50)))
+    return max(1, int(math.sqrt((exp + 50) / 50)))
+
+
+def calculate_exp_for_level(level: int) -> int:
+    """Total EXP required to reach `level` from zero."""
+    return max(0, level * level * 50 - 50)
+
+
+def calculate_exp_progress(exp: int) -> dict:
+    """Return current level, EXP earned into the current level, and EXP needed for next level."""
+    level = calculate_level_from_exp(exp)
+    current_threshold = calculate_exp_for_level(level)
+    next_threshold = calculate_exp_for_level(level + 1)
+    return {
+        "level": level,
+        "exp_into_level": exp - current_threshold,
+        "exp_to_next_level": next_threshold - current_threshold,
+    }
 
 
 def calculate_scaled_exp(*, quest: Quest) -> int:
@@ -34,6 +53,8 @@ def is_quest_scheduled_for_date(*, quest: Quest, date) -> bool:
 
 def _eligible_quests_queryset(*, player):
     path = player.path or ""
+    # TODO: filter out quests where equipment_required is not in player's EquipmentProfile
+    # TODO: filter out quests on cooldown (QuestCompletion within cooldown_days window)
     return (
         Quest.objects.filter(is_active=True)
         .filter(path_target__in=["", path] if path else [""])
@@ -53,6 +74,12 @@ def assign_daily_quests(*, player, date=None):
     if existing_assignments.exists():
         return existing_assignments
 
+    # TODO: replace with five-layer assignment algorithm:
+    # Layer 1 — universal_daily quests (assigned to all players)
+    # Layer 2 — path-specific pillar quests (body / mind / soul / output)
+    # Layer 3 — weekly boss (is_weekly_boss, one per week per path)
+    # Layer 4 — one-time quests not yet completed by this player
+    # Layer 5 — cooldown-respecting fill quests up to lineup cap (5–7)
     eligible_quests = [
         quest
         for quest in _eligible_quests_queryset(player=player)
