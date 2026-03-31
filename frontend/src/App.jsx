@@ -532,15 +532,7 @@ export default function App() {
   } else if (route === '/signup') {
     page = <SignupPage onSignup={handleSignup} onGoogleAuth={handleGoogleAuth} onNavigate={navigate} />;
   } else if (route === '/onboarding') {
-    page = (
-      <OnboardingPage
-        selectedPath={selectedPath}
-        onSelectPath={handleSelectPath}
-        onNavigate={navigate}
-        savingPath={savingPath}
-        isRequired={!player?.path}
-      />
-    );
+    page = <OnboardingPage onNavigate={navigate} />;
   } else if (route === '/profile') {
     page = (
       <ProfilePage

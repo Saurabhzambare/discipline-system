@@ -91,7 +91,7 @@ export function PathProvider({ children, onPathSelected }) {
   }, []);
 
   const confirmPath = useCallback(async () => {
-    if (!pendingPath) return;
+    if (!pendingPath) return false;
     setSavingPath(true);
     setError('');
     try {
@@ -100,8 +100,10 @@ export function PathProvider({ children, onPathSelected }) {
       setSelectedPathDisplay(data.selected_path.name);
       // Bridge to PlayerContext — App.jsx passes this callback
       if (onPathSelected) onPathSelected(data.player);
+      return true;
     } catch (err) {
       setError(err.message || 'Could not save path selection.');
+      return false;
     } finally {
       setSavingPath(false);
     }
