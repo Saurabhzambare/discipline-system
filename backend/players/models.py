@@ -16,20 +16,25 @@ class Player(models.Model):
     In the Discipline System:
         User   → authentication identity (login)
         Player → game stats (level, EXP, streak, path)
+
+    EXP formula (quadratic):
+        EXP needed to reach level L = L² × 50 − 50
+        Level 1 = 0 EXP, Level 2 = 150 EXP, Level 5 = 1200 EXP
+        See quests/services.py for calculate_level_from_exp()
     """
 
-    PATH_RUNNER = "runner"
-    PATH_GYM = "gym"
-    PATH_DISCIPLINE = "discipline"
-    PATH_TOURNAMENT = "tournament"
-    PATH_75_HARD = "75_hard"
+    PATH_FITNESS_WARRIOR = "fitness_warrior"
+    PATH_MINDSET_SAGE = "mindset_sage"
+    PATH_HEALTH_ALCHEMIST = "health_alchemist"
+    PATH_DISCIPLINE_KNIGHT = "discipline_knight"
+    PATH_GRIND_VISIONARY = "grind_visionary"
 
     PATH_CHOICES = [
-        (PATH_RUNNER, "Runner"),
-        (PATH_GYM, "Gym"),
-        (PATH_DISCIPLINE, "Discipline"),
-        (PATH_TOURNAMENT, "Tournament"),
-        (PATH_75_HARD, "75 Hard"),
+        (PATH_FITNESS_WARRIOR, "Fitness Warrior"),
+        (PATH_MINDSET_SAGE, "Mindset Sage"),
+        (PATH_HEALTH_ALCHEMIST, "Health Alchemist"),
+        (PATH_DISCIPLINE_KNIGHT, "Discipline Knight"),
+        (PATH_GRIND_VISIONARY, "Grind Visionary"),
     ]
 
     user = models.OneToOneField(
@@ -42,8 +47,18 @@ class Player(models.Model):
     exp = models.PositiveIntegerField(default=0)
     streak = models.PositiveIntegerField(default=0)
 
-    # Backend-owned game state used by assignment logic to filter path-specific quests.
+    # Primary path — set after Path Discovery Quiz.
+    # Empty string means player has not yet completed onboarding.
+    # Multi-path support tracked in paths.UserPathSelection.
     path = models.CharField(max_length=20, choices=PATH_CHOICES, blank=True, default="")
+
+    # Player's local timezone string (e.g. 'America/Toronto').
+    # Used by the midnight quest scheduler and 9PM end-of-day summary.
+    timezone = models.CharField(max_length=50, default="UTC", blank=True)
+
+    # Date of last quest completion. Used by missed-day detection to
+    # trigger Grace Token, Streak Shield, or Multiplier Protection.
+    last_active_date = models.DateField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
