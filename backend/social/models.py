@@ -1,7 +1,7 @@
 """Data models for the social domain."""
 
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, SET_NULL
 from django.utils.text import slugify
 
 
@@ -287,3 +287,129 @@ class ActivityEvent(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+# ── BADGES & ACHIEVEMENTS ─────────────────────────────────────────────────────
+
+class Badge(models.Model):
+    """
+    Global badge definition. Badges are earned by completing specific milestones
+    (streaks, boss quests, path achievements, etc.).
+    """
+    TIER_CHOICES = [
+        ("bronze", "Bronze"),
+        ("silver", "Silver"),
+        ("gold", "Gold"),
+        ("platinum", "Platinum"),
+        ("legendary", "Legendary"),
+    ]
+
+    key = models.CharField(max_length=50, unique=True)  # e.g. "streak_7", "boss_slayer"
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
+    tier = models.CharField(max_length=10, choices=TIER_CHOICES, default="bronze")
+    path_specific = models.CharField(max_length=30, blank=True, default="")  # "" = global
+    icon_name = models.CharField(max_length=50, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"[{self.tier.upper()}] {self.name}"
+
+
+class UserBadge(models.Model):
+    """Player's earned badge instance."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="badges",
+    )
+    badge = models.ForeignKey(
+        Badge,
+        on_delete=models.CASCADE,
+        related_name="earners",
+    )
+    earned_at = models.DateTimeField(auto_now_add=True)
+    is_featured = models.BooleanField(default=False)  # shown on profile card
+
+    class Meta:
+        unique_together = [("player", "badge")]
+        ordering = ["-earned_at"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — {self.badge.name}"
+
+
+class AchievementCard(models.Model):
+    """
+    Visual achievement card displayed on the player's profile.
+    Distinct from badges — cards have richer narrative context.
+    """
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="achievement_cards",
+    )
+    title = models.CharField(max_length=100)
+    subtitle = models.CharField(max_length=255, blank=True, default="")
+    earned_at = models.DateTimeField(auto_now_add=True)
+    card_type = models.CharField(max_length=30, blank=True, default="")  # e.g. "milestone", "boss"
+    metadata = models.JSONField(default=dict)  # flexible payload
+
+    class Meta:
+        ordering = ["-earned_at"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — {self.title}"
+
+
+# ── WEEKLY BOSS ───────────────────────────────────────────────────────────────
+
+class WeeklyBossQuest(models.Model):
+    """
+    Global weekly boss quest definition. One boss is active per week.
+    All players on a given path face the same boss.
+    """
+    path_target = models.CharField(max_length=30, blank=True, default="")  # "" = all paths
+    week_start = models.DateField()
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    exp_reward = models.PositiveIntegerField(default=500)
+    badge = models.ForeignKey(
+        Badge,
+        on_delete=SET_NULL,
+        null=True,
+        blank=True,
+        related_name="boss_quests",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("path_target", "week_start")]
+        ordering = ["-week_start"]
+
+    def __str__(self):
+        return f"Boss [{self.week_start}] {self.title}"
+
+
+class WeeklyBossCompletion(models.Model):
+    """Records a player defeating the weekly boss."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="boss_completions",
+    )
+    boss = models.ForeignKey(
+        WeeklyBossQuest,
+        on_delete=models.CASCADE,
+        related_name="completions",
+    )
+    completed_at = models.DateTimeField(auto_now_add=True)
+    exp_awarded = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = [("player", "boss")]
+        ordering = ["-completed_at"]
+
+    def __str__(self):
+        return f"{self.player.user.username} defeated {self.boss.title}"

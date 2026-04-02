@@ -130,5 +130,6 @@ urlpatterns = [
     
     path("api/quests/", include("quests.urls")),
     path("api/social/", include("social.urls")),
+    path("api/paths/",  include("paths.urls")),
 
 ]

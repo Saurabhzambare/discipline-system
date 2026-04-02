@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "users.apps.UsersConfig",
     'quests',
     'social.apps.SocialConfig',
+    'paths.apps.PathsConfig',
 ]
 
 MIDDLEWARE = [

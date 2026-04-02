@@ -36,6 +36,9 @@ import {
   updatePostComment,
   updateSocialPost,
 } from './api';
+import { PathContext, PathProvider } from './contexts/PathContext';
+import { PlayerContext } from './contexts/PlayerContext';
+import { QuestContext } from './contexts/QuestContext';
 import Layout from './components/Layout';
 import PlayerProfileModal from './components/PlayerProfileModal';
 import ComingSoonPage from './pages/ComingSoonPage';
@@ -529,15 +532,7 @@ export default function App() {
   } else if (route === '/signup') {
     page = <SignupPage onSignup={handleSignup} onGoogleAuth={handleGoogleAuth} onNavigate={navigate} />;
   } else if (route === '/onboarding') {
-    page = (
-      <OnboardingPage
-        selectedPath={selectedPath}
-        onSelectPath={handleSelectPath}
-        onNavigate={navigate}
-        savingPath={savingPath}
-        isRequired={!player?.path}
-      />
-    );
+    page = <OnboardingPage onNavigate={navigate} />;
   } else if (route === '/profile') {
     page = (
       <ProfilePage
@@ -625,26 +620,50 @@ export default function App() {
   }
 
   return (
-    <Layout
-      onNavigate={navigate}
-      isAuthenticated={isAuthenticated}
-      onLogout={handleLogout}
-      flashMessage={flashMessage}
-      onDismissFlash={() => setFlashMessage(null)}
-      route={route}
-      playerName={player?.username}
-      incomingRequestCount={incomingRequests.length}
-      notifications={notifications}
+    <PlayerContext.Provider
+      value={{
+        player,
+        setPlayer,
+        loadingDashboard,
+        dashboardError,
+        levelUpInfo,
+        setLevelUpInfo,
+        loadDashboard,
+        handleAuthExpired,
+      }}
     >
-      {page}
-      {viewingProfile && (
-        <PlayerProfileModal
-          username={viewingProfile}
-          onClose={() => setViewingProfile(null)}
-          onSendRequest={handleSendFriendRequest}
-          currentPlayerId={player?.id}
-        />
-      )}
-    </Layout>
+      <QuestContext.Provider
+        value={{
+          quests,
+          setQuests,
+          completingQuestId,
+          handleCompleteQuest,
+        }}
+      >
+        <PathProvider onPathSelected={(updatedPlayer) => setPlayer(updatedPlayer)}>
+          <Layout
+            onNavigate={navigate}
+            isAuthenticated={isAuthenticated}
+            onLogout={handleLogout}
+            flashMessage={flashMessage}
+            onDismissFlash={() => setFlashMessage(null)}
+            route={route}
+            playerName={player?.username}
+            incomingRequestCount={incomingRequests.length}
+            notifications={notifications}
+          >
+            {page}
+            {viewingProfile && (
+              <PlayerProfileModal
+                username={viewingProfile}
+                onClose={() => setViewingProfile(null)}
+                onSendRequest={handleSendFriendRequest}
+                currentPlayerId={player?.id}
+              />
+            )}
+          </Layout>
+        </PathProvider>
+      </QuestContext.Provider>
+    </PlayerContext.Provider>
   );
 }

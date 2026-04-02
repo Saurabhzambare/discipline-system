@@ -297,3 +297,38 @@ export async function getGroupMembers(groupId) {
 export async function getGroupFeed(groupId) {
   return authedRequest(`/api/social/groups/${groupId}/feed/`);
 }
+
+// ── PATH DISCOVERY ────────────────────────────────────────────────────────────
+
+export async function startQuiz() {
+  return authedRequest('/api/paths/quiz/start/', { method: 'POST' });
+}
+
+export async function submitQuizAnswer(quizId, questionNumber, answer) {
+  return authedRequest('/api/paths/quiz/answer/', {
+    method: 'POST',
+    body: JSON.stringify({ quiz_id: quizId, question_number: questionNumber, answer }),
+  });
+}
+
+export async function completeQuiz(quizId) {
+  return authedRequest('/api/paths/quiz/complete/', {
+    method: 'POST',
+    body: JSON.stringify({ quiz_id: quizId }),
+  });
+}
+
+export async function selectPath(pathCode) {
+  return authedRequest('/api/paths/select/', {
+    method: 'POST',
+    body: JSON.stringify({ path_code: pathCode }),
+  });
+}
+
+export async function getActivePaths() {
+  return authedRequest('/api/paths/active/');
+}
+
+export async function retakeQuiz() {
+  return authedRequest('/api/paths/retake/', { method: 'POST' });
+}
