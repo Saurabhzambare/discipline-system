@@ -195,6 +195,40 @@ class EquipmentProfile(models.Model):
         return f"{self.player.user.username} — equipment profile"
 
 
+class QuestChain(models.Model):
+    """
+    Directed quest dependency edge for chain-based progression.
+    parent_quest must be completed before child_quest unlocks.
+    """
+    parent_quest = models.ForeignKey(
+        "quests.Quest",
+        on_delete=models.CASCADE,
+        related_name="chain_children",
+    )
+    child_quest = models.ForeignKey(
+        "quests.Quest",
+        on_delete=models.CASCADE,
+        related_name="chain_parents",
+    )
+    sequence_order = models.PositiveSmallIntegerField(default=1)
+
+    class Meta:
+        unique_together = [("parent_quest", "child_quest")]
+        ordering = ["sequence_order", "id"]
+        constraints = [
+            models.CheckConstraint(
+                check=~models.Q(parent_quest=models.F("child_quest")),
+                name="paths_questchain_no_self_reference",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"QuestChain({self.parent_quest_id} -> {self.child_quest_id}, "
+            f"order={self.sequence_order})"
+        )
+
+
 # ── DISCIPLINE KNIGHT ─────────────────────────────────────────────────────────
 
 class ArmorPiece(models.Model):
