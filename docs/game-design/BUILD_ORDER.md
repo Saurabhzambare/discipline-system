@@ -239,24 +239,24 @@ docs/game-design/paths/health-alchemist.md
 docs/game-design/paths/discipline-knight.md
 docs/game-design/paths/grind-visionary.md
 
-- [ ] Step 21: Extend seed_quests.py —
+- [x] Step 21: Extend seed_quests.py —
       clear old quest data first
       then seed new data
       do not replace the file
       follow existing seed patterns
-- [ ] Step 22: Seed Fitness Warrior quests —
+- [x] Step 22: Seed Fitness Warrior quests —
       all ranks D C B A S
       universal daily quests
       rest day recovery quests
       weekly boss quests
-- [ ] Step 23: Seed Mindset Sage quests —
+- [x] Step 23: Seed Mindset Sage quests —
       all ranks D C B A S
       all four pillars
       Stoic Challenge quests
       Dark Night Quest
       universal daily quests
       weekly boss quests
-- [ ] Step 24: Seed Health Alchemist quests —
+- [x] Step 24: Seed Health Alchemist quests —
       all ranks D C B A S
       all six pillars
       Morning Protocol quest
@@ -264,24 +264,31 @@ docs/game-design/paths/grind-visionary.md
       quest chain quests linked
       universal daily quests
       weekly boss quests
-- [ ] Step 25: Seed Discipline Knight quests —
+- [x] Step 25: Seed Discipline Knight quests —
       all ranks D C B A S
       all six pillars
       Honor Review quest (Sunday only flag)
       War Room quests
       universal daily quests
       weekly boss quests
-- [ ] Step 26: Seed Grind Visionary quests —
+- [x] Step 26: Seed Grind Visionary quests —
       all ranks D C B A S
       all six pillars with level unlock flags
       First Dollar quest flagged as legendary
       Post-First-Dollar chain linked
       universal daily quests
       weekly boss quests
-- [ ] Step 27: Verify all quest data in
+- [x] Step 27: Verify all quest data in
       Django admin — check counts per path
       per rank, check cooldown fields,
       check pillar assignments
+
+Session 3 patch notes (hardening):
+- Added `paths.QuestChain` model and migration for directed chain links (`parent_quest` → `child_quest` with `sequence_order`).
+- Seed command now upserts chain edges for `ha_gut_reset_chain`.
+- Seed command now upserts `social.WeeklyBossQuest` records from boss quest templates.
+- Enforced exact supplement disclaimer text on all supplement-related Health Alchemist quest descriptions.
+- API contract fix: removed duplicate `JSON.stringify` in quiz/path API callers so request serialization is handled once in helper.
 
 ---
 

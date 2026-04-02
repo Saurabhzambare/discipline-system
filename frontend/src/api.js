@@ -307,21 +307,21 @@ export async function startQuiz() {
 export async function submitQuizAnswer(quizId, questionNumber, answer) {
   return authedRequest('/api/paths/quiz/answer/', {
     method: 'POST',
-    body: JSON.stringify({ quiz_id: quizId, question_number: questionNumber, answer }),
+    body: { quiz_id: quizId, question_number: questionNumber, answer },
   });
 }
 
 export async function completeQuiz(quizId) {
   return authedRequest('/api/paths/quiz/complete/', {
     method: 'POST',
-    body: JSON.stringify({ quiz_id: quizId }),
+    body: { quiz_id: quizId },
   });
 }
 
 export async function selectPath(pathCode) {
   return authedRequest('/api/paths/select/', {
     method: 'POST',
-    body: JSON.stringify({ path_code: pathCode }),
+    body: { path_code: pathCode },
   });
 }
 
