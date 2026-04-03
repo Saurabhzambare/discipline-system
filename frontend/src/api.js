@@ -139,6 +139,48 @@ export async function completeQuest(questId) {
   });
 }
 
+export async function getDailyLineup(date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return authedRequest(`/api/quests/daily/${query}`);
+}
+
+export async function completeLineupItem(itemId) {
+  return authedRequest('/api/quests/daily/complete/', {
+    method: 'POST',
+    body: { item_id: itemId },
+  });
+}
+
+export async function getSwapAlternatives(itemId) {
+  return authedRequest(`/api/quests/swap-alternatives/?item_id=${encodeURIComponent(itemId)}`);
+}
+
+export async function swapQuest(itemId, newQuestId) {
+  return authedRequest('/api/quests/swap/', {
+    method: 'POST',
+    body: { item_id: itemId, new_quest_id: newQuestId },
+  });
+}
+
+export async function setDailyIntention(date, intention) {
+  return authedRequest('/api/quests/intention/', {
+    method: 'POST',
+    body: { date, intention },
+  });
+}
+
+export async function submitQuestFeedback(itemId, feedback) {
+  return authedRequest('/api/quests/feedback/', {
+    method: 'POST',
+    body: { item_id: itemId, feedback },
+  });
+}
+
+export async function getDailyCompletionSummary(date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return authedRequest(`/api/quests/summary/${query}`);
+}
+
 export async function getSocialPosts() {
   return authedRequest('/api/social/posts/');
 }
@@ -331,4 +373,61 @@ export async function getActivePaths() {
 
 export async function retakeQuiz() {
   return authedRequest('/api/paths/retake/', { method: 'POST' });
+}
+
+export async function getOnboardingStatus() {
+  return authedRequest('/api/paths/onboarding/status/');
+}
+
+export async function saveFitnessWarriorOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/fitness-warrior/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function saveMindsetSageOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/mindset-sage/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function saveHealthAlchemistOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/health-alchemist/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function getAlchemistSetupGuide() {
+  return authedRequest('/api/paths/onboarding/health-alchemist/setup-guide/');
+}
+
+export async function saveDisciplineKnightOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/discipline-knight/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function submitDisciplineCode(rules) {
+  return authedRequest('/api/paths/onboarding/discipline-code/', {
+    method: 'POST',
+    body: { rules },
+  });
+}
+
+export async function saveGrindVisionaryOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/grind-visionary/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function completeOnboarding(pathCode) {
+  return authedRequest('/api/paths/onboarding/complete/', {
+    method: 'POST',
+    body: { path_code: pathCode },
+  });
 }

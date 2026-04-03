@@ -436,7 +436,7 @@ export default function OnboardingPage({ onNavigate }) {
 
   const handleBeginJourney = useCallback(async () => {
     const success = await confirmPath();
-    if (success) onNavigate('/dashboard');
+    if (success) onNavigate('/path-onboarding');
   }, [confirmPath, onNavigate]);
 
   const currentQuestion = questions[currentIndex] || null;

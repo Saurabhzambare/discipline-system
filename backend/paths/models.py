@@ -102,6 +102,24 @@ class SplitDayState(models.Model):
         return f"{self.player.user.username} — split: {self.current_split}"
 
 
+class FitnessWarriorProfile(models.Model):
+    """Persistent onboarding configuration for Fitness Warrior."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="fitness_warrior_profile",
+    )
+    training_split = models.CharField(max_length=40, default="ppl")
+    primary_goal = models.CharField(max_length=40, default="general_performance")
+    training_days_per_week = models.PositiveSmallIntegerField(default=4)
+    experience_level = models.CharField(max_length=40, default="beginner")
+    split_day_start = models.CharField(max_length=20, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — fitness profile"
+
+
 class WisdomLog(models.Model):
     """Daily wisdom/reflection entry for Warrior journaling mechanic."""
     player = models.ForeignKey(
@@ -140,6 +158,23 @@ class FreedomDayToken(models.Model):
     def __str__(self):
         status = "used" if self.is_used else "available"
         return f"{self.player.user.username} — freedom token ({status})"
+
+
+class MindsetSageProfile(models.Model):
+    """Persistent onboarding configuration for Mindset Sage."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="mindset_sage_profile",
+    )
+    motivation = models.CharField(max_length=60, default="personal_growth")
+    daily_time_commitment = models.CharField(max_length=40, default="30_minutes")
+    experience_level = models.CharField(max_length=40, default="complete_beginner")
+    archetype = models.CharField(max_length=40, default="warrior_sage")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — mindset profile"
 
 
 # ── HEALTH ALCHEMIST ──────────────────────────────────────────────────────────
@@ -229,6 +264,23 @@ class QuestChain(models.Model):
         )
 
 
+codex/summarize-project-overview-and-next-steps-gp8267
+class HealthAlchemistProfile(models.Model):
+    """Persistent onboarding configuration for Health Alchemist."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="health_alchemist_profile",
+    )
+    primary_health_goal = models.CharField(max_length=60, default="full_body_transformation")
+    health_relationship = models.CharField(max_length=60, default="starting_from_scratch")
+    focus_area = models.CharField(max_length=40, default="all_of_them")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — alchemist profile"
+
+main
 # ── DISCIPLINE KNIGHT ─────────────────────────────────────────────────────────
 
 class ArmorPiece(models.Model):
@@ -271,6 +323,23 @@ class DisciplineCode(models.Model):
 
     def __str__(self):
         return f"{self.player.user.username} — discipline code"
+
+
+class DisciplineKnightProfile(models.Model):
+    """Persistent onboarding configuration for Discipline Knight."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="discipline_knight_profile",
+    )
+    routine_level = models.CharField(max_length=60, default="no_routine")
+    biggest_challenge = models.CharField(max_length=60, default="all_of_them")
+    structure_preference = models.CharField(max_length=60, default="semi_structured")
+    time_commitment = models.CharField(max_length=30, default="1_hour")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — knight profile"
 
 
 class GraceToken(models.Model):
@@ -385,6 +454,24 @@ class SingularGoal(models.Model):
 
     def __str__(self):
         return f"{self.player.user.username} — goal: {self.title}"
+
+
+class GrindVisionaryProfile(models.Model):
+    """Persistent onboarding configuration for Grind Visionary."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="grind_visionary_profile",
+    )
+    grind_focus = models.CharField(max_length=40, default="coding_and_tech")
+    grind_focus_other = models.CharField(max_length=80, blank=True, default="")
+    experience_state = models.CharField(max_length=60, default="complete_beginner")
+    daily_hours = models.CharField(max_length=30, default="1_hour")
+    current_output_state = models.CharField(max_length=80, default="consume_more_than_create")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — visionary profile"
 
 
 class XPMultiplier(models.Model):
@@ -515,3 +602,25 @@ class PostFirstDollarChain(models.Model):
 
     def __str__(self):
         return f"{self.player.user.username} — ${self.current_chain}d chain"
+
+
+class PathOnboardingProgress(models.Model):
+    """Resume-safe onboarding progress per player/path."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="onboarding_progress",
+    )
+    path = models.CharField(max_length=30, choices=PATH_CHOICES)
+    current_step = models.CharField(max_length=40, default="start")
+    answers_snapshot = models.JSONField(default=dict)
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("player", "path")]
+
+    def __str__(self):
+        status = "done" if self.is_completed else "in_progress"
+        return f"{self.player.user.username} — onboarding {self.path} ({status})"

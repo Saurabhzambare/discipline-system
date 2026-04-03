@@ -167,25 +167,107 @@ class QuestCompletion(models.Model):
 # ── DAILY QUEST LINEUP ────────────────────────────────────────────────────────
 
 class DailyQuestLineup(models.Model):
-    """
-    Ordered daily lineup of 5–7 quests generated for a player each day.
-    Immutable once generated — swaps are recorded separately in DailySwap.
-    """
-    player = models.ForeignKey(
-        "players.Player",
-        on_delete=models.CASCADE,
-        related_name="daily_lineups",
-    )
-    lineup_date = models.DateField()
-    quest_ids = models.JSONField(default=list)  # ordered list of quest PKs
+    """One generated lineup per player/path/date."""
+    INTENTION_FULL_SEND = "full_send"
+    INTENTION_STEADY = "steady"
+    INTENTION_RECOVERY = "recovery"
+    INTENTION_CHOICES = [
+        (INTENTION_FULL_SEND, "Full Send"),
+        (INTENTION_STEADY, "Steady"),
+        (INTENTION_RECOVERY, "Recovery"),
+    ]
+
+    PATH_CHOICES = [
+        ("fitness_warrior", "Fitness Warrior"),
+        ("mindset_sage", "Mindset Sage"),
+        ("health_alchemist", "Health Alchemist"),
+        ("discipline_knight", "Discipline Knight"),
+        ("grind_visionary", "Grind Visionary"),
+    ]
+
+    player = models.ForeignKey("players.Player", on_delete=models.CASCADE, related_name="daily_lineups")
+    path = models.CharField(max_length=30, choices=PATH_CHOICES, default="fitness_warrior")
+    date = models.DateField(default=timezone.localdate)
+    intention = models.CharField(max_length=20, choices=INTENTION_CHOICES, null=True, blank=True)
     generated_at = models.DateTimeField(auto_now_add=True)
+    is_complete = models.BooleanField(default=False)
 
     class Meta:
-        unique_together = [("player", "lineup_date")]
-        ordering = ["-lineup_date"]
+        constraints = [
+            models.UniqueConstraint(fields=["player", "path", "date"], name="unique_daily_lineup_player_path_date"),
+        ]
+        ordering = ["-date", "path"]
 
     def __str__(self):
-        return f"{self.player.user.username} — lineup {self.lineup_date}"
+        return f"{self.player.user.username} — {self.path} lineup {self.date}"
+
+
+class DailyQuestLineupItem(models.Model):
+    SLOT_UNIVERSAL = "universal"
+    SLOT_ASSIGNED = "assigned"
+    SLOT_BONUS = "bonus"
+    SLOT_CROSS_PATH = "cross_path"
+    SLOT_CHOICES = [
+        (SLOT_UNIVERSAL, "Universal"),
+        (SLOT_ASSIGNED, "Assigned"),
+        (SLOT_BONUS, "Bonus"),
+        (SLOT_CROSS_PATH, "Cross Path"),
+    ]
+
+    REASON_UNIVERSAL = "universal"
+    REASON_PATH_CORE = "path_core"
+    REASON_PATH_OVERRIDE = "path_override"
+    REASON_WEEKLY_RHYTHM = "weekly_rhythm"
+    REASON_SMART_SCORE = "smart_score"
+    REASON_CARRY_OVER = "carry_over"
+    REASON_CROSS_PATH_BONUS = "cross_path_bonus"
+    REASON_FALLBACK = "fallback"
+    REASON_DAY1_STARTER = "day1_starter"
+    REASON_INTENTION_ADJUSTMENT = "intention_adjustment"
+    REASON_CHOICES = [
+        (REASON_UNIVERSAL, "Universal"),
+        (REASON_PATH_CORE, "Path Core"),
+        (REASON_PATH_OVERRIDE, "Path Override"),
+        (REASON_WEEKLY_RHYTHM, "Weekly Rhythm"),
+        (REASON_SMART_SCORE, "Smart Score"),
+        (REASON_CARRY_OVER, "Carry Over"),
+        (REASON_CROSS_PATH_BONUS, "Cross Path Bonus"),
+        (REASON_FALLBACK, "Fallback"),
+        (REASON_DAY1_STARTER, "Day 1 Starter"),
+        (REASON_INTENTION_ADJUSTMENT, "Intention Adjustment"),
+    ]
+
+    FEEDBACK_CHOICES = [
+        ("up", "Thumbs Up"),
+        ("down", "Thumbs Down"),
+    ]
+
+    lineup = models.ForeignKey(DailyQuestLineup, on_delete=models.CASCADE, related_name="items")
+    quest = models.ForeignKey("quests.Quest", on_delete=models.SET_NULL, null=True, blank=True, related_name="lineup_items")
+    slot_order = models.PositiveSmallIntegerField()
+    slot_type = models.CharField(max_length=20, choices=SLOT_CHOICES, default=SLOT_ASSIGNED)
+    is_locked = models.BooleanField(default=False)
+    is_carried_over = models.BooleanField(default=False)
+    selection_reason = models.CharField(max_length=30, choices=REASON_CHOICES, default=REASON_PATH_CORE)
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    swapped_from_quest = models.ForeignKey(
+        "quests.Quest",
+        on_delete=SET_NULL,
+        null=True,
+        blank=True,
+        related_name="swapped_from_lineup_items",
+    )
+    feedback = models.CharField(max_length=4, choices=FEEDBACK_CHOICES, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["lineup", "slot_order"], name="unique_lineup_slot_order"),
+        ]
+        ordering = ["slot_order", "id"]
+
+    def __str__(self):
+        return f"Lineup {self.lineup_id} slot {self.slot_order}"
 
 
 class QuestFeedback(models.Model):
@@ -226,25 +308,32 @@ class QuestPreference(models.Model):
         on_delete=models.CASCADE,
         related_name="preferences",
     )
-    weight = models.FloatField(default=1.0)  # >1 = prefer, <1 = suppress
+    preference_score = models.IntegerField(default=0)
+    last_completed = models.DateField(null=True, blank=True)
+    last_skipped = models.DateField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = [("player", "quest")]
 
     def __str__(self):
-        return f"{self.player.user.username} — {self.quest.title}: {self.weight}"
+        return f"{self.player.user.username} — {self.quest.title}: {self.preference_score}"
 
 
 class DailyIntention(models.Model):
     """Player's one-line focus intention for the day."""
+    INTENTION_CHOICES = [
+        ("full_send", "Full Send"),
+        ("steady", "Steady"),
+        ("recovery", "Recovery"),
+    ]
     player = models.ForeignKey(
         "players.Player",
         on_delete=models.CASCADE,
         related_name="daily_intentions",
     )
     intention_date = models.DateField()
-    text = models.CharField(max_length=255)
+    intention = models.CharField(max_length=20, choices=INTENTION_CHOICES, default="steady")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -265,7 +354,15 @@ class DailySwap(models.Model):
         on_delete=models.CASCADE,
         related_name="daily_swaps",
     )
+    path = models.CharField(max_length=30, blank=True, default="")
     swap_date = models.DateField()
+    lineup_item = models.ForeignKey(
+        "quests.DailyQuestLineupItem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="swap_events",
+    )
     quest_removed = models.ForeignKey(
         "quests.Quest",
         on_delete=SET_NULL,
@@ -298,6 +395,7 @@ class CrossPathBonus(models.Model):
         related_name="cross_path_bonuses",
     )
     bonus_date = models.DateField()
+    bonus_pair_key = models.CharField(max_length=50, default="")
     pillars_completed = models.JSONField(default=list)  # e.g. ["body", "mind"]
     bonus_exp = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -321,8 +419,19 @@ class DailyCompletionSummary(models.Model):
         related_name="daily_summaries",
     )
     summary_date = models.DateField()
+    lineup = models.ForeignKey(
+        "quests.DailyQuestLineup",
+        on_delete=models.CASCADE,
+        related_name="summaries",
+        null=True,
+        blank=True,
+    )
+    path = models.CharField(max_length=30, blank=True, default="")
     quests_completed = models.PositiveSmallIntegerField(default=0)
+    quests_total = models.PositiveSmallIntegerField(default=0)
     total_exp_earned = models.PositiveIntegerField(default=0)
+    bonus_exp_earned = models.PositiveIntegerField(default=0)
+    streak_status = models.CharField(max_length=30, default="maintained")
     streak_maintained = models.BooleanField(default=True)
     cross_path_bonus_earned = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
