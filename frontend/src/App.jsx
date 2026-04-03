@@ -3,6 +3,7 @@ import {
   acceptFriendRequest,
   cancelFriendRequest,
   clearTokens,
+  completeLineupItem,
   completeQuest,
   createGroup,
   createPostComment,
@@ -13,6 +14,8 @@ import {
   getAccessToken,
   getNotifications,
   getOnboardingStatus,
+  getDailyLineup,
+  getDailyCompletionSummary,
   getFriendRequests,
   getFriends,
   getGroupFeed,
@@ -32,7 +35,10 @@ import {
   sendFriendRequest,
   setPostReaction,
   setTokens,
+  setDailyIntention,
   signup,
+  submitQuestFeedback,
+  swapQuest,
   updatePlayerPath,
   updatePostComment,
   updateSocialPost,
@@ -79,6 +85,11 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getAccessToken()));
   const [player, setPlayer] = useState(null);
   const [quests, setQuests] = useState([]);
+  const [dailyLineup, setDailyLineup] = useState(null);
+  const [lineupItems, setLineupItems] = useState([]);
+  const [intention, setIntentionState] = useState(null);
+  const [swapsRemaining, setSwapsRemaining] = useState(3);
+  const [featuresUnlocked, setFeaturesUnlocked] = useState({ slot_labels: false, swap: false, full_customization: false });
   const [feedPosts, setFeedPosts] = useState([]);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [loadingFeed, setLoadingFeed] = useState(false);
@@ -135,9 +146,37 @@ export default function App() {
     setDashboardError('');
 
     try {
-      const [playerData, questData] = await Promise.all([getPlayerMe(), getQuests()]);
+      const [playerData, lineupPayload, questData] = await Promise.all([getPlayerMe(), getDailyLineup(), getQuests()]);
       setPlayer(playerData);
-      setQuests(questData);
+      if (lineupPayload?.lineup) {
+        setDailyLineup(lineupPayload.lineup);
+        setLineupItems(lineupPayload.lineup.items || []);
+        setIntentionState(lineupPayload.lineup.intention || null);
+        setSwapsRemaining(lineupPayload.lineup.swaps_remaining ?? 3);
+        setFeaturesUnlocked(lineupPayload.lineup.features_unlocked || { slot_labels: false, swap: false, full_customization: false });
+        const mapped = (lineupPayload.lineup.items || [])
+          .filter((item) => item.quest_id)
+          .map((item) => ({
+            id: item.quest_id,
+            item_id: item.item_id,
+            title: item.title,
+            description: item.description,
+            path_target: item.path_target,
+            rank: item.rank,
+            pillar: item.pillar,
+            exp_reward: item.exp_reward,
+            universal_daily: item.slot_type === 'universal',
+            is_weekly_boss: item.selection_reason === 'weekly_rhythm',
+            cooldown_days: 0,
+            completed_today: item.completed_today,
+            assigned_completed_today: item.assigned_completed_today,
+          }));
+        setQuests(mapped);
+      } else {
+        setDailyLineup(null);
+        setLineupItems([]);
+        setQuests(Array.isArray(questData) ? questData : []);
+      }
     } catch (error) {
       if (error.status === 401) {
         handleAuthExpired(error.message);
@@ -505,7 +544,19 @@ export default function App() {
     const questForShare = quests.find((q) => q.id === questId);
 
     try {
-      const response = await completeQuest(questId);
+      let response;
+      if (questForShare?.item_id) {
+        response = await completeLineupItem(questForShare.item_id);
+        response = {
+          exp_gained: (response.exp_earned || 0) + (response.bonus_exp || 0),
+          player_exp: (player?.exp || 0) + (response.exp_earned || 0) + (response.bonus_exp || 0),
+          player_streak: response.streak_update,
+          new_level: response.new_level,
+          leveled_up: response.level_up,
+        };
+      } else {
+        response = await completeQuest(questId);
+      }
 
       setPlayer((previous) => {
         if (!previous) return previous;
@@ -677,8 +728,31 @@ export default function App() {
         value={{
           quests,
           setQuests,
+          dailyLineup,
+          lineupItems,
+          intention,
+          swapsRemaining,
+          featuresUnlocked,
           completingQuestId,
           handleCompleteQuest,
+          loadDailyLineup: loadDashboard,
+          setIntention: async (targetDate, value) => {
+            const result = await setDailyIntention(targetDate, value);
+            setIntentionState(result.intention_set);
+            await loadDashboard();
+            return result;
+          },
+          swapQuest: async (itemId, newQuestId) => {
+            const result = await swapQuest(itemId, newQuestId);
+            await loadDashboard();
+            return result;
+          },
+          submitFeedback: async (itemId, feedback) => {
+            const result = await submitQuestFeedback(itemId, feedback);
+            await loadDashboard();
+            return result;
+          },
+          loadSummary: async (targetDate) => getDailyCompletionSummary(targetDate),
         }}
       >
         <PathProvider onPathSelected={(updatedPlayer) => setPlayer(updatedPlayer)}>

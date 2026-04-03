@@ -139,6 +139,48 @@ export async function completeQuest(questId) {
   });
 }
 
+export async function getDailyLineup(date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return authedRequest(`/api/quests/daily/${query}`);
+}
+
+export async function completeLineupItem(itemId) {
+  return authedRequest('/api/quests/daily/complete/', {
+    method: 'POST',
+    body: { item_id: itemId },
+  });
+}
+
+export async function getSwapAlternatives(itemId) {
+  return authedRequest(`/api/quests/swap-alternatives/?item_id=${encodeURIComponent(itemId)}`);
+}
+
+export async function swapQuest(itemId, newQuestId) {
+  return authedRequest('/api/quests/swap/', {
+    method: 'POST',
+    body: { item_id: itemId, new_quest_id: newQuestId },
+  });
+}
+
+export async function setDailyIntention(date, intention) {
+  return authedRequest('/api/quests/intention/', {
+    method: 'POST',
+    body: { date, intention },
+  });
+}
+
+export async function submitQuestFeedback(itemId, feedback) {
+  return authedRequest('/api/quests/feedback/', {
+    method: 'POST',
+    body: { item_id: itemId, feedback },
+  });
+}
+
+export async function getDailyCompletionSummary(date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return authedRequest(`/api/quests/summary/${query}`);
+}
+
 export async function getSocialPosts() {
   return authedRequest('/api/social/posts/');
 }
