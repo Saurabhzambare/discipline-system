@@ -239,24 +239,24 @@ docs/game-design/paths/health-alchemist.md
 docs/game-design/paths/discipline-knight.md
 docs/game-design/paths/grind-visionary.md
 
-- [ ] Step 21: Extend seed_quests.py —
+- [x] Step 21: Extend seed_quests.py —
       clear old quest data first
       then seed new data
       do not replace the file
       follow existing seed patterns
-- [ ] Step 22: Seed Fitness Warrior quests —
+- [x] Step 22: Seed Fitness Warrior quests —
       all ranks D C B A S
       universal daily quests
       rest day recovery quests
       weekly boss quests
-- [ ] Step 23: Seed Mindset Sage quests —
+- [x] Step 23: Seed Mindset Sage quests —
       all ranks D C B A S
       all four pillars
       Stoic Challenge quests
       Dark Night Quest
       universal daily quests
       weekly boss quests
-- [ ] Step 24: Seed Health Alchemist quests —
+- [x] Step 24: Seed Health Alchemist quests —
       all ranks D C B A S
       all six pillars
       Morning Protocol quest
@@ -264,24 +264,31 @@ docs/game-design/paths/grind-visionary.md
       quest chain quests linked
       universal daily quests
       weekly boss quests
-- [ ] Step 25: Seed Discipline Knight quests —
+- [x] Step 25: Seed Discipline Knight quests —
       all ranks D C B A S
       all six pillars
       Honor Review quest (Sunday only flag)
       War Room quests
       universal daily quests
       weekly boss quests
-- [ ] Step 26: Seed Grind Visionary quests —
+- [x] Step 26: Seed Grind Visionary quests —
       all ranks D C B A S
       all six pillars with level unlock flags
       First Dollar quest flagged as legendary
       Post-First-Dollar chain linked
       universal daily quests
       weekly boss quests
-- [ ] Step 27: Verify all quest data in
+- [x] Step 27: Verify all quest data in
       Django admin — check counts per path
       per rank, check cooldown fields,
       check pillar assignments
+
+Session 3 patch notes (hardening):
+- Added `paths.QuestChain` model and migration for directed chain links (`parent_quest` → `child_quest` with `sequence_order`).
+- Seed command now upserts chain edges for `ha_gut_reset_chain`.
+- Seed command now upserts `social.WeeklyBossQuest` records from boss quest templates.
+- Enforced exact supplement disclaimer text on all supplement-related Health Alchemist quest descriptions.
+- API contract fix: removed duplicate `JSON.stringify` in quiz/path API callers so request serialization is handled once in helper.
 
 ---
 
@@ -294,24 +301,24 @@ docs/game-design/paths/health-alchemist.md
 docs/game-design/paths/discipline-knight.md
 docs/game-design/paths/grind-visionary.md
 
-- [ ] Step 28: Build Fitness Warrior onboarding —
+- [x] Step 28: Build Fitness Warrior onboarding —
       4 questions plus split day setup question
       save training split, goal, days per week,
       experience level, split day start
       experience-based quest visibility logic
-- [ ] Step 29: Build Mindset Sage onboarding —
+- [x] Step 29: Build Mindset Sage onboarding —
       4 questions plus archetype selection
       save motivation, time commitment,
       experience level, archetype
       archetype quest pool filtering logic
       experience-based quest visibility logic
-- [ ] Step 30: Build Health Alchemist onboarding —
+- [x] Step 30: Build Health Alchemist onboarding —
       4 questions plus equipment multi-select
       save goal, health relationship,
       focus area, equipment profile
       experience-based quest visibility logic
       equipment gating logic for quest pool
-- [ ] Step 31: Build Alchemist Setup Guide —
+- [x] Step 31: Build Alchemist Setup Guide —
       shown after onboarding before dashboard loads
       supplement cards with two tabs:
       Take It tab and Eat It Instead tab
@@ -321,12 +328,12 @@ docs/game-design/paths/grind-visionary.md
       legal disclaimer in exactly three places:
       top of guide, bottom of guide,
       one line on each supplement card
-- [ ] Step 32: Build Discipline Knight onboarding —
+- [x] Step 32: Build Discipline Knight onboarding —
       4 questions
       save routine level, challenge, structure
       preference, time commitment
       experience-based quest visibility logic
-- [ ] Step 33: Build Discipline Code Oath Screen —
+- [x] Step 33: Build Discipline Code Oath Screen —
       shown after onboarding questions
       user writes 3 to 5 personal rules
       example rules shown as inspiration only
@@ -337,7 +344,7 @@ docs/game-design/paths/grind-visionary.md
       display on public profile beneath armor
       show briefly every morning on app open
       3 second fade before quest board loads
-- [ ] Step 34: Build Grind Visionary onboarding —
+- [x] Step 34: Build Grind Visionary onboarding —
       6 questions
       save grind focus (with custom text if Other),
       experience level, singular goal text,
@@ -345,11 +352,19 @@ docs/game-design/paths/grind-visionary.md
       singular goal displayed on dashboard daily
       goal deadline countdown shown
       experience-based quest visibility logic
-- [ ] Step 35: Build skill tree initialization —
+- [x] Step 35: Build skill tree initialization —
       on Grind Visionary onboarding complete
       create SkillTree record for user
       based on grind focus selected
       first node set as active
+
+Session 4 implementation notes:
+- Added path-specific onboarding profile models and a small `PathOnboardingProgress` model for resume-safe continuation and step tracking.
+- Added onboarding services + APIs for FW/MS/HA/DK/GV save flows with create-or-update semantics.
+- Added Discipline Code server-side V1 keyword moderation and 3–5 rules validation.
+- Added Health Alchemist setup-guide payload endpoint with required disclaimer fields and starter-pack response.
+- Added onboarding completion endpoint and dashboard gating integration so users cannot bypass incomplete onboarding.
+- Added Grind Visionary skill tree initialization in service layer on onboarding save.
 
 ---
 

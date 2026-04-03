@@ -307,21 +307,21 @@ export async function startQuiz() {
 export async function submitQuizAnswer(quizId, questionNumber, answer) {
   return authedRequest('/api/paths/quiz/answer/', {
     method: 'POST',
-    body: JSON.stringify({ quiz_id: quizId, question_number: questionNumber, answer }),
+    body: { quiz_id: quizId, question_number: questionNumber, answer },
   });
 }
 
 export async function completeQuiz(quizId) {
   return authedRequest('/api/paths/quiz/complete/', {
     method: 'POST',
-    body: JSON.stringify({ quiz_id: quizId }),
+    body: { quiz_id: quizId },
   });
 }
 
 export async function selectPath(pathCode) {
   return authedRequest('/api/paths/select/', {
     method: 'POST',
-    body: JSON.stringify({ path_code: pathCode }),
+    body: { path_code: pathCode },
   });
 }
 
@@ -331,4 +331,61 @@ export async function getActivePaths() {
 
 export async function retakeQuiz() {
   return authedRequest('/api/paths/retake/', { method: 'POST' });
+}
+
+export async function getOnboardingStatus() {
+  return authedRequest('/api/paths/onboarding/status/');
+}
+
+export async function saveFitnessWarriorOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/fitness-warrior/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function saveMindsetSageOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/mindset-sage/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function saveHealthAlchemistOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/health-alchemist/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function getAlchemistSetupGuide() {
+  return authedRequest('/api/paths/onboarding/health-alchemist/setup-guide/');
+}
+
+export async function saveDisciplineKnightOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/discipline-knight/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function submitDisciplineCode(rules) {
+  return authedRequest('/api/paths/onboarding/discipline-code/', {
+    method: 'POST',
+    body: { rules },
+  });
+}
+
+export async function saveGrindVisionaryOnboarding(payload) {
+  return authedRequest('/api/paths/onboarding/grind-visionary/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function completeOnboarding(pathCode) {
+  return authedRequest('/api/paths/onboarding/complete/', {
+    method: 'POST',
+    body: { path_code: pathCode },
+  });
 }

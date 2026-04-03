@@ -12,6 +12,7 @@ import {
   deleteSocialPost,
   getAccessToken,
   getNotifications,
+  getOnboardingStatus,
   getFriendRequests,
   getFriends,
   getGroupFeed,
@@ -47,6 +48,7 @@ import FeedPage from './pages/FeedPage';
 import GroupsPage from './pages/GroupsPage';
 import LoginPage from './pages/LoginPage';
 import OnboardingPage from './pages/OnboardingPage';
+import PathOnboardingPage from './pages/PathOnboardingPage';
 import PreviewPage from './pages/PreviewPage';
 import ProfilePage from './pages/ProfilePage';
 import SignupPage from './pages/SignupPage';
@@ -96,6 +98,7 @@ export default function App() {
   const [levelUpInfo, setLevelUpInfo] = useState(null);
   const [viewingProfile, setViewingProfile] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [onboardingStatus, setOnboardingStatus] = useState(null);
 
   const selectedPath = useMemo(() => player?.path || '', [player?.path]);
   const selectedPathDisplay = useMemo(() => player?.path_display || '', [player?.path_display]);
@@ -265,6 +268,19 @@ export default function App() {
     }
   }, []);
 
+  const loadOnboardingStatus = useCallback(async () => {
+    if (!isAuthenticated || !player?.path) {
+      setOnboardingStatus(null);
+      return;
+    }
+    try {
+      const data = await getOnboardingStatus();
+      setOnboardingStatus(data);
+    } catch {
+      setOnboardingStatus(null);
+    }
+  }, [isAuthenticated, player?.path]);
+
   const handleShareQuest = useCallback(
     async (quest, note) => {
       return withSocialAuth(async () => {
@@ -373,6 +389,17 @@ export default function App() {
   }, [isAuthenticated, player, route, navigate]);
 
   useEffect(() => {
+    if (!isAuthenticated || !player?.path || !onboardingStatus) return;
+    if (!onboardingStatus.onboarding_complete && route !== '/path-onboarding') {
+      navigate('/path-onboarding');
+      return;
+    }
+    if (onboardingStatus.onboarding_complete && route === '/path-onboarding') {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, player?.path, onboardingStatus, route, navigate]);
+
+  useEffect(() => {
     const protectedRoute = !PUBLIC_ROUTES.includes(route);
 
     if (!isAuthenticated && protectedRoute) {
@@ -414,8 +441,11 @@ export default function App() {
     if (isAuthenticated) {
       loadNotifications();
     }
+    if (isAuthenticated && player?.path) {
+      loadOnboardingStatus();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, loadFriends, loadGroups, loadNotifications, navigate, route]);
+  }, [handleAuthExpired, isAuthenticated, loadDashboard, loadFeed, loadFriends, loadGroups, loadNotifications, loadOnboardingStatus, navigate, player?.path, route]);
 
   async function handleLogin(username, password) {
     const tokenData = await login(username, password);
@@ -533,6 +563,17 @@ export default function App() {
     page = <SignupPage onSignup={handleSignup} onGoogleAuth={handleGoogleAuth} onNavigate={navigate} />;
   } else if (route === '/onboarding') {
     page = <OnboardingPage onNavigate={navigate} />;
+  } else if (route === '/path-onboarding') {
+    page = (
+      <PathOnboardingPage
+        player={player}
+        onNavigate={navigate}
+        onOnboardingComplete={(updatedPlayer) => {
+          setPlayer(updatedPlayer);
+          setOnboardingStatus((prev) => ({ ...(prev || {}), onboarding_complete: true }));
+        }}
+      />
+    );
   } else if (route === '/profile') {
     page = (
       <ProfilePage
