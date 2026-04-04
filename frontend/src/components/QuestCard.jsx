@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export default function QuestCard({ quest, onComplete, loading, onShare }) {
+export default function QuestCard({ quest, onComplete, loading, onShare, canSwap, onSwap, onFeedback }) {
   const completed = quest.assigned_completed_today ?? quest.completed_today;
   const prevCompletedRef = useRef(completed);
   const [justCompleted, setJustCompleted] = useState(false);
@@ -99,6 +99,15 @@ export default function QuestCard({ quest, onComplete, loading, onShare }) {
 
         {/* Right: share + EXP */}
         <div className="flex flex-shrink-0 items-center gap-2">
+          {canSwap && !completed && quest.item_id && !quest.universal_daily ? (
+            <button
+              type="button"
+              onClick={() => onSwap?.(quest)}
+              className="rounded-md border border-[#1a3a5c] px-2 py-1 text-[10px] text-slate-400 hover:border-cyan-500/40 hover:text-cyan-300"
+            >
+              Swap
+            </button>
+          ) : null}
           {completed && onShare ? (
             <button
               type="button"
@@ -117,6 +126,26 @@ export default function QuestCard({ quest, onComplete, loading, onShare }) {
           </span>
         </div>
       </div>
+
+      {completed && quest.item_id && onFeedback ? (
+        <div className="mt-2 ml-10 flex items-center gap-2 text-[10px] text-slate-500">
+          <span>Feedback:</span>
+          <button
+            type="button"
+            onClick={() => onFeedback(quest.item_id, 'up')}
+            className="rounded border border-emerald-600/40 px-1.5 py-0.5 text-emerald-300"
+          >
+            👍
+          </button>
+          <button
+            type="button"
+            onClick={() => onFeedback(quest.item_id, 'down')}
+            className="rounded border border-rose-600/40 px-1.5 py-0.5 text-rose-300"
+          >
+            👎
+          </button>
+        </div>
+      ) : null}
 
       {/* Inline note panel (Feature B) */}
       {showNote && (

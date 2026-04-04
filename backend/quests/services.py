@@ -466,7 +466,12 @@ def get_daily_lineup(player, target_date: date | None = None):
         return {"lineup": None, "message": "No active path selected."}
     lineup = DailyQuestLineup.objects.filter(player=player, path=player.path, date=target_date).first()
     if not lineup:
-        return {"lineup": None, "message": "Lineup is being generated. Check back shortly."}
+        selection = UserPathSelection.objects.filter(player=player).first()
+        if not selection or not selection.onboarding_complete:
+            return {"lineup": None, "message": "Complete path onboarding to unlock daily quests."}
+        if target_date != _get_player_local_date(player):
+            return {"lineup": None, "message": "No lineup exists for that date."}
+        lineup, _ = generate_daily_lineup(player=player, target_date=target_date, path_code=player.path)
     return {"lineup": serialize_lineup(lineup)}
 
 

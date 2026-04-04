@@ -475,6 +475,19 @@ docs/game-design/systems/daily-quest-logic.md
       forward-facing language never shaming
       load fresh lineup no reference to missed
 
+Session 5 implementation notes (in progress):
+- Daily lineup retrieval now auto-generates a lineup for onboarded players when today's lineup is missing (prevents empty dashboard state for new users on Day 1).
+- Day 1 starter lineup path remains active via `REASON_DAY1_STARTER` branch and is now exercised through the same `/api/quests/daily/` retrieval path used by dashboard.
+- Dashboard now treats daily lineup as source of truth (legacy quest fallback removed from main load path).
+- Minimal Session 5 UX entry points are now surfaced in dashboard:
+  - Daily intention selector (Full Send / Steady / Recovery)
+  - Swap action with alternatives picker
+  - Post-completion feedback buttons
+  - Daily summary fetch/display entry point
+- Focused Session 5 tests added for:
+  - auto-generation of Day 1 lineup for onboarded users
+  - onboarding gate behavior for lineup generation
+
 ---
 
 ## Session 6 — Path-Specific Mechanics

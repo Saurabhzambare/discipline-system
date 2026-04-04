@@ -200,6 +200,7 @@ function ProgressPanel({ player, quests }) {
 export default function DashboardPage({
   player,
   quests,
+  dailyLineup,
   loading,
   error,
   onRefresh,
@@ -210,9 +211,17 @@ export default function DashboardPage({
   levelUpInfo,
   onDismissLevelUp,
   onShareQuest,
+  onSetIntention,
+  onGetSwapAlternatives,
+  onSwapQuest,
+  onSubmitFeedback,
+  onLoadSummary,
 }) {
   const expProgress = calcExpProgress(player?.exp || 0);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [swapState, setSwapState] = useState({ open: false, alternatives: [], quest: null, loading: false });
 
   const filteredQuests = quests.filter((q) => {
     if (activeFilter === 'remaining') return !(q.completed_today || q.assigned_completed_today);
@@ -254,6 +263,58 @@ export default function DashboardPage({
 
           {/* Streak warning banner (Feature 3) */}
           {quests.length > 0 && <StreakWarning quests={quests} />}
+
+          {dailyLineup?.date ? (
+            <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Daily Intention</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  { value: 'full_send', label: 'Full Send' },
+                  { value: 'steady', label: 'Steady' },
+                  { value: 'recovery', label: 'Recovery' },
+                ].map((option) => {
+                  const active = dailyLineup?.intention === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => onSetIntention?.(option.value)}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                        active
+                          ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-200'
+                          : 'border-[#1a3a5c] text-slate-400 hover:border-cyan-500/40 hover:text-cyan-300'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!dailyLineup?.date || !onLoadSummary) return;
+                    setSummaryLoading(true);
+                    try {
+                      const payload = await onLoadSummary(dailyLineup.date);
+                      setSummary(payload);
+                    } finally {
+                      setSummaryLoading(false);
+                    }
+                  }}
+                  className="ml-auto rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200 hover:bg-emerald-500/20"
+                >
+                  {summaryLoading ? 'Loading…' : 'View Daily Summary'}
+                </button>
+              </div>
+              {summary ? (
+                <div className="mt-3 rounded-lg border border-[#1a3a5c] bg-[#071020] p-3 text-xs text-slate-300">
+                  <p>Completed: {summary.quests_completed}/{summary.quests_total}</p>
+                  <p>Total EXP: {summary.total_exp_earned} (bonus {summary.bonus_exp_earned})</p>
+                  <p>Streak: {summary.streak_status}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* Character panel */}
           <div className="relative overflow-hidden rounded-2xl border border-[#1a3a5c] bg-gradient-to-br from-[#0a1628] via-[#0d1f38] to-[#071020] p-6 shadow-[0_0_40px_rgba(6,182,212,0.08)]">
@@ -358,6 +419,21 @@ export default function DashboardPage({
                     onComplete={onCompleteQuest}
                     loading={completingQuestId === quest.id}
                     onShare={onShareQuest}
+                    canSwap={Boolean(dailyLineup?.features_unlocked?.swap)}
+                    onSwap={async (targetQuest) => {
+                      if (!onGetSwapAlternatives || !targetQuest?.item_id) return;
+                      setSwapState({ open: true, alternatives: [], quest: targetQuest, loading: true });
+                      try {
+                        const data = await onGetSwapAlternatives(targetQuest.item_id);
+                        setSwapState({ open: true, alternatives: data.alternatives || [], quest: targetQuest, loading: false });
+                      } catch {
+                        setSwapState({ open: true, alternatives: [], quest: targetQuest, loading: false });
+                      }
+                    }}
+                    onFeedback={async (itemId, feedback) => {
+                      if (!itemId || !onSubmitFeedback) return;
+                      await onSubmitFeedback(itemId, feedback);
+                    }}
                   />
                 ))}
               </div>
@@ -368,6 +444,42 @@ export default function DashboardPage({
         {/* ── Right panel ── */}
         <ProgressPanel player={player} quests={quests} />
       </div>
+      {swapState.open ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4">
+            <h3 className="text-sm font-semibold text-slate-100">Swap Quest</h3>
+            <p className="mt-1 text-xs text-slate-400">{swapState.quest?.title}</p>
+            <div className="mt-3 space-y-2 max-h-72 overflow-auto">
+              {swapState.loading ? (
+                <p className="text-xs text-slate-500">Loading alternatives...</p>
+              ) : swapState.alternatives.length === 0 ? (
+                <p className="text-xs text-slate-500">No alternatives available.</p>
+              ) : (
+                swapState.alternatives.map((alt) => (
+                  <button
+                    key={alt.id}
+                    type="button"
+                    onClick={async () => {
+                      await onSwapQuest?.(swapState.quest.item_id, alt.id);
+                      setSwapState({ open: false, alternatives: [], quest: null, loading: false });
+                    }}
+                    className="w-full rounded-lg border border-[#1a3a5c] bg-[#071020] px-3 py-2 text-left text-xs text-slate-200 hover:border-cyan-500/40"
+                  >
+                    {alt.title} <span className="text-amber-300">+{alt.exp_reward} EXP</span>
+                  </button>
+                ))
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSwapState({ open: false, alternatives: [], quest: null, loading: false })}
+              className="mt-3 rounded-lg border border-[#1a3a5c] px-3 py-1.5 text-xs text-slate-400"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
