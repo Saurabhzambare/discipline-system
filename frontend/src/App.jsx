@@ -16,6 +16,7 @@ import {
   getOnboardingStatus,
   getDailyLineup,
   getDailyCompletionSummary,
+  getSwapAlternatives,
   getFriendRequests,
   getFriends,
   getGroupFeed,
@@ -23,7 +24,6 @@ import {
   getGroups,
   getPlayerMe,
   getPublicProfile,
-  getQuests,
   getSocialPost,
   getSocialPosts,
   googleAuth,
@@ -146,7 +146,7 @@ export default function App() {
     setDashboardError('');
 
     try {
-      const [playerData, lineupPayload, questData] = await Promise.all([getPlayerMe(), getDailyLineup(), getQuests()]);
+      const [playerData, lineupPayload] = await Promise.all([getPlayerMe(), getDailyLineup()]);
       setPlayer(playerData);
       if (lineupPayload?.lineup) {
         setDailyLineup(lineupPayload.lineup);
@@ -175,7 +175,7 @@ export default function App() {
       } else {
         setDailyLineup(null);
         setLineupItems([]);
-        setQuests(Array.isArray(questData) ? questData : []);
+        setQuests([]);
       }
     } catch (error) {
       if (error.status === 401) {
@@ -693,10 +693,11 @@ export default function App() {
       />
     );
   } else {
-    page = (
+      page = (
       <DashboardPage
         player={player}
         quests={quests}
+        dailyLineup={dailyLineup}
         loading={loadingDashboard}
         error={dashboardError}
         onRefresh={loadDashboard}
@@ -707,6 +708,22 @@ export default function App() {
         levelUpInfo={levelUpInfo}
         onDismissLevelUp={() => setLevelUpInfo(null)}
         onShareQuest={handleShareQuest}
+        onSetIntention={async (value) => {
+          const targetDate = dailyLineup?.date;
+          if (!targetDate) return;
+          await setDailyIntention(targetDate, value);
+          await loadDashboard();
+        }}
+        onGetSwapAlternatives={async (itemId) => getSwapAlternatives(itemId)}
+        onSwapQuest={async (itemId, newQuestId) => {
+          await swapQuest(itemId, newQuestId);
+          await loadDashboard();
+        }}
+        onSubmitFeedback={async (itemId, feedback) => {
+          await submitQuestFeedback(itemId, feedback);
+          await loadDashboard();
+        }}
+        onLoadSummary={async (targetDate) => getDailyCompletionSummary(targetDate)}
       />
     );
   }
