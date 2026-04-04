@@ -575,7 +575,7 @@ def generate_completion_summary(player, summary_date: date):
 
 @transaction.atomic
 def complete_lineup_item(player, lineup_item_id: int):
-    item = DailyQuestLineupItem.objects.select_for_update().select_related("lineup", "quest", "lineup__player").filter(
+    item = DailyQuestLineupItem.objects.select_for_update().select_related("lineup", "lineup__player").filter(
         id=lineup_item_id,
         lineup__player=player,
     ).first()
