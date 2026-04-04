@@ -263,8 +263,6 @@ class QuestChain(models.Model):
             f"order={self.sequence_order})"
         )
 
-
-codex/summarize-project-overview-and-next-steps-gp8267
 class HealthAlchemistProfile(models.Model):
     """Persistent onboarding configuration for Health Alchemist."""
     player = models.OneToOneField(
@@ -280,7 +278,6 @@ class HealthAlchemistProfile(models.Model):
     def __str__(self):
         return f"{self.player.user.username} — alchemist profile"
 
-main
 # ── DISCIPLINE KNIGHT ─────────────────────────────────────────────────────────
 
 class ArmorPiece(models.Model):
