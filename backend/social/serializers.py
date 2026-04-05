@@ -2,7 +2,16 @@
 
 from rest_framework import serializers
 
-from .models import ActivityEvent, FriendRequest, GroupMembership, PostComment, PostReaction, SocialGroup, SocialPost
+from .models import (
+    AccountabilityPartnerRequest,
+    ActivityEvent,
+    FriendRequest,
+    GroupMembership,
+    PostComment,
+    PostReaction,
+    SocialGroup,
+    SocialPost,
+)
 
 
 class FriendRequestCreateSerializer(serializers.Serializer):
@@ -15,6 +24,28 @@ class FriendRequestSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FriendRequest
+        fields = ["id", "from_player", "to_player", "status", "created_at", "responded_at"]
+
+    def _player_payload(self, player):
+        return {"id": player.id, "username": player.user.username}
+
+    def get_from_player(self, obj):
+        return self._player_payload(obj.from_player)
+
+    def get_to_player(self, obj):
+        return self._player_payload(obj.to_player)
+
+
+class AccountabilityRequestCreateSerializer(serializers.Serializer):
+    to_player_id = serializers.IntegerField(min_value=1)
+
+
+class AccountabilityRequestSerializer(serializers.ModelSerializer):
+    from_player = serializers.SerializerMethodField()
+    to_player = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AccountabilityPartnerRequest
         fields = ["id", "from_player", "to_player", "status", "created_at", "responded_at"]
 
     def _player_payload(self, player):

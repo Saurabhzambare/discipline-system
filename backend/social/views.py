@@ -18,6 +18,8 @@ from .selectors import (
     visible_posts_queryset_for_player,
 )
 from .serializers import (
+    AccountabilityRequestCreateSerializer,
+    AccountabilityRequestSerializer,
     FriendRequestCreateSerializer,
     FriendRequestSerializer,
     FriendshipListSerializer,
@@ -36,6 +38,7 @@ from .serializers import (
 )
 from .services import (
     SocialNotFoundError,
+    accept_accountability_request,
     accept_friend_request,
     add_comment,
     add_or_update_reaction,
@@ -51,9 +54,12 @@ from .services import (
     group_feed_queryset,
     join_group,
     leave_group,
+    list_accountability_requests_queryset,
     list_friends_queryset,
+    reject_accountability_request,
     remove_friend,
     remove_reaction,
+    send_accountability_request,
     send_friend_request,
     update_comment,
     update_post,
@@ -104,6 +110,57 @@ class FriendRequestListCreateView(SocialBaseView):
             return self.not_found(error)
 
         return Response(FriendRequestSerializer(friend_request).data, status=status.HTTP_201_CREATED)
+
+
+class AccountabilityRequestListCreateView(SocialBaseView):
+    def get(self, request):
+        direction = request.query_params.get("direction")
+        requests_qs = list_accountability_requests_queryset(player=request.user.player, direction=direction)
+        serializer = AccountabilityRequestSerializer(requests_qs, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = AccountabilityRequestCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            partner_request = send_accountability_request(
+                from_player=request.user.player,
+                to_player_id=serializer.validated_data["to_player_id"],
+            )
+        except ValidationError as error:
+            return self.bad_request(error)
+        except SocialNotFoundError as error:
+            return self.not_found(error)
+        return Response(AccountabilityRequestSerializer(partner_request).data, status=status.HTTP_201_CREATED)
+
+
+class AccountabilityRequestAcceptView(SocialBaseView):
+    def post(self, request, request_id):
+        try:
+            partnership = accept_accountability_request(request_id=request_id, acting_player=request.user.player)
+        except ValidationError as error:
+            return self.bad_request(error)
+        except PermissionDenied as error:
+            return self.forbidden(error)
+        except SocialNotFoundError as error:
+            return self.not_found(error)
+
+        partner_player = partnership.player_two if partnership.player_one_id == request.user.player.id else partnership.player_one
+        return Response({"id": partner_player.id, "username": partner_player.user.username})
+
+
+class AccountabilityRequestRejectView(SocialBaseView):
+    def post(self, request, request_id):
+        try:
+            partner_request = reject_accountability_request(request_id=request_id, acting_player=request.user.player)
+        except ValidationError as error:
+            return self.bad_request(error)
+        except PermissionDenied as error:
+            return self.forbidden(error)
+        except SocialNotFoundError as error:
+            return self.not_found(error)
+
+        return Response(AccountabilityRequestSerializer(partner_request).data)
 
 
 class FriendRequestAcceptView(SocialBaseView):
