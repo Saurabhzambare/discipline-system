@@ -10,11 +10,19 @@ from zoneinfo import ZoneInfo
 from paths.models import (
     DisciplineCode,
     EquipmentProfile,
+    PostFirstDollarChain,
     QuestChain,
     SingularGoal,
     SplitDayState,
     UserPathSelection,
     XPMultiplier,
+)
+from paths.mechanics import (
+    FIRST_DOLLAR_CHAIN_100_PACK,
+    FIRST_DOLLAR_CHAIN_10_PACK,
+    FIRST_DOLLAR_CHAIN_MONTHLY_PACK,
+    apply_missed_day_protections,
+    apply_post_completion_mechanics,
 )
 
 from .models import (
@@ -279,6 +287,19 @@ def _apply_path_overrides(player, path_code: str, quests: list[Quest], target_da
             goal_quest = Quest.objects.filter(path_target=path_code, title__icontains="singular goal", is_active=True).first()
             if goal_quest and goal_quest not in quests:
                 quests = [goal_quest] + quests
+        chain = PostFirstDollarChain.objects.filter(player=player, chain_unlocked=True).first()
+        if chain:
+            next_pack = None
+            if not chain.first_ten_completed:
+                next_pack = FIRST_DOLLAR_CHAIN_10_PACK
+            elif not chain.first_hundred_completed:
+                next_pack = FIRST_DOLLAR_CHAIN_100_PACK
+            elif not chain.first_monthly_completed:
+                next_pack = FIRST_DOLLAR_CHAIN_MONTHLY_PACK
+            if next_pack:
+                chain_quest = Quest.objects.filter(path_target=path_code, pack_id=next_pack, is_active=True).first()
+                if chain_quest and chain_quest not in quests:
+                    quests = [chain_quest] + quests
         return quests
 
     if path_code == "mindset_sage":
@@ -462,6 +483,7 @@ def generate_daily_lineup(player, target_date: date | None = None, path_code: st
 
 def get_daily_lineup(player, target_date: date | None = None):
     target_date = target_date or _get_player_local_date(player)
+    apply_missed_day_protections(player=player, today=target_date)
     if not player.path:
         return {"lineup": None, "message": "No active path selected."}
     lineup = DailyQuestLineup.objects.filter(player=player, path=player.path, date=target_date).first()
@@ -622,6 +644,17 @@ def complete_lineup_item(player, lineup_item_id: int):
     player.last_active_date = local_today
     player.save(update_fields=["exp", "level", "streak", "last_active_date", "updated_at"])
 
+    mechanic_result = apply_post_completion_mechanics(
+        player=player,
+        lineup_path=item.lineup.path,
+        completion_date=local_today,
+        quest=item.quest,
+    )
+    if mechanic_result.bonus_exp:
+        player.exp += mechanic_result.bonus_exp
+        player.level = calculate_level_from_exp(player.exp)
+        player.save(update_fields=["exp", "level", "updated_at"])
+
     completed, total = _count_completed(item.lineup)
     if completed >= total > 0:
         item.lineup.is_complete = True
@@ -637,6 +670,7 @@ def complete_lineup_item(player, lineup_item_id: int):
         "streak_update": player.streak,
         "daily_progress": {"completed": completed, "total": total},
         "badges_earned": [],
+        "mechanic_notes": mechanic_result.notes or [],
     }
 
 

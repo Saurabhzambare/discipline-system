@@ -3,7 +3,16 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 
-from .models import ActivityEvent, FriendRequest, Friendship, GroupMembership, SocialGroup, SocialPost
+from .models import (
+    AccountabilityPartnerRequest,
+    AccountabilityPartnership,
+    ActivityEvent,
+    FriendRequest,
+    Friendship,
+    GroupMembership,
+    SocialGroup,
+    SocialPost,
+)
 
 
 class FriendRequestApiTests(TestCase):
@@ -215,3 +224,37 @@ class PublicProfileApiTests(TestCase):
         self.assertIn("recent_posts", response.data)
         self.assertEqual(len(response.data["recent_activity"]), 1)
         self.assertEqual(len(response.data["recent_posts"]), 1)
+
+
+class AccountabilityPartnerApiTests(TestCase):
+    def setUp(self):
+        self.user_a = get_user_model().objects.create_user(username="vision_a", password="testpass123")
+        self.user_b = get_user_model().objects.create_user(username="vision_b", password="testpass123")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user_a)
+
+    def test_send_and_accept_accountability_request(self):
+        send_response = self.client.post(
+            reverse("social-accountability-request-list-create"),
+            {"to_player_id": self.user_b.player.id},
+            format="json",
+        )
+        self.assertEqual(send_response.status_code, 201)
+        req_id = send_response.data["id"]
+        self.assertEqual(AccountabilityPartnerRequest.objects.count(), 1)
+
+        self.client.force_authenticate(user=self.user_b)
+        accept_response = self.client.post(reverse("social-accountability-request-accept", args=[req_id]))
+        self.assertEqual(accept_response.status_code, 200)
+        self.assertEqual(AccountabilityPartnership.objects.filter(is_active=True).count(), 1)
+
+    def test_reject_accountability_request(self):
+        request_obj = AccountabilityPartnerRequest.objects.create(
+            from_player=self.user_a.player,
+            to_player=self.user_b.player,
+        )
+        self.client.force_authenticate(user=self.user_b)
+        response = self.client.post(reverse("social-accountability-request-reject", args=[request_obj.id]))
+        self.assertEqual(response.status_code, 200)
+        request_obj.refresh_from_db()
+        self.assertEqual(request_obj.status, AccountabilityPartnerRequest.STATUS_REJECTED)

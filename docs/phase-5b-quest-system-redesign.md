@@ -8,7 +8,8 @@ In Progress
 - Session 2: complete
 - Session 3: complete (including hardening patch)
 - Session 4: complete (path onboarding flows, resume-safe onboarding status, DK oath moderation, GV skill-tree initialization)
-- Session 5: in progress (daily lineup generation hardening, dashboard lineup source-of-truth wiring, intention/swap/feedback/summary entry points)
+- Session 5: complete enough (daily lineup generation hardening, dashboard lineup source-of-truth wiring, intention/swap/feedback/summary entry points)
+- Session 6: in progress (path mechanic persistence hooks, log endpoints, protection-order service integration, social-domain accountability partner invite flow)
 
 ## Phase Type
 Expansion of Phase 5 — Quest Expansion System

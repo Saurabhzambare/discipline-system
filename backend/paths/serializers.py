@@ -154,3 +154,59 @@ class GrindVisionaryOnboardingSerializer(serializers.Serializer):
 
 class OnboardingCompleteSerializer(serializers.Serializer):
     path_code = serializers.ChoiceField(choices=PATH_CODES)
+
+
+class FreedomDayRedeemSerializer(serializers.Serializer):
+    date = serializers.DateField(required=False)
+
+
+class WisdomLogSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    log_date = serializers.DateField(required=False)
+    entry = serializers.CharField()
+    is_public = serializers.BooleanField(required=False, default=False)
+    created_at = serializers.DateTimeField(read_only=True)
+
+
+class DarkNightSerializer(serializers.Serializer):
+    date = serializers.DateField(required=False)
+    entry = serializers.CharField()
+
+
+class BodyJournalSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    log_date = serializers.DateField(required=False)
+    weight_kg = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, allow_null=True)
+    sleep_hours = serializers.DecimalField(max_digits=4, decimal_places=2, required=False, allow_null=True)
+    energy_level = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=10)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+    created_at = serializers.DateTimeField(read_only=True)
+
+
+class OutputLogSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    log_date = serializers.DateField(required=False)
+    deep_work_hours = serializers.DecimalField(max_digits=4, decimal_places=2, required=False, allow_null=True)
+    tasks_shipped = serializers.IntegerField(required=False, min_value=0)
+    revenue_usd = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True, default="")
+    is_public = serializers.BooleanField(required=False, default=False)
+    created_at = serializers.DateTimeField(read_only=True)
+
+
+class WarRoomEntrySerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    week_start = serializers.DateField(required=False)
+    phase = serializers.ChoiceField(choices=["morning", "evening"])
+    objectives = serializers.ListField(child=serializers.CharField(max_length=180), required=False, allow_empty=True)
+    reflection = serializers.CharField(required=False, allow_blank=True, default="")
+    morning_exp_awarded = serializers.IntegerField(read_only=True)
+    evening_exp_awarded = serializers.IntegerField(read_only=True)
+    bonus_exp_awarded = serializers.IntegerField(read_only=True)
+    same_day_bonus_awarded = serializers.BooleanField(read_only=True)
+    weekly_report_input = serializers.DictField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+
+class KnightWeeklyReportQuerySerializer(serializers.Serializer):
+    week_start = serializers.DateField(required=False)

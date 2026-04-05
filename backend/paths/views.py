@@ -1,27 +1,44 @@
+from datetime import timedelta
+
 from rest_framework import status
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from players.serializers import PlayerSerializer
 from .serializers import (
+    BodyJournalSerializer,
     CompleteQuizSerializer,
+    DarkNightSerializer,
     DisciplineCodeSerializer,
     DisciplineKnightOnboardingSerializer,
     FitnessWarriorOnboardingSerializer,
+    FreedomDayRedeemSerializer,
     GrindVisionaryOnboardingSerializer,
     HealthAlchemistOnboardingSerializer,
     MindsetSageOnboardingSerializer,
+    KnightWeeklyReportQuerySerializer,
     OnboardingCompleteSerializer,
     SelectPathSerializer,
     SubmitAnswerSerializer,
+    OutputLogSerializer,
+    WarRoomEntrySerializer,
+    WisdomLogSerializer,
 )
 from .services import (
     complete_quiz,
+    create_dark_night,
     complete_path_onboarding,
     get_alchemist_setup_guide,
     get_active_paths,
+    list_body_journals,
+    list_output_logs,
+    list_war_room_entries,
+    list_wisdom_logs,
     get_onboarding_status,
+    generate_knight_weekly_report,
+    get_knight_weekly_report,
     retake_quiz,
     save_discipline_knight_onboarding,
     save_fitness_warrior_onboarding,
@@ -32,7 +49,13 @@ from .services import (
     start_quiz,
     submit_discipline_code,
     submit_answer,
+    upsert_body_journal,
+    upsert_output_log,
+    upsert_war_room_entry,
+    upsert_wisdom_log,
+    get_war_room_weekly_input,
 )
+from .mechanics import get_vision_board_summary, redeem_freedom_day_token
 
 
 class QuizStartView(APIView):
@@ -239,3 +262,137 @@ class OnboardingCompleteView(APIView):
         request.user.player.refresh_from_db()
         player_data = PlayerSerializer(request.user.player).data
         return Response({**result, "player": player_data})
+
+
+class FreedomDayRedeemView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = FreedomDayRedeemSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        redeem_date = serializer.validated_data.get("date") or timezone.localdate()
+        try:
+            token = redeem_freedom_day_token(player=request.user.player, redeem_date=redeem_date)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"redeemed": True, "token_id": token.id, "used_on": token.used_on})
+
+
+class WisdomLogView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(WisdomLogSerializer(list_wisdom_logs(player=request.user.player), many=True).data)
+
+    def post(self, request):
+        serializer = WisdomLogSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = upsert_wisdom_log(player=request.user.player, payload=serializer.validated_data)
+        return Response(WisdomLogSerializer(obj).data)
+
+
+class DarkNightView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = DarkNightSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            obj = create_dark_night(player=request.user.player, payload=serializer.validated_data)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"id": obj.id, "activated_on": obj.activated_on, "exp_awarded": obj.exp_awarded})
+
+
+class BodyJournalView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(BodyJournalSerializer(list_body_journals(player=request.user.player), many=True).data)
+
+    def post(self, request):
+        serializer = BodyJournalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = upsert_body_journal(player=request.user.player, payload=serializer.validated_data)
+        return Response(BodyJournalSerializer(obj).data)
+
+
+class OutputLogView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(OutputLogSerializer(list_output_logs(player=request.user.player), many=True).data)
+
+    def post(self, request):
+        serializer = OutputLogSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = upsert_output_log(player=request.user.player, payload=serializer.validated_data)
+        return Response(OutputLogSerializer(obj).data)
+
+
+class WarRoomView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        entries = list_war_room_entries(player=request.user.player)
+        payload = []
+        for entry in entries:
+            payload.append({
+                "id": entry.id,
+                "week_start": entry.week_start,
+                "phase": "morning" if entry.morning_completed_at else "evening",
+                "objectives": entry.objectives,
+                "reflection": entry.reflection,
+                "morning_exp_awarded": entry.morning_exp_awarded,
+                "evening_exp_awarded": entry.evening_exp_awarded,
+                "bonus_exp_awarded": entry.bonus_exp_awarded,
+                "same_day_bonus_awarded": entry.same_day_bonus_awarded,
+                "weekly_report_input": get_war_room_weekly_input(player=request.user.player, anchor_date=entry.week_start),
+                "created_at": entry.created_at,
+            })
+        return Response(payload)
+
+    def post(self, request):
+        serializer = WarRoomEntrySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = upsert_war_room_entry(player=request.user.player, payload=serializer.validated_data)
+        return Response({
+            "id": obj.id,
+            "week_start": obj.week_start,
+            "phase": serializer.validated_data["phase"],
+            "objectives": obj.objectives,
+            "reflection": obj.reflection,
+            "morning_exp_awarded": obj.morning_exp_awarded,
+            "evening_exp_awarded": obj.evening_exp_awarded,
+            "bonus_exp_awarded": obj.bonus_exp_awarded,
+            "same_day_bonus_awarded": obj.same_day_bonus_awarded,
+            "weekly_report_input": getattr(obj, "_weekly_report_input", {}),
+            "exp_awarded_now": getattr(obj, "_exp_awarded", 0),
+            "bonus_awarded_now": getattr(obj, "_bonus_awarded", 0),
+            "created_at": obj.created_at,
+        })
+
+
+class VisionBoardSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(get_vision_board_summary(player=request.user.player, today=timezone.localdate()))
+
+
+class KnightWeeklyReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = KnightWeeklyReportQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        week_start = serializer.validated_data.get("week_start") or (timezone.localdate() - timedelta(days=timezone.localdate().weekday()))
+        report = get_knight_weekly_report(player=request.user.player, week_start=week_start)
+        if not report:
+            report = generate_knight_weekly_report(player=request.user.player, week_start=week_start)
+        return Response({
+            "week_start": report.week_start,
+            "week_end": report.week_end,
+            "report_payload": report.report_payload,
+            "generated_at": report.generated_at,
+        })

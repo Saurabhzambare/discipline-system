@@ -1,6 +1,9 @@
 from django.urls import path
 
 from .views import (
+    AccountabilityRequestAcceptView,
+    AccountabilityRequestListCreateView,
+    AccountabilityRequestRejectView,
     FriendRemoveView,
     FriendRequestAcceptView,
     FriendRequestCancelView,
@@ -23,6 +26,9 @@ from .views import (
 )
 
 urlpatterns = [
+    path("accountability/requests/", AccountabilityRequestListCreateView.as_view(), name="social-accountability-request-list-create"),
+    path("accountability/requests/<int:request_id>/accept/", AccountabilityRequestAcceptView.as_view(), name="social-accountability-request-accept"),
+    path("accountability/requests/<int:request_id>/reject/", AccountabilityRequestRejectView.as_view(), name="social-accountability-request-reject"),
     path("friends/requests/", FriendRequestListCreateView.as_view(), name="social-friend-request-list-create"),
     path("friends/requests/<int:request_id>/accept/", FriendRequestAcceptView.as_view(), name="social-friend-request-accept"),
     path("friends/requests/<int:request_id>/decline/", FriendRequestDeclineView.as_view(), name="social-friend-request-decline"),

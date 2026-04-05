@@ -228,6 +228,26 @@ export async function getNotifications() {
   return authedRequest('/api/social/notifications/');
 }
 
+export async function getAccountabilityRequests(direction) {
+  const query = direction ? `?direction=${encodeURIComponent(direction)}` : '';
+  return authedRequest(`/api/social/accountability/requests/${query}`);
+}
+
+export async function sendAccountabilityRequest(toPlayerId) {
+  return authedRequest('/api/social/accountability/requests/', {
+    method: 'POST',
+    body: { to_player_id: toPlayerId },
+  });
+}
+
+export async function acceptAccountabilityRequest(requestId) {
+  return authedRequest(`/api/social/accountability/requests/${requestId}/accept/`, { method: 'POST' });
+}
+
+export async function rejectAccountabilityRequest(requestId) {
+  return authedRequest(`/api/social/accountability/requests/${requestId}/reject/`, { method: 'POST' });
+}
+
 export async function getPostComments(postId) {
   return authedRequest(`/api/social/posts/${postId}/comments/`);
 }
@@ -263,6 +283,73 @@ export async function removePostReaction(postId) {
   return authedRequest(`/api/social/posts/${postId}/reaction/`, {
     method: 'DELETE',
   });
+}
+
+export async function getWisdomLogs() {
+  return authedRequest('/api/paths/mechanics/mindset/wisdom-log/');
+}
+
+export async function upsertWisdomLog(payload) {
+  return authedRequest('/api/paths/mechanics/mindset/wisdom-log/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function activateDarkNight(payload) {
+  return authedRequest('/api/paths/mechanics/mindset/dark-night/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function redeemFreedomDayToken(payload = {}) {
+  return authedRequest('/api/paths/mechanics/mindset/freedom-day/redeem/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function getBodyJournalEntries() {
+  return authedRequest('/api/paths/mechanics/health/body-journal/');
+}
+
+export async function upsertBodyJournalEntry(payload) {
+  return authedRequest('/api/paths/mechanics/health/body-journal/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function getOutputLogs() {
+  return authedRequest('/api/paths/mechanics/grind/output-log/');
+}
+
+export async function upsertOutputLog(payload) {
+  return authedRequest('/api/paths/mechanics/grind/output-log/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function getWarRoomEntries() {
+  return authedRequest('/api/paths/mechanics/discipline/war-room/');
+}
+
+export async function upsertWarRoomEntry(payload) {
+  return authedRequest('/api/paths/mechanics/discipline/war-room/', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function getVisionBoardSummary() {
+  return authedRequest('/api/paths/mechanics/grind/vision-board/');
+}
+
+export async function getKnightWeeklyReport(weekStart) {
+  const query = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : '';
+  return authedRequest(`/api/paths/mechanics/discipline/weekly-report/${query}`);
 }
 
 // ── Friends ──────────────────────────────────────────────────────────────────

@@ -8,6 +8,8 @@ from django.utils import timezone
 from players.models import Player
 
 from .models import (
+    AccountabilityPartnership,
+    AccountabilityPartnerRequest,
     ActivityEvent,
     FriendRequest,
     Friendship,
@@ -33,6 +35,15 @@ def _friendship_exists(*, player_a, player_b):
     return Friendship.objects.filter(player_one=player_one, player_two=player_two).exists()
 
 
+def _accountability_exists(*, player_a, player_b):
+    player_one, player_two = _ordered_player_pair(player_a=player_a, player_b=player_b)
+    return AccountabilityPartnership.objects.filter(
+        player_one=player_one,
+        player_two=player_two,
+        is_active=True,
+    ).exists()
+
+
 def _is_group_member(*, group, player):
     return GroupMembership.objects.filter(group=group, player=player).exists()
 
@@ -42,6 +53,102 @@ def get_group_or_404(*, group_id):
         return SocialGroup.objects.get(id=group_id)
     except SocialGroup.DoesNotExist as exc:
         raise SocialNotFoundError("Group not found.") from exc
+
+
+@transaction.atomic
+def send_accountability_request(*, from_player, to_player_id):
+    if from_player.id == to_player_id:
+        raise ValidationError("You cannot invite yourself.")
+
+    try:
+        to_player = Player.objects.get(id=to_player_id)
+    except Player.DoesNotExist as exc:
+        raise SocialNotFoundError("Target player was not found.") from exc
+
+    if _accountability_exists(player_a=from_player, player_b=to_player):
+        raise ValidationError("You already have an active accountability partner relationship.")
+
+    if AccountabilityPartnerRequest.objects.filter(
+        from_player=from_player,
+        to_player=to_player,
+        status=AccountabilityPartnerRequest.STATUS_PENDING,
+    ).exists():
+        raise ValidationError("A pending accountability request already exists.")
+
+    if AccountabilityPartnerRequest.objects.filter(
+        from_player=to_player,
+        to_player=from_player,
+        status=AccountabilityPartnerRequest.STATUS_PENDING,
+    ).exists():
+        raise ValidationError("This player has already invited you. Please respond to that invite.")
+
+    return AccountabilityPartnerRequest.objects.create(from_player=from_player, to_player=to_player)
+
+
+@transaction.atomic
+def accept_accountability_request(*, request_id, acting_player):
+    partner_request = AccountabilityPartnerRequest.objects.select_for_update().filter(id=request_id).first()
+    if not partner_request:
+        raise SocialNotFoundError("Accountability request not found.")
+
+    if partner_request.to_player_id != acting_player.id:
+        raise PermissionDenied("You can only accept requests sent to you.")
+
+    if partner_request.status != AccountabilityPartnerRequest.STATUS_PENDING:
+        raise ValidationError("Only pending requests can be accepted.")
+
+    player_one, player_two = _ordered_player_pair(
+        player_a=partner_request.from_player,
+        player_b=partner_request.to_player,
+    )
+    partnership, _ = AccountabilityPartnership.objects.get_or_create(
+        player_one=player_one,
+        player_two=player_two,
+        defaults={"is_active": True},
+    )
+    if not partnership.is_active:
+        partnership.is_active = True
+        partnership.save(update_fields=["is_active"])
+
+    partner_request.status = AccountabilityPartnerRequest.STATUS_ACCEPTED
+    partner_request.responded_at = timezone.now()
+    partner_request.save(update_fields=["status", "responded_at"])
+    return partnership
+
+
+@transaction.atomic
+def reject_accountability_request(*, request_id, acting_player):
+    partner_request = AccountabilityPartnerRequest.objects.select_for_update().filter(id=request_id).first()
+    if not partner_request:
+        raise SocialNotFoundError("Accountability request not found.")
+    if partner_request.to_player_id != acting_player.id:
+        raise PermissionDenied("You can only reject requests sent to you.")
+    if partner_request.status != AccountabilityPartnerRequest.STATUS_PENDING:
+        raise ValidationError("Only pending requests can be rejected.")
+    partner_request.status = AccountabilityPartnerRequest.STATUS_REJECTED
+    partner_request.responded_at = timezone.now()
+    partner_request.save(update_fields=["status", "responded_at"])
+    return partner_request
+
+
+def list_accountability_requests_queryset(*, player, direction=None):
+    base_qs = AccountabilityPartnerRequest.objects.select_related(
+        "from_player__user",
+        "to_player__user",
+    ).filter(status=AccountabilityPartnerRequest.STATUS_PENDING)
+
+    if direction == "incoming":
+        return base_qs.filter(to_player=player)
+    if direction == "outgoing":
+        return base_qs.filter(from_player=player)
+    return base_qs.filter(Q(from_player=player) | Q(to_player=player))
+
+
+def has_active_accountability_partner(*, player):
+    return AccountabilityPartnership.objects.filter(
+        Q(player_one=player) | Q(player_two=player),
+        is_active=True,
+    ).exists()
 
 
 @transaction.atomic

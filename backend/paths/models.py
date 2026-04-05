@@ -129,6 +129,7 @@ class WisdomLog(models.Model):
     )
     entry = models.TextField()
     log_date = models.DateField()
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -177,6 +178,26 @@ class MindsetSageProfile(models.Model):
         return f"{self.player.user.username} — mindset profile"
 
 
+class DarkNightEntry(models.Model):
+    """Deep reflection entry for Dark Night Quest."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="dark_night_entries",
+    )
+    entry = models.TextField()
+    activated_on = models.DateField()
+    exp_awarded = models.PositiveIntegerField(default=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "activated_on")]
+        ordering = ["-activated_on"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — dark night {self.activated_on}"
+
+
 # ── HEALTH ALCHEMIST ──────────────────────────────────────────────────────────
 
 class BodyJournal(models.Model):
@@ -191,6 +212,7 @@ class BodyJournal(models.Model):
     sleep_hours = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     energy_level = models.PositiveSmallIntegerField(null=True, blank=True)  # 1–10
     notes = models.TextField(blank=True, default="")
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -212,6 +234,9 @@ class ElixirProgress(models.Model):
     current_formula = models.CharField(max_length=100, blank=True, default="")
     brews_completed = models.PositiveIntegerField(default=0)
     last_brew_date = models.DateField(null=True, blank=True)
+    fill_days = models.PositiveSmallIntegerField(default=0)
+    last_fill_date = models.DateField(null=True, blank=True)
+    mercy_retained_fill_days = models.PositiveSmallIntegerField(default=0)
 
     def __str__(self):
         return f"{self.player.user.username} — elixir lv{self.elixir_level}"
@@ -263,6 +288,22 @@ class QuestChain(models.Model):
             f"order={self.sequence_order})"
         )
 
+
+class TransmutationMilestone(models.Model):
+    """Milestones unlocked as elixir brews accumulate."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="transmutation_milestones",
+    )
+    milestone_key = models.CharField(max_length=50)
+    achieved_on = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "milestone_key")]
+        ordering = ["-achieved_on"]
+
 class HealthAlchemistProfile(models.Model):
     """Persistent onboarding configuration for Health Alchemist."""
     player = models.OneToOneField(
@@ -306,6 +347,21 @@ class ArmorPiece(models.Model):
 
     def __str__(self):
         return f"{self.player.user.username} — {self.slot}: {self.name}"
+
+
+class ArmorSystem(models.Model):
+    """Top-level armor state for Discipline Knight."""
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="armor_system",
+    )
+    total_cracks = models.PositiveSmallIntegerField(default=0)
+    repaired_at = models.DateField(null=True, blank=True)
+    last_cracked_on = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.player.user.username} — armor cracks: {self.total_cracks}"
 
 
 class DisciplineCode(models.Model):
@@ -393,7 +449,7 @@ class TemptationLog(models.Model):
 
 
 class WarRoomEntry(models.Model):
-    """Knight's weekly battle plan and reflection."""
+    """Knight's daily battle plan and evening review."""
     player = models.ForeignKey(
         "players.Player",
         on_delete=models.CASCADE,
@@ -402,6 +458,12 @@ class WarRoomEntry(models.Model):
     week_start = models.DateField()
     objectives = models.JSONField(default=list)
     reflection = models.TextField(blank=True, default="")
+    morning_completed_at = models.DateTimeField(null=True, blank=True)
+    evening_completed_at = models.DateTimeField(null=True, blank=True)
+    morning_exp_awarded = models.PositiveSmallIntegerField(default=0)
+    evening_exp_awarded = models.PositiveSmallIntegerField(default=0)
+    bonus_exp_awarded = models.PositiveSmallIntegerField(default=0)
+    same_day_bonus_awarded = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -433,6 +495,26 @@ class WeeklyReport(models.Model):
 
     def __str__(self):
         return f"{self.player.user.username} — weekly report {self.week_start}"
+
+
+class KnightWeeklyReport(models.Model):
+    """Generated weekly report for Discipline Knight progression."""
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="knight_weekly_reports",
+    )
+    week_start = models.DateField()
+    week_end = models.DateField()
+    report_payload = models.JSONField(default=dict)
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("player", "week_start")]
+        ordering = ["-week_start", "-generated_at"]
+
+    def __str__(self):
+        return f"{self.player.user.username} — knight report {self.week_start}"
 
 
 class SingularGoal(models.Model):
@@ -517,6 +599,7 @@ class OutputLog(models.Model):
     tasks_shipped = models.PositiveSmallIntegerField(default=0)
     revenue_usd = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     notes = models.TextField(blank=True, default="")
+    is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -564,28 +647,6 @@ class SkillTreeNode(models.Model):
         return f"Tree {self.tree_id} — {self.node_key} ({status})"
 
 
-class AccountabilityPartner(models.Model):
-    """Links two players as mutual accountability partners."""
-    player = models.ForeignKey(
-        "players.Player",
-        on_delete=models.CASCADE,
-        related_name="accountability_sent",
-    )
-    partner = models.ForeignKey(
-        "players.Player",
-        on_delete=models.CASCADE,
-        related_name="accountability_received",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        unique_together = [("player", "partner")]
-
-    def __str__(self):
-        return f"{self.player.user.username} ↔ {self.partner.user.username}"
-
-
 class PostFirstDollarChain(models.Model):
     """Visionary milestone: consecutive days with revenue > $0."""
     player = models.OneToOneField(
@@ -596,6 +657,13 @@ class PostFirstDollarChain(models.Model):
     current_chain = models.PositiveIntegerField(default=0)
     longest_chain = models.PositiveIntegerField(default=0)
     last_revenue_date = models.DateField(null=True, blank=True)
+    first_dollar_completed = models.BooleanField(default=False)
+    first_dollar_completed_on = models.DateField(null=True, blank=True)
+    chain_unlocked = models.BooleanField(default=False)
+    chain_stage = models.PositiveSmallIntegerField(default=0)
+    first_ten_completed = models.BooleanField(default=False)
+    first_hundred_completed = models.BooleanField(default=False)
+    first_monthly_completed = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.player.user.username} — ${self.current_chain}d chain"

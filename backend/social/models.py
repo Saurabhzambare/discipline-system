@@ -289,6 +289,79 @@ class ActivityEvent(models.Model):
         ordering = ["-created_at"]
 
 
+class AccountabilityPartnerRequest(models.Model):
+    """Narrow accountability invite flow for Grind Visionary mechanics."""
+
+    STATUS_PENDING = "pending"
+    STATUS_ACCEPTED = "accepted"
+    STATUS_REJECTED = "rejected"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_ACCEPTED, "Accepted"),
+        (STATUS_REJECTED, "Rejected"),
+        (STATUS_CANCELLED, "Cancelled"),
+    ]
+
+    from_player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="sent_accountability_requests",
+    )
+    to_player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="received_accountability_requests",
+    )
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=~Q(from_player=models.F("to_player")),
+                name="social_accountability_request_not_self",
+            ),
+            models.UniqueConstraint(
+                fields=["from_player", "to_player"],
+                condition=Q(status="pending"),
+                name="social_unique_pending_accountability_request_directional",
+            ),
+        ]
+        ordering = ["-created_at"]
+
+
+class AccountabilityPartnership(models.Model):
+    """Accepted accountability relationship used by Grind Visionary."""
+
+    player_one = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="accountability_as_player_one",
+    )
+    player_two = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="accountability_as_player_two",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=Q(player_one__lt=models.F("player_two")),
+                name="social_accountability_ordered_pair",
+            ),
+            models.UniqueConstraint(
+                fields=["player_one", "player_two"],
+                name="social_unique_accountability_pair",
+            ),
+        ]
+        ordering = ["-created_at"]
+
+
 # ── BADGES & ACHIEVEMENTS ─────────────────────────────────────────────────────
 
 class Badge(models.Model):

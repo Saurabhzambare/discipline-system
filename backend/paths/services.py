@@ -1,16 +1,21 @@
 from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import Count, Sum
 from django.utils import timezone
 
 from players.models import Player
+from quests.models import QuestCompletion
 from .models import (
+    BodyJournal,
+    DarkNightEntry,
     DisciplineCode,
     DisciplineKnightProfile,
     EquipmentProfile,
     FitnessWarriorProfile,
     GrindVisionaryProfile,
     HealthAlchemistProfile,
+    KnightWeeklyReport,
     MindsetSageProfile,
     PathDiscoveryQuiz,
     PathMatchScore,
@@ -21,6 +26,9 @@ from .models import (
     SkillTreeNode,
     SplitDayState,
     UserPathSelection,
+    WarRoomEntry,
+    WisdomLog,
+    OutputLog,
 )
 from .quiz_data import PATH_CODES, calculate_path_scores, get_randomized_questions
 
@@ -58,6 +66,16 @@ PATH_NAMES = {
     "discipline_knight": "Discipline Knight",
     "grind_visionary":   "Grind Visionary",
 }
+
+WAR_ROOM_MORNING_EXP = 35
+WAR_ROOM_EVENING_EXP = 35
+WAR_ROOM_SAME_DAY_BONUS_EXP = 25
+
+
+def _calculate_level_from_exp(exp: int) -> int:
+    import math
+
+    return max(1, int(math.sqrt((exp + 50) / 50)))
 
 
 def start_quiz(player: Player) -> dict:
@@ -517,3 +535,211 @@ def complete_path_onboarding(player: Player, path_code: str) -> dict:
         raise ValueError(f"Invalid path: {path_code}")
     _complete_onboarding(player=player, path_code=path_code)
     return {"completed": True, "path_code": path_code}
+
+
+def list_wisdom_logs(*, player: Player):
+    return WisdomLog.objects.filter(player=player).order_by("-log_date", "-id")
+
+
+@transaction.atomic
+def upsert_wisdom_log(*, player: Player, payload: dict):
+    log_date = payload.get("log_date") or timezone.localdate()
+    obj, _ = WisdomLog.objects.update_or_create(
+        player=player,
+        log_date=log_date,
+        defaults={
+            "entry": payload["entry"],
+            "is_public": payload.get("is_public", False),
+        },
+    )
+    return obj
+
+
+@transaction.atomic
+def create_dark_night(*, player: Player, payload: dict):
+    from .mechanics import process_dark_night_entry
+
+    entry_date = payload.get("date") or timezone.localdate()
+    return process_dark_night_entry(player=player, entry=payload["entry"], entry_date=entry_date)
+
+
+def list_body_journals(*, player: Player):
+    return BodyJournal.objects.filter(player=player).order_by("-log_date", "-id")
+
+
+@transaction.atomic
+def upsert_body_journal(*, player: Player, payload: dict):
+    log_date = payload.get("log_date") or timezone.localdate()
+    defaults = {
+        "weight_kg": payload.get("weight_kg"),
+        "sleep_hours": payload.get("sleep_hours"),
+        "energy_level": payload.get("energy_level"),
+        "notes": payload.get("notes", ""),
+        "is_public": False,
+    }
+    obj, _ = BodyJournal.objects.update_or_create(
+        player=player,
+        log_date=log_date,
+        defaults=defaults,
+    )
+    return obj
+
+
+def list_output_logs(*, player: Player):
+    return OutputLog.objects.filter(player=player).order_by("-log_date", "-id")
+
+
+@transaction.atomic
+def upsert_output_log(*, player: Player, payload: dict):
+    log_date = payload.get("log_date") or timezone.localdate()
+    defaults = {
+        "deep_work_hours": payload.get("deep_work_hours") or 0,
+        "tasks_shipped": payload.get("tasks_shipped") or 0,
+        "revenue_usd": payload.get("revenue_usd") or 0,
+        "notes": payload.get("notes", ""),
+        "is_public": payload.get("is_public", False),
+    }
+    obj, _ = OutputLog.objects.update_or_create(
+        player=player,
+        log_date=log_date,
+        defaults=defaults,
+    )
+    return obj
+
+
+def list_war_room_entries(*, player: Player):
+    return WarRoomEntry.objects.filter(player=player).order_by("-week_start", "-id")
+
+
+@transaction.atomic
+def upsert_war_room_entry(*, player: Player, payload: dict):
+    week_start = payload.get("week_start") or timezone.localdate()
+    phase = payload["phase"]
+    now = timezone.now()
+    obj, _ = WarRoomEntry.objects.update_or_create(
+        player=player,
+        week_start=week_start,
+        defaults={
+            "objectives": payload.get("objectives", []),
+            "reflection": payload.get("reflection", ""),
+        },
+    )
+    exp_awarded = 0
+    bonus_awarded = 0
+
+    if phase == "morning":
+        if payload.get("objectives"):
+            obj.objectives = payload.get("objectives", [])
+        if obj.morning_completed_at is None:
+            obj.morning_completed_at = now
+            obj.morning_exp_awarded = WAR_ROOM_MORNING_EXP
+            exp_awarded += WAR_ROOM_MORNING_EXP
+
+    if phase == "evening":
+        if payload.get("reflection", "").strip():
+            obj.reflection = payload.get("reflection", "")
+        if obj.evening_completed_at is None:
+            obj.evening_completed_at = now
+            obj.evening_exp_awarded = WAR_ROOM_EVENING_EXP
+            exp_awarded += WAR_ROOM_EVENING_EXP
+
+    if obj.morning_completed_at and obj.evening_completed_at and not obj.same_day_bonus_awarded:
+        obj.same_day_bonus_awarded = True
+        obj.bonus_exp_awarded = WAR_ROOM_SAME_DAY_BONUS_EXP
+        bonus_awarded = WAR_ROOM_SAME_DAY_BONUS_EXP
+
+    obj.save(
+        update_fields=[
+            "objectives",
+            "reflection",
+            "morning_completed_at",
+            "evening_completed_at",
+            "morning_exp_awarded",
+            "evening_exp_awarded",
+            "bonus_exp_awarded",
+            "same_day_bonus_awarded",
+        ]
+    )
+
+    if exp_awarded or bonus_awarded:
+        player.exp += exp_awarded + bonus_awarded
+        player.level = _calculate_level_from_exp(player.exp)
+        player.save(update_fields=["exp", "level", "updated_at"])
+
+    obj._weekly_report_input = get_war_room_weekly_input(player=player, anchor_date=week_start)
+    obj._exp_awarded = exp_awarded
+    obj._bonus_awarded = bonus_awarded
+    return obj
+
+
+def get_war_room_weekly_input(*, player: Player, anchor_date):
+    week_start = anchor_date - timedelta(days=anchor_date.weekday())
+    week_end = week_start + timedelta(days=6)
+    entries = WarRoomEntry.objects.filter(player=player, week_start__range=[week_start, week_end])
+    mornings = entries.exclude(morning_completed_at__isnull=True).count()
+    evenings = entries.exclude(evening_completed_at__isnull=True).count()
+    bonuses = entries.filter(same_day_bonus_awarded=True).count()
+    return {
+        "week_start": week_start.isoformat(),
+        "week_end": week_end.isoformat(),
+        "morning_plans_completed": mornings,
+        "evening_reviews_completed": evenings,
+        "same_day_bonuses": bonuses,
+    }
+
+
+@transaction.atomic
+def generate_knight_weekly_report(*, player: Player, week_start):
+    week_end = week_start + timedelta(days=6)
+    war_room = get_war_room_weekly_input(player=player, anchor_date=week_start)
+    armor = getattr(player, "armor_system", None)
+    shield = getattr(player, "streak_shield", None)
+
+    pillar_rows = (
+        QuestCompletion.objects.filter(
+            player=player,
+            completion_date__range=[week_start, week_end],
+            quest__path_target="discipline_knight",
+        )
+        .values("quest__pillar")
+        .annotate(completions=Count("id"), exp_total=Sum("quest__exp_reward"))
+        .order_by("quest__pillar")
+    )
+    pillar_performance = {
+        row["quest__pillar"]: {
+            "completions": row["completions"],
+            "exp_total": row["exp_total"] or 0,
+        }
+        for row in pillar_rows
+    }
+
+    payload = {
+        "week_start": week_start.isoformat(),
+        "week_end": week_end.isoformat(),
+        "war_room": war_room,
+        "armor": {
+            "total_cracks": armor.total_cracks if armor else 0,
+            "last_cracked_on": armor.last_cracked_on.isoformat() if armor and armor.last_cracked_on else None,
+            "pieces_forged": player.armor_pieces.count(),
+        },
+        "streak": {
+            "current_streak": player.streak,
+            "shield_available": shield.shields_available if shield else 0,
+            "shield_last_earned_date": shield.last_earned_date.isoformat() if shield and shield.last_earned_date else None,
+        },
+        "pillar_performance": pillar_performance,
+    }
+
+    report, _ = KnightWeeklyReport.objects.update_or_create(
+        player=player,
+        week_start=week_start,
+        defaults={
+            "week_end": week_end,
+            "report_payload": payload,
+        },
+    )
+    return report
+
+
+def get_knight_weekly_report(*, player: Player, week_start):
+    return KnightWeeklyReport.objects.filter(player=player, week_start=week_start).first()
