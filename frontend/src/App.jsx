@@ -165,6 +165,7 @@ export default function App() {
             cooldown_days: 0,
             completed_today: item.completed_today,
             assigned_completed_today: item.assigned_completed_today,
+            feedback: item.feedback || null,
           }));
         setQuests(mapped);
       } else {

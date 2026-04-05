@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import QuestCard from '../components/QuestCard';
 
 function calcExpProgress(exp) {
@@ -222,6 +222,19 @@ export default function DashboardPage({
   const [summary, setSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [swapState, setSwapState] = useState({ open: false, alternatives: [], quest: null, loading: false });
+  const [intentionSaving, setIntentionSaving] = useState(false);
+  const [intentionNotice, setIntentionNotice] = useState('');
+  const [swapNotice, setSwapNotice] = useState('');
+  const [feedbackByItem, setFeedbackByItem] = useState(() =>
+    Object.fromEntries((quests || []).filter((q) => q.item_id).map((q) => [q.item_id, q.feedback || null])),
+  );
+  const [feedbackSavingByItem, setFeedbackSavingByItem] = useState({});
+
+  useEffect(() => {
+    setFeedbackByItem(
+      Object.fromEntries((quests || []).filter((q) => q.item_id).map((q) => [q.item_id, q.feedback || null])),
+    );
+  }, [quests]);
 
   const filteredQuests = quests.filter((q) => {
     if (activeFilter === 'remaining') return !(q.completed_today || q.assigned_completed_today);
@@ -267,6 +280,10 @@ export default function DashboardPage({
           {dailyLineup?.date ? (
             <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Daily Intention</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Pick your pace for today. This tunes your lineup vibe: <span className="text-cyan-300">Full Send</span> (push hard),{' '}
+                <span className="text-cyan-300">Steady</span> (balanced), or <span className="text-cyan-300">Recovery</span> (lighter day).
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {[
                   { value: 'full_send', label: 'Full Send' },
@@ -278,14 +295,26 @@ export default function DashboardPage({
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => onSetIntention?.(option.value)}
+                      onClick={async () => {
+                        if (!onSetIntention || intentionSaving || active) return;
+                        setIntentionSaving(true);
+                        setIntentionNotice('Saving intention...');
+                        try {
+                          await onSetIntention(option.value);
+                          setIntentionNotice(`Saved: ${option.label} selected.`);
+                        } finally {
+                          setIntentionSaving(false);
+                        }
+                      }}
+                      disabled={intentionSaving}
                       className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                         active
                           ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-200'
                           : 'border-[#1a3a5c] text-slate-400 hover:border-cyan-500/40 hover:text-cyan-300'
-                      }`}
+                      } disabled:cursor-wait disabled:opacity-70`}
                     >
                       {option.label}
+                      {active ? ' ✓' : ''}
                     </button>
                   );
                 })}
@@ -306,6 +335,9 @@ export default function DashboardPage({
                   {summaryLoading ? 'Loading…' : 'View Daily Summary'}
                 </button>
               </div>
+              {intentionNotice ? (
+                <p className="mt-2 text-xs text-cyan-300">{intentionNotice}</p>
+              ) : null}
               {summary ? (
                 <div className="mt-3 rounded-lg border border-[#1a3a5c] bg-[#071020] p-3 text-xs text-slate-300">
                   <p>Completed: {summary.quests_completed}/{summary.quests_total}</p>
@@ -378,6 +410,9 @@ export default function DashboardPage({
               <div>
                 <h2 className="text-lg font-semibold text-slate-100">Today&apos;s Quests</h2>
                 <p className="text-xs text-slate-500">Complete your assigned set to protect your streak.</p>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Need a better fit? Use <span className="text-cyan-300">Swap</span> on eligible quests.
+                </p>
               </div>
               <button
                 type="button"
@@ -412,6 +447,11 @@ export default function DashboardPage({
               <p className="py-4 text-center text-sm text-slate-500">No quests match this filter.</p>
             ) : (
               <div className="divide-y divide-[#1a3a5c]/40">
+                {swapNotice ? (
+                  <div className="mb-3 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200">
+                    {swapNotice}
+                  </div>
+                ) : null}
                 {filteredQuests.map((quest) => (
                   <QuestCard
                     key={quest.id}
@@ -432,8 +472,16 @@ export default function DashboardPage({
                     }}
                     onFeedback={async (itemId, feedback) => {
                       if (!itemId || !onSubmitFeedback) return;
-                      await onSubmitFeedback(itemId, feedback);
+                      setFeedbackSavingByItem((prev) => ({ ...prev, [itemId]: true }));
+                      setFeedbackByItem((prev) => ({ ...prev, [itemId]: feedback }));
+                      try {
+                        await onSubmitFeedback(itemId, feedback);
+                      } finally {
+                        setFeedbackSavingByItem((prev) => ({ ...prev, [itemId]: false }));
+                      }
                     }}
+                    feedbackValue={feedbackByItem[quest.item_id] ?? quest.feedback ?? null}
+                    feedbackSaving={Boolean(feedbackSavingByItem[quest.item_id])}
                   />
                 ))}
               </div>
@@ -462,6 +510,7 @@ export default function DashboardPage({
                     onClick={async () => {
                       await onSwapQuest?.(swapState.quest.item_id, alt.id);
                       setSwapState({ open: false, alternatives: [], quest: null, loading: false });
+                      setSwapNotice('Quest swapped successfully.');
                     }}
                     className="w-full rounded-lg border border-[#1a3a5c] bg-[#071020] px-3 py-2 text-left text-xs text-slate-200 hover:border-cyan-500/40"
                   >

@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 
-export default function QuestCard({ quest, onComplete, loading, onShare, canSwap, onSwap, onFeedback }) {
+export default function QuestCard({
+  quest,
+  onComplete,
+  loading,
+  onShare,
+  canSwap,
+  onSwap,
+  onFeedback,
+  feedbackValue,
+  feedbackSaving,
+}) {
   const completed = quest.assigned_completed_today ?? quest.completed_today;
   const prevCompletedRef = useRef(completed);
   const [justCompleted, setJustCompleted] = useState(false);
@@ -37,6 +47,17 @@ export default function QuestCard({ quest, onComplete, loading, onShare, canSwap
     onComplete(quest.id, null);
     setNote('');
   }
+
+  const swapReason = !canSwap
+    ? 'Unlocks later'
+    : completed
+      ? 'Already completed'
+      : !quest.item_id
+        ? 'Unavailable'
+        : quest.universal_daily
+          ? 'Universal quest'
+          : null;
+  const swapEnabled = !swapReason;
 
   async function handleShare() {
     setShareFlash(true);
@@ -99,15 +120,19 @@ export default function QuestCard({ quest, onComplete, loading, onShare, canSwap
 
         {/* Right: share + EXP */}
         <div className="flex flex-shrink-0 items-center gap-2">
-          {canSwap && !completed && quest.item_id && !quest.universal_daily ? (
+          {swapEnabled ? (
             <button
               type="button"
               onClick={() => onSwap?.(quest)}
-              className="rounded-md border border-[#1a3a5c] px-2 py-1 text-[10px] text-slate-400 hover:border-cyan-500/40 hover:text-cyan-300"
+              className="rounded-md border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 text-[10px] font-medium text-cyan-200 hover:bg-cyan-500/20"
             >
               Swap
             </button>
-          ) : null}
+          ) : (
+            <span className="rounded-md border border-[#1a3a5c] px-2 py-1 text-[10px] text-slate-500">
+              Swap: {swapReason}
+            </span>
+          )}
           {completed && onShare ? (
             <button
               type="button"
@@ -133,17 +158,34 @@ export default function QuestCard({ quest, onComplete, loading, onShare, canSwap
           <button
             type="button"
             onClick={() => onFeedback(quest.item_id, 'up')}
-            className="rounded border border-emerald-600/40 px-1.5 py-0.5 text-emerald-300"
+            disabled={feedbackSaving}
+            className={`rounded border px-1.5 py-0.5 transition ${
+              feedbackValue === 'up'
+                ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200'
+                : 'border-emerald-600/40 text-emerald-300 hover:border-emerald-400/60'
+            } disabled:cursor-wait disabled:opacity-70`}
+            aria-pressed={feedbackValue === 'up'}
           >
             👍
           </button>
           <button
             type="button"
             onClick={() => onFeedback(quest.item_id, 'down')}
-            className="rounded border border-rose-600/40 px-1.5 py-0.5 text-rose-300"
+            disabled={feedbackSaving}
+            className={`rounded border px-1.5 py-0.5 transition ${
+              feedbackValue === 'down'
+                ? 'border-rose-400 bg-rose-500/20 text-rose-200'
+                : 'border-rose-600/40 text-rose-300 hover:border-rose-400/60'
+            } disabled:cursor-wait disabled:opacity-70`}
+            aria-pressed={feedbackValue === 'down'}
           >
             👎
           </button>
+          {feedbackSaving ? (
+            <span className="text-cyan-300">Saving…</span>
+          ) : feedbackValue ? (
+            <span className="text-cyan-300">Saved</span>
+          ) : null}
         </div>
       ) : null}
 
