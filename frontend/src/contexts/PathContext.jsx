@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   completeQuiz as apiCompleteQuiz,
   getActivePaths,
@@ -6,16 +6,7 @@ import {
   startQuiz as apiStartQuiz,
   submitQuizAnswer,
 } from '../api';
-
-export const QUIZ_SCREEN = {
-  WELCOME:    'welcome',
-  QUESTION:   'question',
-  RESULTS:    'results',
-  PATH_CARDS: 'path_cards',
-  COMMITMENT: 'commitment',
-};
-
-export const PathContext = createContext(null);
+import { PathContext, QUIZ_SCREEN } from './pathContextShared';
 
 export function PathProvider({ children, onPathSelected }) {
   // ── Quiz state ────────────────────────────────────────────────────────────
@@ -163,8 +154,4 @@ export function PathProvider({ children, onPathSelected }) {
       {children}
     </PathContext.Provider>
   );
-}
-
-export function usePath() {
-  return useContext(PathContext);
 }

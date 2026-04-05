@@ -19,8 +19,6 @@ import {
   getSwapAlternatives,
   getFriendRequests,
   getFriends,
-  getGroupFeed,
-  getGroupMembers,
   getGroups,
   getPlayerMe,
   getPublicProfile,
@@ -39,11 +37,10 @@ import {
   signup,
   submitQuestFeedback,
   swapQuest,
-  updatePlayerPath,
   updatePostComment,
   updateSocialPost,
 } from './api';
-import { PathContext, PathProvider } from './contexts/PathContext';
+import { PathProvider } from './contexts/PathContext';
 import { PlayerContext } from './contexts/PlayerContext';
 import { QuestContext } from './contexts/QuestContext';
 import Layout from './components/Layout';
@@ -96,7 +93,6 @@ export default function App() {
   const [dashboardError, setDashboardError] = useState('');
   const [feedError, setFeedError] = useState('');
   const [completingQuestId, setCompletingQuestId] = useState(null);
-  const [savingPath, setSavingPath] = useState(false);
   const [flashMessage, setFlashMessage] = useState(null);
   const [friends, setFriends] = useState([]);
   const [incomingRequests, setIncomingRequests] = useState([]);
@@ -111,7 +107,6 @@ export default function App() {
   const [notifications, setNotifications] = useState([]);
   const [onboardingStatus, setOnboardingStatus] = useState(null);
 
-  const selectedPath = useMemo(() => player?.path || '', [player?.path]);
   const selectedPathDisplay = useMemo(() => player?.path_display || '', [player?.path_display]);
 
   const handleAuthExpired = useCallback(
@@ -518,25 +513,6 @@ export default function App() {
     setFeedPosts([]);
     setFlashMessage({ type: 'success', text: 'You have been logged out.' });
     navigate('/login');
-  }
-
-  async function handleSelectPath(path) {
-    setSavingPath(true);
-    setDashboardError('');
-
-    try {
-      const updatedPlayer = await updatePlayerPath(path);
-      setPlayer(updatedPlayer);
-      setFlashMessage({ type: 'success', text: `Path updated to ${updatedPlayer.path_display || path}.` });
-    } catch (error) {
-      if (error.status === 401) {
-        handleAuthExpired(error.message);
-        return;
-      }
-      setDashboardError(error.message || 'Could not update path.');
-    } finally {
-      setSavingPath(false);
-    }
   }
 
   async function handleCompleteQuest(questId, note) {
