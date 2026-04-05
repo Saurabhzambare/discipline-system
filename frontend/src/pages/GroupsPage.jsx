@@ -176,7 +176,7 @@ function GroupDetail({ group, currentPlayerId, onLeave, onBack, onAddComment, on
     await loadDetail();
   }
 
-  async function handleRefreshPost(postId) {
+  async function handleRefreshPost() {
     const updated = await getGroupFeed(group.id);
     setFeed(updated);
   }

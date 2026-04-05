@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { LOCKED_PATH, PATH_DATA, PATH_MAP } from '../data/pathData';
-import { QUIZ_SCREEN, usePath } from '../contexts/PathContext';
+import { QUIZ_SCREEN, usePath } from '../contexts/pathContextShared';
 
 // ── Welcome Screen ────────────────────────────────────────────────────────────
 
