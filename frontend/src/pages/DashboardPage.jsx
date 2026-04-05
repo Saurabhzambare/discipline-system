@@ -217,6 +217,11 @@ export default function DashboardPage({
   onSubmitFeedback,
   onLoadSummary,
 }) {
+  const INTENTION_COPY = {
+    full_send: 'No difficulty reduction — keeps your current lineup as-is.',
+    steady: 'May soften one unfinished assigned quest to an easier option.',
+    recovery: 'Attempts to shift unfinished assigned quests to lighter D-rank options.',
+  };
   const expProgress = calcExpProgress(player?.exp || 0);
   const [activeFilter, setActiveFilter] = useState('all');
   const [summary, setSummary] = useState(null);
@@ -284,6 +289,9 @@ export default function DashboardPage({
                 Pick your pace for today. This tunes your lineup vibe: <span className="text-cyan-300">Full Send</span> (push hard),{' '}
                 <span className="text-cyan-300">Steady</span> (balanced), or <span className="text-cyan-300">Recovery</span> (lighter day).
               </p>
+              <p className="mt-2 text-[11px] text-slate-500">
+                Effect now: {INTENTION_COPY[dailyLineup?.intention] || INTENTION_COPY.steady}
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {[
                   { value: 'full_send', label: 'Full Send' },
@@ -300,8 +308,13 @@ export default function DashboardPage({
                         setIntentionSaving(true);
                         setIntentionNotice('Saving intention...');
                         try {
-                          await onSetIntention(option.value);
-                          setIntentionNotice(`Saved: ${option.label} selected.`);
+                          const result = await onSetIntention(option.value);
+                          const lineupAdjusted = Boolean(result?.lineup_adjusted);
+                          setIntentionNotice(
+                            lineupAdjusted
+                              ? `Saved: ${option.label} selected. Today's lineup was adjusted immediately.`
+                              : `Saved: ${option.label} selected. No immediate lineup change was needed.`,
+                          );
                         } finally {
                           setIntentionSaving(false);
                         }
@@ -413,6 +426,11 @@ export default function DashboardPage({
                 <p className="mt-1 text-[11px] text-slate-400">
                   Need a better fit? Use <span className="text-cyan-300">Swap</span> on eligible quests.
                 </p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {dailyLineup?.features_unlocked?.swap
+                    ? `Swap unlocked (Day ${dailyLineup?.days_on_path || 0}). Up to ${dailyLineup?.swaps_remaining ?? 0} swap(s) left today.`
+                    : `Swap unlocks on Day 14 of your current path. You are on Day ${dailyLineup?.days_on_path || 0}.`}
+                </p>
               </div>
               <button
                 type="button"
@@ -460,6 +478,7 @@ export default function DashboardPage({
                     loading={completingQuestId === quest.id}
                     onShare={onShareQuest}
                     canSwap={Boolean(dailyLineup?.features_unlocked?.swap)}
+                    swapMeta={{ daysOnPath: dailyLineup?.days_on_path || 0, unlockDay: 14 }}
                     onSwap={async (targetQuest) => {
                       if (!onGetSwapAlternatives || !targetQuest?.item_id) return;
                       setSwapState({ open: true, alternatives: [], quest: targetQuest, loading: true });

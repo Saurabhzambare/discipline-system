@@ -6,6 +6,7 @@ export default function QuestCard({
   loading,
   onShare,
   canSwap,
+  swapMeta,
   onSwap,
   onFeedback,
   feedbackValue,
@@ -49,13 +50,13 @@ export default function QuestCard({
   }
 
   const swapReason = !canSwap
-    ? 'Unlocks later'
+    ? `Locked until Day ${swapMeta?.unlockDay ?? 14} (you are on Day ${swapMeta?.daysOnPath ?? 0})`
     : completed
-      ? 'Already completed'
+      ? 'Quest already completed today'
       : !quest.item_id
-        ? 'Unavailable'
+        ? 'This slot cannot be swapped'
         : quest.universal_daily
-          ? 'Universal quest'
+          ? 'Universal daily quests cannot be swapped'
           : null;
   const swapEnabled = !swapReason;
 
