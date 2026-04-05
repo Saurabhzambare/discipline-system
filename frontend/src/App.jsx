@@ -688,8 +688,9 @@ export default function App() {
         onSetIntention={async (value) => {
           const targetDate = dailyLineup?.date;
           if (!targetDate) return;
-          await setDailyIntention(targetDate, value);
+          const result = await setDailyIntention(targetDate, value);
           await loadDashboard();
+          return result;
         }}
         onGetSwapAlternatives={async (itemId) => getSwapAlternatives(itemId)}
         onSwapQuest={async (itemId, newQuestId) => {
