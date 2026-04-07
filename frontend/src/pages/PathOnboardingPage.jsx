@@ -531,8 +531,16 @@ export default function PathOnboardingPage({ player, onNavigate, onOnboardingCom
   }, []);
 
   const finish = async () => {
+    setError('');
+    const pathCode = status?.path_code || path;
+
+    if (!pathCode) {
+      setError('Could not determine your selected path for onboarding completion.');
+      return;
+    }
+
     try {
-      const response = await completeOnboarding(path);
+      const response = await completeOnboarding(pathCode);
       if (onOnboardingComplete) onOnboardingComplete(response.player);
       onNavigate('/dashboard');
     } catch (err) {
