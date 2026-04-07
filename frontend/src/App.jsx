@@ -16,7 +16,9 @@ import {
   getOnboardingStatus,
   getDailyLineup,
   getDailyCompletionSummary,
+  getKnightWeeklyReport,
   getSwapAlternatives,
+  getWarRoomEntries,
   getFriendRequests,
   getFriends,
   getGroups,
@@ -39,6 +41,7 @@ import {
   swapQuest,
   updatePostComment,
   updateSocialPost,
+  upsertWarRoomEntry,
 } from './api';
 import { PathProvider } from './contexts/PathContext';
 import { PlayerContext } from './contexts/PlayerContext';
@@ -526,7 +529,7 @@ export default function App() {
         response = await completeLineupItem(questForShare.item_id);
         response = {
           exp_gained: (response.exp_earned || 0) + (response.bonus_exp || 0),
-          player_exp: (player?.exp || 0) + (response.exp_earned || 0) + (response.bonus_exp || 0),
+          player_exp: response.player_exp,
           player_streak: response.streak_update,
           new_level: response.new_level,
           leveled_up: response.level_up,
@@ -702,6 +705,9 @@ export default function App() {
           await loadDashboard();
         }}
         onLoadSummary={async (targetDate) => getDailyCompletionSummary(targetDate)}
+        onLoadWarRoomEntries={async () => getWarRoomEntries()}
+        onSubmitWarRoomEntry={async (payload) => upsertWarRoomEntry(payload)}
+        onLoadKnightWeeklyReport={async (weekStart) => getKnightWeeklyReport(weekStart)}
       />
     );
   }

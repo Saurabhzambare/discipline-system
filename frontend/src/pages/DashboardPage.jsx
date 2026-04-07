@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react';
 import QuestCard from '../components/QuestCard';
 
-function calcExpProgress(exp) {
-  const total = Math.max(exp || 0, 0);
-  const inLevel = total % 100;
-  return { inLevel, percent: Math.min(100, Math.round((inLevel / 100) * 100)) };
+function calcExpProgress(player) {
+  const inLevel = Math.max(player?.exp_in_level || 0, 0);
+  const forLevel = Math.max(player?.exp_for_level || 100, 1);
+  return {
+    inLevel,
+    forLevel,
+    toNext: Math.max(player?.exp_to_next_level || 0, 0),
+    percent: Math.min(100, Math.round((inLevel / forLevel) * 100)),
+  };
 }
 
 /* ── Arc gauge SVG ── */
@@ -122,8 +127,8 @@ const FILTERS = [
 ];
 
 /* ── Right progress panel ── */
-function ProgressPanel({ player, quests }) {
-  const completedCount = quests.filter((q) => q.completed_today || q.assigned_completed_today).length;
+function ProgressPanel({ player, quests, doneTodayCount }) {
+  const completedCount = doneTodayCount ?? quests.filter((q) => q.completed_today || q.assigned_completed_today).length;
   const weeklyExp = player ? (player.exp % 700) : 0;
 
   return (
@@ -216,13 +221,16 @@ export default function DashboardPage({
   onSwapQuest,
   onSubmitFeedback,
   onLoadSummary,
+  onLoadWarRoomEntries,
+  onSubmitWarRoomEntry,
+  onLoadKnightWeeklyReport,
 }) {
   const INTENTION_COPY = {
     full_send: 'No difficulty reduction — keeps your current lineup as-is.',
     steady: 'May soften one unfinished assigned quest to an easier option.',
     recovery: 'Attempts to shift unfinished assigned quests to lighter D-rank options.',
   };
-  const expProgress = calcExpProgress(player?.exp || 0);
+  const expProgress = calcExpProgress(player);
   const [activeFilter, setActiveFilter] = useState('all');
   const [summary, setSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -234,12 +242,32 @@ export default function DashboardPage({
     Object.fromEntries((quests || []).filter((q) => q.item_id).map((q) => [q.item_id, q.feedback || null])),
   );
   const [feedbackSavingByItem, setFeedbackSavingByItem] = useState({});
+  const [warRoomEntries, setWarRoomEntries] = useState([]);
+  const [warRoomPhase, setWarRoomPhase] = useState('morning');
+  const [warRoomObjectives, setWarRoomObjectives] = useState('');
+  const [warRoomReflection, setWarRoomReflection] = useState('');
+  const [warRoomLoading, setWarRoomLoading] = useState(false);
+  const [warRoomNotice, setWarRoomNotice] = useState('');
+  const [weeklyReport, setWeeklyReport] = useState(null);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const doneTodayCount = quests.filter((q) => q.completed_today || q.assigned_completed_today).length;
+
+  async function refreshWarRoomEntries() {
+    if (!onLoadWarRoomEntries) return;
+    const entries = await onLoadWarRoomEntries();
+    setWarRoomEntries(entries || []);
+  }
 
   useEffect(() => {
     setFeedbackByItem(
       Object.fromEntries((quests || []).filter((q) => q.item_id).map((q) => [q.item_id, q.feedback || null])),
     );
   }, [quests]);
+
+  useEffect(() => {
+    refreshWarRoomEntries();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onLoadWarRoomEntries]);
 
   const filteredQuests = quests.filter((q) => {
     if (activeFilter === 'remaining') return !(q.completed_today || q.assigned_completed_today);
@@ -392,7 +420,7 @@ export default function DashboardPage({
             <div className="mt-5">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400">EXP to next level</span>
-                <span className="font-medium text-amber-300">{expProgress.inLevel} / 100</span>
+                <span className="font-medium text-amber-300">{expProgress.inLevel} / {expProgress.forLevel} ({expProgress.toNext} left)</span>
               </div>
               <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-[#1a3a5c]/60">
                 <div
@@ -415,6 +443,99 @@ export default function DashboardPage({
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#1a3a5c] bg-[#0a1628] p-5">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-slate-100">War Room</h2>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!onLoadKnightWeeklyReport) return;
+                  setWeeklyLoading(true);
+                  try {
+                    const report = await onLoadKnightWeeklyReport();
+                    setWeeklyReport(report);
+                  } finally {
+                    setWeeklyLoading(false);
+                  }
+                }}
+                className="rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-200 hover:bg-indigo-500/20"
+              >
+                {weeklyLoading ? 'Loading report…' : 'Load Weekly Report'}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Minimal Discipline Knight flow: morning plan, evening reflection, and EXP feedback.</p>
+            <div className="mt-3 flex gap-2">
+              {['morning', 'evening'].map((phase) => (
+                <button
+                  key={phase}
+                  type="button"
+                  onClick={() => setWarRoomPhase(phase)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs ${
+                    warRoomPhase === phase
+                      ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-200'
+                      : 'border-[#1a3a5c] text-slate-400'
+                  }`}
+                >
+                  {phase === 'morning' ? 'Morning Entry' : 'Evening Entry'}
+                </button>
+              ))}
+            </div>
+            {warRoomPhase === 'morning' ? (
+              <textarea
+                value={warRoomObjectives}
+                onChange={(e) => setWarRoomObjectives(e.target.value)}
+                rows={3}
+                placeholder="Top objectives (one per line)"
+                className="mt-3 w-full rounded-lg border border-[#1a3a5c] bg-[#071020] p-2 text-xs text-slate-100"
+              />
+            ) : (
+              <textarea
+                value={warRoomReflection}
+                onChange={(e) => setWarRoomReflection(e.target.value)}
+                rows={3}
+                placeholder="Evening reflection"
+                className="mt-3 w-full rounded-lg border border-[#1a3a5c] bg-[#071020] p-2 text-xs text-slate-100"
+              />
+            )}
+            <button
+              type="button"
+              disabled={warRoomLoading || !onSubmitWarRoomEntry}
+              onClick={async () => {
+                if (!onSubmitWarRoomEntry) return;
+                setWarRoomLoading(true);
+                setWarRoomNotice('');
+                try {
+                  const payload = warRoomPhase === 'morning'
+                    ? { phase: 'morning', objectives: warRoomObjectives.split('\n').map((v) => v.trim()).filter(Boolean) }
+                    : { phase: 'evening', reflection: warRoomReflection };
+                  const result = await onSubmitWarRoomEntry(payload);
+                  setWarRoomNotice(`Saved. +${result.exp_awarded_now || 0} EXP${result.bonus_awarded_now ? ` (+${result.bonus_awarded_now} same-day bonus)` : ''}.`);
+                  await refreshWarRoomEntries();
+                  onRefresh?.();
+                } finally {
+                  setWarRoomLoading(false);
+                }
+              }}
+              className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-200"
+            >
+              {warRoomLoading ? 'Submitting…' : 'Submit War Room Entry'}
+            </button>
+            {warRoomNotice ? <p className="mt-2 text-xs text-emerald-300">{warRoomNotice}</p> : null}
+            {warRoomEntries[0] ? (
+              <p className="mt-2 text-xs text-slate-400">
+                Latest entry week: {warRoomEntries[0].week_start} • morning +{warRoomEntries[0].morning_exp_awarded} • evening +{warRoomEntries[0].evening_exp_awarded} • bonus +{warRoomEntries[0].bonus_exp_awarded}
+              </p>
+            ) : null}
+            {weeklyReport?.report_payload ? (
+              <div className="mt-3 rounded-lg border border-[#1a3a5c] bg-[#071020] p-3 text-xs text-slate-300">
+                <p>Week: {weeklyReport.week_start} → {weeklyReport.week_end}</p>
+                <p>War Room mornings: {weeklyReport.report_payload?.war_room?.morning_plans_completed ?? 0}</p>
+                <p>War Room evenings: {weeklyReport.report_payload?.war_room?.evening_reviews_completed ?? 0}</p>
+                <p>Same-day bonuses: {weeklyReport.report_payload?.war_room?.same_day_bonuses ?? 0}</p>
+              </div>
+            ) : null}
           </div>
 
           {/* Quest list */}
@@ -509,7 +630,7 @@ export default function DashboardPage({
         </div>
 
         {/* ── Right panel ── */}
-        <ProgressPanel player={player} quests={quests} />
+        <ProgressPanel player={player} quests={quests} doneTodayCount={doneTodayCount} />
       </div>
       {swapState.open ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">

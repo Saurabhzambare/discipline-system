@@ -6,11 +6,13 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from quests.models import PlayerDailyQuestAssignment, Quest, QuestCompletion
+from quests.models import DailyQuestLineup, DailyQuestLineupItem, PlayerDailyQuestAssignment, Quest, QuestCompletion
 from quests.services import (
     assign_daily_quests,
+    calculate_exp_window,
     calculate_level_from_exp,
     calculate_scaled_exp,
+    complete_lineup_item,
     complete_quest,
     is_quest_scheduled_for_date,
 )
@@ -26,9 +28,19 @@ class QuestProgressionServiceTests(TestCase):
 
     def test_calculate_level_from_exp_threshold_calculation(self):
         self.assertEqual(calculate_level_from_exp(0), 1)
-        self.assertEqual(calculate_level_from_exp(99), 1)
-        self.assertEqual(calculate_level_from_exp(100), 2)
-        self.assertEqual(calculate_level_from_exp(250), 3)
+        self.assertEqual(calculate_level_from_exp(149), 1)
+        self.assertEqual(calculate_level_from_exp(150), 2)
+        self.assertEqual(calculate_level_from_exp(399), 2)
+        self.assertEqual(calculate_level_from_exp(400), 3)
+
+    def test_calculate_exp_window_returns_consistent_progress_fields(self):
+        progress = calculate_exp_window(160)
+        self.assertEqual(progress["level"], 2)
+        self.assertEqual(progress["current_level_floor"], 150)
+        self.assertEqual(progress["next_level_floor"], 400)
+        self.assertEqual(progress["exp_in_level"], 10)
+        self.assertEqual(progress["exp_for_level"], 250)
+        self.assertEqual(progress["exp_to_next_level"], 240)
 
     def test_calculate_scaled_exp_uses_difficulty_multiplier(self):
         easy = Quest.objects.create(title="Easy", exp_reward=20, difficulty=Quest.DIFFICULTY_EASY)
@@ -143,6 +155,30 @@ class QuestProgressionServiceTests(TestCase):
         self.player.refresh_from_db()
         self.assertEqual(self.player.streak, 1)
 
+    def test_complete_lineup_item_levels_up_when_threshold_is_crossed(self):
+        today = timezone.localdate()
+        self.player.path = "discipline_knight"
+        self.player.exp = 140
+        self.player.level = 1
+        self.player.save(update_fields=["path", "exp", "level", "updated_at"])
+        quest = Quest.objects.create(title="Threshold Quest", exp_reward=20, path_target="discipline_knight", rank="D")
+        lineup = DailyQuestLineup.objects.create(player=self.player, path="discipline_knight", date=today)
+        item = DailyQuestLineupItem.objects.create(
+            lineup=lineup,
+            quest=quest,
+            slot_order=1,
+            slot_type=DailyQuestLineupItem.SLOT_ASSIGNED,
+            selection_reason=DailyQuestLineupItem.REASON_FALLBACK,
+        )
+
+        result = complete_lineup_item(self.player, item.id)
+        self.player.refresh_from_db()
+
+        self.assertTrue(result["level_up"])
+        self.assertEqual(result["new_level"], 2)
+        self.assertEqual(result["player_exp"], 160)
+        self.assertEqual(result["exp_progress"]["exp_to_next_level"], 240)
+
 
 class QuestCompletionApiTests(TestCase):
     def setUp(self):
@@ -222,3 +258,25 @@ class QuestCompletionApiTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.data["detail"], "Quest not found or inactive.")
         self.assertEqual(self.player.exp, 0)
+
+    def test_quest_list_shows_done_today_after_completion(self):
+        self.player.path = "discipline_knight"
+        self.player.save(update_fields=["path", "updated_at"])
+        quest = Quest.objects.create(title="Done Today Quest", exp_reward=25, path_target="discipline_knight", rank="D")
+        today = timezone.localdate()
+        lineup = DailyQuestLineup.objects.create(player=self.player, path="discipline_knight", date=today)
+        DailyQuestLineupItem.objects.create(
+            lineup=lineup,
+            quest=quest,
+            slot_order=1,
+            slot_type=DailyQuestLineupItem.SLOT_ASSIGNED,
+            selection_reason=DailyQuestLineupItem.REASON_FALLBACK,
+        )
+
+        complete_response = self.client.post(self.complete_url, {"quest_id": quest.id}, format="json")
+        self.assertEqual(complete_response.status_code, 200)
+
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data[0]["completed_today"])
+        self.assertTrue(response.data[0]["assigned_completed_today"])

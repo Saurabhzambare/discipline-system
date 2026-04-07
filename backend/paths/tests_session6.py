@@ -195,6 +195,11 @@ class Session6FirstDollarAndWarRoomTests(TestCase):
         self.assertTrue(evening.data["same_day_bonus_awarded"])
         self.assertIn("weekly_report_input", evening.data)
 
+        listing = self.client.get(url)
+        self.assertEqual(listing.status_code, 200)
+        self.assertGreaterEqual(len(listing.data), 1)
+        self.assertIn("weekly_report_input", listing.data[0])
+
     def test_knight_weekly_report_generation_uses_core_inputs(self):
         self.player.path = "discipline_knight"
         self.player.streak = 12
