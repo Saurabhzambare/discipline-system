@@ -114,6 +114,22 @@ def calculate_level_from_exp(exp: int) -> int:
     return max(1, int(math.sqrt((exp + 50) / 50)))
 
 
+def calculate_exp_window(exp: int) -> dict:
+    level = calculate_level_from_exp(exp)
+    current_level_floor = (level**2 * 50) - 50
+    next_level_floor = ((level + 1) ** 2 * 50) - 50
+    exp_in_level = max(0, exp - current_level_floor)
+    exp_to_next_level = max(0, next_level_floor - exp)
+    return {
+        "level": level,
+        "current_level_floor": current_level_floor,
+        "next_level_floor": next_level_floor,
+        "exp_in_level": exp_in_level,
+        "exp_for_level": max(1, next_level_floor - current_level_floor),
+        "exp_to_next_level": exp_to_next_level,
+    }
+
+
 def calculate_scaled_exp(*, quest: Quest) -> int:
     multiplier = DIFFICULTY_MULTIPLIERS.get(quest.difficulty, 1.0)
     return max(1, int(round(quest.exp_reward * multiplier)))
@@ -665,8 +681,11 @@ def complete_lineup_item(player, lineup_item_id: int):
         "item_completed": True,
         "exp_earned": exp_earned,
         "bonus_exp": bonus_exp,
+        "player_exp": player.exp,
+        "player_level": player.level,
         "level_up": player.level > old_level,
         "new_level": player.level,
+        "exp_progress": calculate_exp_window(player.exp),
         "streak_update": player.streak,
         "daily_progress": {"completed": completed, "total": total},
         "badges_earned": [],
