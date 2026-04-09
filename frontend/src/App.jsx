@@ -568,7 +568,7 @@ export default function App() {
       }
 
       if (response.leveled_up) {
-        setLevelUpInfo({ newLevel: response.new_level });
+        setLevelUpInfo({ newLevel: response.new_level, achievedAt: Date.now() });
       } else {
         setFlashMessage({
           type: 'success',

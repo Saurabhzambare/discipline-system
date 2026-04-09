@@ -69,7 +69,7 @@ PATH_NAMES = {
 
 WAR_ROOM_MORNING_EXP = 35
 WAR_ROOM_EVENING_EXP = 35
-WAR_ROOM_SAME_DAY_BONUS_EXP = 25
+WAR_ROOM_SAME_DAY_BONUS_EXP = 20
 
 
 def _calculate_level_from_exp(exp: int) -> int:

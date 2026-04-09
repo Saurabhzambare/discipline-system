@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import QuestCard from '../components/QuestCard';
 
 function calcExpProgress(player) {
@@ -63,8 +63,11 @@ function LevelUpOverlay({ newLevel, onDismiss }) {
     >
       <div className="relative flex flex-col items-center gap-4 px-8 py-10 text-center" onClick={(e) => e.stopPropagation()}>
         {/* Ping rings */}
-        <span className="absolute inset-0 m-auto h-48 w-48 animate-ping rounded-full border border-amber-400/20" />
-        <span className="absolute inset-0 m-auto h-64 w-64 animate-ping rounded-full border border-amber-400/10 delay-300" style={{ animationDelay: '0.3s' }} />
+        <span className="pointer-events-none absolute inset-0 m-auto h-48 w-48 animate-ping rounded-full border border-amber-400/20" />
+        <span
+          className="pointer-events-none absolute inset-0 m-auto h-64 w-64 animate-ping rounded-full border border-amber-400/10 delay-300"
+          style={{ animationDelay: '0.3s' }}
+        />
 
         <div className="relative flex h-24 w-24 items-center justify-center rounded-full border-2 border-amber-400/60 bg-amber-500/10 shadow-[0_0_40px_rgba(251,191,36,0.4)]">
           <span className="text-4xl">⬆</span>
@@ -250,7 +253,17 @@ export default function DashboardPage({
   const [warRoomNotice, setWarRoomNotice] = useState('');
   const [weeklyReport, setWeeklyReport] = useState(null);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const [isLevelUpOpen, setIsLevelUpOpen] = useState(false);
   const doneTodayCount = quests.filter((q) => q.completed_today || q.assigned_completed_today).length;
+  const levelUpEventKey = useMemo(
+    () => (levelUpInfo ? `${levelUpInfo.newLevel}-${levelUpInfo.achievedAt || 'default'}` : null),
+    [levelUpInfo],
+  );
+
+  const dismissLevelUp = useCallback(() => {
+    setIsLevelUpOpen(false);
+    if (onDismissLevelUp) onDismissLevelUp();
+  }, [onDismissLevelUp]);
 
   async function refreshWarRoomEntries() {
     if (!onLoadWarRoomEntries) return;
@@ -269,6 +282,12 @@ export default function DashboardPage({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onLoadWarRoomEntries]);
 
+  useEffect(() => {
+    if (levelUpInfo) {
+      setIsLevelUpOpen(true);
+    }
+  }, [levelUpEventKey, levelUpInfo]);
+
   const filteredQuests = quests.filter((q) => {
     if (activeFilter === 'remaining') return !(q.completed_today || q.assigned_completed_today);
     if (activeFilter === 'all') return true;
@@ -286,8 +305,8 @@ export default function DashboardPage({
   return (
     <>
       {/* Level-up overlay (Features 1) */}
-      {levelUpInfo && (
-        <LevelUpOverlay newLevel={levelUpInfo.newLevel} onDismiss={onDismissLevelUp} />
+      {levelUpInfo && isLevelUpOpen && (
+        <LevelUpOverlay newLevel={levelUpInfo.newLevel} onDismiss={dismissLevelUp} />
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_280px]">

@@ -81,19 +81,20 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
         armor, _ = ArmorSystem.objects.get_or_create(player=player)
         if player.streak in {7, 14, 21, 28, 35, 42}:
             slot_map = {
-                7: "helmet",
-                14: "chest",
-                21: "gauntlets",
-                28: "legs",
-                35: "boots",
-                42: "shield",
+                7: ["boots"],
+                14: ["gauntlets"],
+                21: ["chest_plate"],
+                28: ["shoulder_guards"],
+                35: ["helmet"],
+                42: ["shield", "sword"],
             }
-            slot = slot_map.get(player.streak)
-            if slot:
+            slots = slot_map.get(player.streak, [])
+            for slot in slots:
+                label = slot.replace("_", " ").title()
                 ArmorPiece.objects.get_or_create(
                     player=player,
                     slot=slot,
-                    defaults={"name": f"Forged {slot.title()}"},
+                    defaults={"name": f"Forged {label}"},
                 )
 
         if player.streak > 0 and player.streak % 14 == 0:
