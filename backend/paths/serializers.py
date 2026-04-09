@@ -208,5 +208,13 @@ class WarRoomEntrySerializer(serializers.Serializer):
     created_at = serializers.DateTimeField(read_only=True)
 
 
+class TemptationLogSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    log_date = serializers.DateField(required=False)
+    description = serializers.CharField()
+    resisted = serializers.BooleanField(required=False, default=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+
 class KnightWeeklyReportQuerySerializer(serializers.Serializer):
     week_start = serializers.DateField(required=False)

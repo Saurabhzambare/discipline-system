@@ -278,3 +278,44 @@ class Session6FirstDollarAndWarRoomTests(TestCase):
                 ArmorPiece.objects.filter(player=self.player).values_list("slot", flat=True)
             )
             self.assertTrue(expected_slots.issubset(unlocked))
+
+
+class Session6MechanicsStatusEndpointsTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="status6", password="testpass123")
+        self.player = self.user.player
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_health_status_endpoint_returns_elixir_payload(self):
+        response = self.client.get(reverse("mechanics-health-status"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("elixir", response.data)
+        self.assertIn("transmutation_milestones", response.data)
+
+    def test_discipline_status_endpoint_returns_armor_and_protection_payload(self):
+        response = self.client.get(reverse("mechanics-discipline-status"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("armor", response.data)
+        self.assertIn("grace_tokens", response.data)
+        self.assertIn("streak_shield", response.data)
+
+    def test_grind_status_endpoint_returns_multiplier_and_chain_payload(self):
+        response = self.client.get(reverse("mechanics-grind-status"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("xp_multiplier", response.data)
+        self.assertIn("multiplier_protection", response.data)
+        self.assertIn("skill_tree", response.data)
+        self.assertIn("first_dollar_chain", response.data)
+
+    def test_temptation_log_endpoint_supports_create_and_list(self):
+        create_response = self.client.post(
+            reverse("mechanics-temptation-log"),
+            {"description": "Resisted doom scrolling before deep work.", "resisted": True},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 200)
+
+        list_response = self.client.get(reverse("mechanics-temptation-log"))
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(len(list_response.data), 1)

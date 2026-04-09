@@ -314,6 +314,10 @@ export async function getBodyJournalEntries() {
   return authedRequest('/api/paths/mechanics/health/body-journal/');
 }
 
+export async function getHealthMechanicsStatus() {
+  return authedRequest('/api/paths/mechanics/health/status/');
+}
+
 export async function upsertBodyJournalEntry(payload) {
   return authedRequest('/api/paths/mechanics/health/body-journal/', {
     method: 'POST',
@@ -325,6 +329,10 @@ export async function getOutputLogs() {
   return authedRequest('/api/paths/mechanics/grind/output-log/');
 }
 
+export async function getGrindMechanicsStatus() {
+  return authedRequest('/api/paths/mechanics/grind/status/');
+}
+
 export async function upsertOutputLog(payload) {
   return authedRequest('/api/paths/mechanics/grind/output-log/', {
     method: 'POST',
@@ -334,6 +342,21 @@ export async function upsertOutputLog(payload) {
 
 export async function getWarRoomEntries() {
   return authedRequest('/api/paths/mechanics/discipline/war-room/');
+}
+
+export async function getDisciplineMechanicsStatus() {
+  return authedRequest('/api/paths/mechanics/discipline/status/');
+}
+
+export async function getTemptationLogs() {
+  return authedRequest('/api/paths/mechanics/discipline/temptation-log/');
+}
+
+export async function createTemptationLog(payload) {
+  return authedRequest('/api/paths/mechanics/discipline/temptation-log/', {
+    method: 'POST',
+    body: payload,
+  });
 }
 
 export async function upsertWarRoomEntry(payload) {

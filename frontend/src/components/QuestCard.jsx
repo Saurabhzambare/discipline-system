@@ -117,6 +117,14 @@ export default function QuestCard({
             <span>·</span>
             <span>{quest.recurrence_display || quest.recurrence}</span>
           </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px]">
+            <span className="rounded border border-violet-500/40 bg-violet-500/10 px-1.5 py-0.5 text-violet-200">
+              Pillar: {quest.pillar || 'General'}
+            </span>
+            <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 font-semibold text-amber-200">
+              Rank {quest.rank || 'D'}
+            </span>
+          </div>
         </div>
 
         {/* Right: share + EXP */}
