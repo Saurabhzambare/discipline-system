@@ -325,11 +325,15 @@ class ArmorPiece(models.Model):
     """Individual armor piece the Knight earns by completing quests."""
     SLOT_CHOICES = [
         ("helmet", "Helmet"),
-        ("chest", "Chest"),
+        ("chest_plate", "Chest Plate"),
         ("gauntlets", "Gauntlets"),
-        ("legs", "Legs"),
+        ("shoulder_guards", "Shoulder Guards"),
         ("boots", "Boots"),
         ("shield", "Shield"),
+        ("sword", "Sword"),
+        # Legacy values kept only for backward compatibility with older rows.
+        ("chest", "Chest (Legacy)"),
+        ("legs", "Legs (Legacy)"),
     ]
 
     player = models.ForeignKey(

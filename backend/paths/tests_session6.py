@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from paths.mechanics import apply_missed_day_protections, apply_post_completion_mechanics, process_dark_night_entry
-from paths.models import DarkNightEntry, FreedomDayToken, GraceToken, PostFirstDollarChain, UserPathSelection, StreakShield
+from paths.models import ArmorPiece, DarkNightEntry, FreedomDayToken, GraceToken, PostFirstDollarChain, UserPathSelection, StreakShield
 from paths.services import generate_knight_weekly_report
 from quests.models import Quest, QuestCompletion
 from quests.services import get_daily_lineup
@@ -191,7 +191,7 @@ class Session6FirstDollarAndWarRoomTests(TestCase):
         )
         self.assertEqual(evening.status_code, 200)
         self.assertEqual(evening.data["evening_exp_awarded"], 35)
-        self.assertEqual(evening.data["bonus_awarded_now"], 25)
+        self.assertEqual(evening.data["bonus_awarded_now"], 20)
         self.assertTrue(evening.data["same_day_bonus_awarded"])
         self.assertIn("weekly_report_input", evening.data)
 
@@ -251,3 +251,30 @@ class Session6FirstDollarAndWarRoomTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("report_payload", response.data)
         self.assertEqual(str(response.data["week_start"]), week_start.isoformat())
+
+    def test_armor_progression_matches_build_order_and_week_six_grants_two_pieces(self):
+        self.player.path = "discipline_knight"
+        self.player.save(update_fields=["path", "updated_at"])
+        today = timezone.localdate()
+
+        expected = {
+            7: {"boots"},
+            14: {"gauntlets"},
+            21: {"chest_plate"},
+            28: {"shoulder_guards"},
+            35: {"helmet"},
+            42: {"shield", "sword"},
+        }
+
+        for streak, expected_slots in expected.items():
+            self.player.streak = streak
+            self.player.save(update_fields=["streak", "updated_at"])
+            apply_post_completion_mechanics(
+                player=self.player,
+                lineup_path="discipline_knight",
+                completion_date=today,
+            )
+            unlocked = set(
+                ArmorPiece.objects.filter(player=self.player).values_list("slot", flat=True)
+            )
+            self.assertTrue(expected_slots.issubset(unlocked))
