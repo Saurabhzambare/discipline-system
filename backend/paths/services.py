@@ -7,16 +7,22 @@ from django.utils import timezone
 from players.models import Player
 from quests.models import QuestCompletion
 from .models import (
+    ArmorPiece,
+    ArmorSystem,
     BodyJournal,
     DarkNightEntry,
     DisciplineCode,
     DisciplineKnightProfile,
+    ElixirProgress,
     EquipmentProfile,
     FitnessWarriorProfile,
+    GraceToken,
     GrindVisionaryProfile,
     HealthAlchemistProfile,
     KnightWeeklyReport,
+    MultiplierProtection,
     MindsetSageProfile,
+    PostFirstDollarChain,
     PathDiscoveryQuiz,
     PathMatchScore,
     PathOnboardingProgress,
@@ -25,10 +31,14 @@ from .models import (
     SkillTree,
     SkillTreeNode,
     SplitDayState,
+    StreakShield,
+    TemptationLog,
+    TransmutationMilestone,
     UserPathSelection,
     WarRoomEntry,
     WisdomLog,
     OutputLog,
+    XPMultiplier,
 )
 from .quiz_data import PATH_CODES, calculate_path_scores, get_randomized_questions
 
@@ -743,3 +753,92 @@ def generate_knight_weekly_report(*, player: Player, week_start):
 
 def get_knight_weekly_report(*, player: Player, week_start):
     return KnightWeeklyReport.objects.filter(player=player, week_start=week_start).first()
+
+
+def list_temptation_logs(*, player: Player):
+    return TemptationLog.objects.filter(player=player).order_by("-log_date", "-id")
+
+
+@transaction.atomic
+def create_temptation_log(*, player: Player, payload: dict):
+    log_date = payload.get("log_date") or timezone.localdate()
+    return TemptationLog.objects.create(
+        player=player,
+        description=payload["description"].strip(),
+        resisted=payload.get("resisted", True),
+        log_date=log_date,
+    )
+
+
+def get_health_mechanics_status(*, player: Player):
+    progress = ElixirProgress.objects.filter(player=player).first()
+    milestones = list(
+        TransmutationMilestone.objects.filter(player=player)
+        .order_by("-achieved_on", "-id")
+        .values("milestone_key", "achieved_on")[:10]
+    )
+    return {
+        "elixir": {
+            "elixir_level": progress.elixir_level if progress else 1,
+            "current_formula": progress.current_formula if progress else "",
+            "brews_completed": progress.brews_completed if progress else 0,
+            "fill_days": progress.fill_days if progress else 0,
+            "mercy_retained_fill_days": progress.mercy_retained_fill_days if progress else 0,
+            "last_brew_date": progress.last_brew_date if progress else None,
+            "last_fill_date": progress.last_fill_date if progress else None,
+        },
+        "transmutation_milestones": milestones,
+    }
+
+
+def get_discipline_mechanics_status(*, player: Player):
+    armor = ArmorSystem.objects.filter(player=player).first()
+    shield = StreakShield.objects.filter(player=player).first()
+    grace_available = GraceToken.objects.filter(player=player, is_used=False).count()
+    pieces = list(
+        ArmorPiece.objects.filter(player=player).values("slot", "name", "is_equipped", "earned_at")
+    )
+    return {
+        "armor": {
+            "total_cracks": armor.total_cracks if armor else 0,
+            "last_cracked_on": armor.last_cracked_on if armor else None,
+            "repaired_at": armor.repaired_at if armor else None,
+            "pieces": pieces,
+        },
+        "grace_tokens": {"available": grace_available},
+        "streak_shield": {
+            "shields_available": shield.shields_available if shield else 0,
+            "last_earned_date": shield.last_earned_date if shield else None,
+        },
+    }
+
+
+def get_grind_mechanics_status(*, player: Player):
+    multiplier = XPMultiplier.objects.filter(player=player).first()
+    protections = MultiplierProtection.objects.filter(player=player, is_used=False).count()
+    tree = SkillTree.objects.filter(player=player, path="grind_visionary").first()
+    chain = PostFirstDollarChain.objects.filter(player=player).first()
+    unlocked_nodes = tree.nodes.filter(is_unlocked=True).count() if tree else 0
+    total_nodes = tree.nodes.count() if tree else 0
+    return {
+        "xp_multiplier": {
+            "multiplier": float(multiplier.multiplier) if multiplier else 1.0,
+            "source": multiplier.source if multiplier else "",
+            "expires_at": multiplier.expires_at if multiplier else None,
+        },
+        "multiplier_protection": {
+            "available": protections,
+        },
+        "skill_tree": {
+            "exists": bool(tree),
+            "unlocked_nodes": unlocked_nodes,
+            "total_nodes": total_nodes,
+        },
+        "first_dollar_chain": {
+            "first_dollar_completed": chain.first_dollar_completed if chain else False,
+            "chain_unlocked": chain.chain_unlocked if chain else False,
+            "chain_stage": chain.chain_stage if chain else 0,
+            "current_chain": chain.current_chain if chain else 0,
+            "longest_chain": chain.longest_chain if chain else 0,
+        },
+    }

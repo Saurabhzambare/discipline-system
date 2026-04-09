@@ -227,6 +227,25 @@ export default function DashboardPage({
   onLoadWarRoomEntries,
   onSubmitWarRoomEntry,
   onLoadKnightWeeklyReport,
+  onGetWisdomLogs,
+  onUpsertWisdomLog,
+  onRedeemFreedomDay,
+  onActivateDarkNight,
+  onGetBodyJournalEntries,
+  onGetHealthMechanicsStatus,
+  onUpsertBodyJournalEntry,
+  onGetVisionBoardSummary,
+  onGetOutputLogs,
+  onGetGrindMechanicsStatus,
+  onUpsertOutputLog,
+  onGetDisciplineMechanicsStatus,
+  onGetTemptationLogs,
+  onCreateTemptationLog,
+  onGetAccountabilityRequests,
+  onSearchPlayers,
+  onSendAccountabilityRequest,
+  onAcceptAccountabilityRequest,
+  onRejectAccountabilityRequest,
 }) {
   const INTENTION_COPY = {
     full_send: 'No difficulty reduction — keeps your current lineup as-is.',
@@ -251,8 +270,28 @@ export default function DashboardPage({
   const [warRoomReflection, setWarRoomReflection] = useState('');
   const [warRoomLoading, setWarRoomLoading] = useState(false);
   const [warRoomNotice, setWarRoomNotice] = useState('');
+  const [warRoomHydrated, setWarRoomHydrated] = useState(false);
   const [weeklyReport, setWeeklyReport] = useState(null);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
+  const [mechanicsLoading, setMechanicsLoading] = useState(false);
+  const [mechanicsNotice, setMechanicsNotice] = useState('');
+  const [wisdomLogs, setWisdomLogs] = useState([]);
+  const [wisdomText, setWisdomText] = useState('');
+  const [bodyJournalEntries, setBodyJournalEntries] = useState([]);
+  const [bodyJournalPayload, setBodyJournalPayload] = useState({ energy_level: 5, sleep_hours: 7, weight_kg: '', notes: '' });
+  const [visionBoardSummary, setVisionBoardSummary] = useState(null);
+  const [outputLogs, setOutputLogs] = useState([]);
+  const [outputPayload, setOutputPayload] = useState({ deep_work_hours: 1, tasks_shipped: 1, notes: '' });
+  const [healthStatus, setHealthStatus] = useState(null);
+  const [disciplineStatus, setDisciplineStatus] = useState(null);
+  const [grindStatus, setGrindStatus] = useState(null);
+  const [temptationLogs, setTemptationLogs] = useState([]);
+  const [temptationDescription, setTemptationDescription] = useState('');
+  const [accountabilityIncoming, setAccountabilityIncoming] = useState([]);
+  const [accountabilityOutgoing, setAccountabilityOutgoing] = useState([]);
+  const [accountabilitySearch, setAccountabilitySearch] = useState('');
+  const [accountabilityResults, setAccountabilityResults] = useState([]);
+  const [accountabilitySearching, setAccountabilitySearching] = useState(false);
   const [isLevelUpOpen, setIsLevelUpOpen] = useState(false);
   const doneTodayCount = quests.filter((q) => q.completed_today || q.assigned_completed_today).length;
   const levelUpEventKey = useMemo(
@@ -271,6 +310,57 @@ export default function DashboardPage({
     setWarRoomEntries(entries || []);
   }
 
+  const loadMechanics = useCallback(async () => {
+    setMechanicsLoading(true);
+    try {
+      const [
+        nextWisdom,
+        nextBodyJournal,
+        nextVisionBoard,
+        nextOutputLogs,
+        nextHealthStatus,
+        nextDisciplineStatus,
+        nextGrindStatus,
+        nextTemptationLogs,
+        incoming,
+        outgoing,
+      ] = await Promise.all([
+        onGetWisdomLogs ? onGetWisdomLogs() : Promise.resolve([]),
+        onGetBodyJournalEntries ? onGetBodyJournalEntries() : Promise.resolve([]),
+        onGetVisionBoardSummary ? onGetVisionBoardSummary() : Promise.resolve(null),
+        onGetOutputLogs ? onGetOutputLogs() : Promise.resolve([]),
+        onGetHealthMechanicsStatus ? onGetHealthMechanicsStatus() : Promise.resolve(null),
+        onGetDisciplineMechanicsStatus ? onGetDisciplineMechanicsStatus() : Promise.resolve(null),
+        onGetGrindMechanicsStatus ? onGetGrindMechanicsStatus() : Promise.resolve(null),
+        onGetTemptationLogs ? onGetTemptationLogs() : Promise.resolve([]),
+        onGetAccountabilityRequests ? onGetAccountabilityRequests('incoming') : Promise.resolve([]),
+        onGetAccountabilityRequests ? onGetAccountabilityRequests('outgoing') : Promise.resolve([]),
+      ]);
+      setWisdomLogs(nextWisdom || []);
+      setBodyJournalEntries(nextBodyJournal || []);
+      setVisionBoardSummary(nextVisionBoard || null);
+      setOutputLogs(nextOutputLogs || []);
+      setHealthStatus(nextHealthStatus || null);
+      setDisciplineStatus(nextDisciplineStatus || null);
+      setGrindStatus(nextGrindStatus || null);
+      setTemptationLogs(nextTemptationLogs || []);
+      setAccountabilityIncoming(incoming || []);
+      setAccountabilityOutgoing(outgoing || []);
+    } finally {
+      setMechanicsLoading(false);
+    }
+  }, [
+    onGetAccountabilityRequests,
+    onGetBodyJournalEntries,
+    onGetHealthMechanicsStatus,
+    onGetDisciplineMechanicsStatus,
+    onGetGrindMechanicsStatus,
+    onGetTemptationLogs,
+    onGetOutputLogs,
+    onGetVisionBoardSummary,
+    onGetWisdomLogs,
+  ]);
+
   useEffect(() => {
     setFeedbackByItem(
       Object.fromEntries((quests || []).filter((q) => q.item_id).map((q) => [q.item_id, q.feedback || null])),
@@ -283,10 +373,30 @@ export default function DashboardPage({
   }, [onLoadWarRoomEntries]);
 
   useEffect(() => {
+    loadMechanics();
+  }, [loadMechanics]);
+
+  useEffect(() => {
     if (levelUpInfo) {
       setIsLevelUpOpen(true);
     }
   }, [levelUpEventKey, levelUpInfo]);
+
+  useEffect(() => {
+    if (!warRoomEntries.length) return;
+    const latest = warRoomEntries[0];
+    const defaultPhase = latest.evening_exp_awarded > 0 || latest.reflection ? 'evening' : 'morning';
+    setWarRoomPhase(defaultPhase);
+    if (!warRoomHydrated) {
+      if (Array.isArray(latest.objectives) && latest.objectives.length > 0) {
+        setWarRoomObjectives(latest.objectives.join('\n'));
+      }
+      if (latest.reflection) {
+        setWarRoomReflection(latest.reflection);
+      }
+      setWarRoomHydrated(true);
+    }
+  }, [warRoomEntries, warRoomHydrated]);
 
   const filteredQuests = quests.filter((q) => {
     if (activeFilter === 'remaining') return !(q.completed_today || q.assigned_completed_today);
@@ -423,6 +533,9 @@ export default function DashboardPage({
                   <span className="flex items-center gap-1 text-xs text-orange-400">
                     🔥 Streak: <strong>{player?.streak ?? 0} days</strong>
                   </span>
+                  <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-200">
+                    Pillar Identity: {player?.path_display || 'Unassigned'}
+                  </span>
                 </div>
               </div>
 
@@ -485,6 +598,11 @@ export default function DashboardPage({
               </button>
             </div>
             <p className="mt-1 text-xs text-slate-500">Minimal Discipline Knight flow: morning plan, evening reflection, and EXP feedback.</p>
+            {warRoomEntries[0] ? (
+              <p className="mt-1 text-[11px] text-slate-400">
+                Saved today: morning {warRoomEntries[0].morning_exp_awarded > 0 ? '✅' : '—'} · evening {warRoomEntries[0].evening_exp_awarded > 0 ? '✅' : '—'} · same-day bonus {warRoomEntries[0].bonus_exp_awarded > 0 ? `+${warRoomEntries[0].bonus_exp_awarded}` : '0'}
+              </p>
+            ) : null}
             <div className="mt-3 flex gap-2">
               {['morning', 'evening'].map((phase) => (
                 <button
@@ -555,6 +673,282 @@ export default function DashboardPage({
                 <p>Same-day bonuses: {weeklyReport.report_payload?.war_room?.same_day_bonuses ?? 0}</p>
               </div>
             ) : null}
+          </div>
+
+          <div className="rounded-2xl border border-[#1a3a5c] bg-[#0a1628] p-5">
+            <h2 className="text-lg font-semibold text-slate-100">Session 6 Mechanics Access</h2>
+            <p className="mt-1 text-xs text-slate-500">Minimal usable access for path mechanics already implemented on backend.</p>
+            {mechanicsNotice ? <p className="mt-2 text-xs text-cyan-300">{mechanicsNotice}</p> : null}
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <div className="rounded-lg border border-[#1a3a5c] bg-[#071020] p-3">
+                <p className="text-xs font-semibold text-slate-200">Mindset Sage</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!onRedeemFreedomDay) return;
+                      const result = await onRedeemFreedomDay({});
+                      setMechanicsNotice(`Freedom Day redeemed for ${result.used_on}.`);
+                    }}
+                    className="rounded-md border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 text-[11px] text-cyan-200"
+                  >
+                    Redeem Freedom Day
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!onActivateDarkNight) return;
+                      const result = await onActivateDarkNight({ entry: 'Activated from dashboard.' });
+                      setMechanicsNotice(`Dark Night activated. +${result.exp_awarded || 0} EXP.`);
+                    }}
+                    className="rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-1 text-[11px] text-indigo-200"
+                  >
+                    Activate Dark Night
+                  </button>
+                </div>
+                <div className="mt-3">
+                  <textarea
+                    value={wisdomText}
+                    onChange={(e) => setWisdomText(e.target.value)}
+                    rows={2}
+                    placeholder="Wisdom Log entry"
+                    className="w-full rounded-md border border-[#1a3a5c] bg-[#0a1628] p-2 text-xs text-slate-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!wisdomText.trim() || !onUpsertWisdomLog) return;
+                      await onUpsertWisdomLog({ entry: wisdomText.trim() });
+                      setWisdomText('');
+                      await loadMechanics();
+                      setMechanicsNotice('Wisdom Log saved.');
+                    }}
+                    className="mt-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200"
+                  >
+                    Save Wisdom Log
+                  </button>
+                  <p className="mt-2 text-[11px] text-slate-400">Entries: {wisdomLogs.length}</p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-[#1a3a5c] bg-[#071020] p-3">
+                <p className="text-xs font-semibold text-slate-200">Health Alchemist</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                  {['energy_level', 'sleep_hours', 'weight_kg'].map((key) => (
+                    <label key={key} className="text-slate-400">
+                      {key}
+                      <input
+                        type="number"
+                        step="0.1"
+                        min={key === 'energy_level' ? 1 : 0}
+                        max={key === 'energy_level' ? 10 : undefined}
+                        value={bodyJournalPayload[key]}
+                        onChange={(e) => setBodyJournalPayload((prev) => ({ ...prev, [key]: e.target.value === '' ? '' : Number(e.target.value) }))}
+                        className="mt-1 w-full rounded border border-[#1a3a5c] bg-[#0a1628] px-1.5 py-1 text-slate-100"
+                      />
+                    </label>
+                  ))}
+                </div>
+                <textarea
+                  value={bodyJournalPayload.notes}
+                  onChange={(e) => setBodyJournalPayload((prev) => ({ ...prev, notes: e.target.value }))}
+                  rows={2}
+                  placeholder="Body Journal notes"
+                  className="mt-2 w-full rounded-md border border-[#1a3a5c] bg-[#0a1628] p-2 text-xs text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!onUpsertBodyJournalEntry) return;
+                    await onUpsertBodyJournalEntry({
+                      energy_level: bodyJournalPayload.energy_level === '' ? null : bodyJournalPayload.energy_level,
+                      sleep_hours: bodyJournalPayload.sleep_hours === '' ? null : bodyJournalPayload.sleep_hours,
+                      weight_kg: bodyJournalPayload.weight_kg === '' ? null : bodyJournalPayload.weight_kg,
+                      notes: bodyJournalPayload.notes,
+                    });
+                    setBodyJournalPayload({ energy_level: 5, sleep_hours: 7, weight_kg: '', notes: '' });
+                    await loadMechanics();
+                    setMechanicsNotice('Body Journal saved.');
+                  }}
+                  className="mt-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200"
+                >
+                  Save Body Journal
+                </button>
+                <p className="mt-2 text-[11px] text-slate-400">Entries: {bodyJournalEntries.length}</p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Elixir brews: {healthStatus?.elixir?.brews_completed ?? 0} · fill days: {healthStatus?.elixir?.fill_days ?? 0}
+                </p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Milestones unlocked: {healthStatus?.transmutation_milestones?.length ?? 0}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-[#1a3a5c] bg-[#071020] p-3">
+                <p className="text-xs font-semibold text-slate-200">Grind Visionary</p>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  Vision Board: {visionBoardSummary?.goal?.title || 'No goal set'} {visionBoardSummary?.goal?.countdown_days != null ? `(${visionBoardSummary.goal.countdown_days} days left)` : ''}
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={outputPayload.deep_work_hours}
+                    onChange={(e) => setOutputPayload((prev) => ({ ...prev, deep_work_hours: Number(e.target.value) || 0 }))}
+                    placeholder="Deep work hrs"
+                    className="rounded-md border border-[#1a3a5c] bg-[#0a1628] p-2 text-xs text-slate-100"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    value={outputPayload.tasks_shipped}
+                    onChange={(e) => setOutputPayload((prev) => ({ ...prev, tasks_shipped: Number(e.target.value) || 0 }))}
+                    placeholder="Tasks shipped"
+                    className="rounded-md border border-[#1a3a5c] bg-[#0a1628] p-2 text-xs text-slate-100"
+                  />
+                </div>
+                <textarea
+                  value={outputPayload.notes}
+                  onChange={(e) => setOutputPayload((prev) => ({ ...prev, notes: e.target.value }))}
+                  rows={2}
+                  placeholder="Output notes"
+                  className="mt-2 w-full rounded-md border border-[#1a3a5c] bg-[#0a1628] p-2 text-xs text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!onUpsertOutputLog) return;
+                    await onUpsertOutputLog(outputPayload);
+                    setOutputPayload({ deep_work_hours: 1, tasks_shipped: 1, notes: '' });
+                    await loadMechanics();
+                    setMechanicsNotice('Output Log saved.');
+                  }}
+                  className="mt-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200"
+                >
+                  Save Output Log
+                </button>
+                <p className="mt-2 text-[11px] text-slate-400">Output logs: {outputLogs.length}</p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  XP Multiplier: {grindStatus?.xp_multiplier?.multiplier ?? 1}x · Protection: {grindStatus?.multiplier_protection?.available ?? 0}
+                </p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Skill Tree: {grindStatus?.skill_tree?.unlocked_nodes ?? 0}/{grindStatus?.skill_tree?.total_nodes ?? 0} unlocked · Chain stage: {grindStatus?.first_dollar_chain?.chain_stage ?? 0}
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-[#1a3a5c] bg-[#071020] p-3">
+                <p className="text-xs font-semibold text-slate-200">Discipline Knight</p>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  Armor pieces: {disciplineStatus?.armor?.pieces?.length ?? 0} · cracks: {disciplineStatus?.armor?.total_cracks ?? 0}
+                </p>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Grace tokens: {disciplineStatus?.grace_tokens?.available ?? 0} · shields: {disciplineStatus?.streak_shield?.shields_available ?? 0}
+                </p>
+                <textarea
+                  value={temptationDescription}
+                  onChange={(e) => setTemptationDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Log temptation resisted"
+                  className="mt-2 w-full rounded-md border border-[#1a3a5c] bg-[#0a1628] p-2 text-xs text-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!temptationDescription.trim() || !onCreateTemptationLog) return;
+                    await onCreateTemptationLog({ description: temptationDescription.trim(), resisted: true });
+                    setTemptationDescription('');
+                    await loadMechanics();
+                    setMechanicsNotice('Temptation log saved.');
+                  }}
+                  className="mt-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px] text-emerald-200"
+                >
+                  Save Temptation Log
+                </button>
+                <p className="mt-1 text-[11px] text-slate-500">Temptation logs: {temptationLogs.length}</p>
+              </div>
+
+              <div className="rounded-lg border border-[#1a3a5c] bg-[#071020] p-3">
+                <p className="text-xs font-semibold text-slate-200">Accountability Partner</p>
+                {mechanicsLoading ? (
+                  <p className="mt-2 text-[11px] text-slate-500">Loading accountability requests…</p>
+                ) : (
+                  <>
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        value={accountabilitySearch}
+                        onChange={(e) => setAccountabilitySearch(e.target.value)}
+                        placeholder="Search player username"
+                        className="flex-1 rounded-md border border-[#1a3a5c] bg-[#0a1628] p-2 text-xs text-slate-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!onSearchPlayers || accountabilitySearch.trim().length < 2) return;
+                          setAccountabilitySearching(true);
+                          try {
+                            const results = await onSearchPlayers(accountabilitySearch.trim());
+                            setAccountabilityResults(results || []);
+                          } finally {
+                            setAccountabilitySearching(false);
+                          }
+                        }}
+                        className="rounded-md border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 text-[11px] text-cyan-200"
+                      >
+                        {accountabilitySearching ? 'Searching…' : 'Search'}
+                      </button>
+                    </div>
+                    {accountabilityResults.slice(0, 4).map((p) => (
+                      <div key={p.id} className="mt-2 flex items-center justify-between rounded border border-[#1a3a5c] px-2 py-1 text-[11px] text-slate-300">
+                        <span>{p.username}</span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!onSendAccountabilityRequest) return;
+                            await onSendAccountabilityRequest(p.id);
+                            await loadMechanics();
+                            setMechanicsNotice(`Accountability request sent to ${p.username}.`);
+                          }}
+                          className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-emerald-200"
+                        >
+                          Invite
+                        </button>
+                      </div>
+                    ))}
+                    <p className="mt-2 text-[11px] text-slate-400">Incoming requests: {accountabilityIncoming.length}</p>
+                    {accountabilityIncoming.slice(0, 3).map((r) => (
+                      <div key={r.id} className="mt-1 flex items-center justify-between rounded border border-[#1a3a5c] px-2 py-1 text-[11px] text-slate-300">
+                        <span>{r.from_player?.username || 'Unknown'}</span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await onAcceptAccountabilityRequest?.(r.id);
+                              await loadMechanics();
+                              setMechanicsNotice('Accountability request accepted.');
+                            }}
+                            className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-200"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await onRejectAccountabilityRequest?.(r.id);
+                              await loadMechanics();
+                              setMechanicsNotice('Accountability request rejected.');
+                            }}
+                            className="rounded border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 text-rose-200"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <p className="mt-1 text-[11px] text-slate-400">Outgoing requests: {accountabilityOutgoing.length}</p>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Quest list */}

@@ -14,11 +14,20 @@ import {
   getAccessToken,
   getNotifications,
   getOnboardingStatus,
+  getAccountabilityRequests,
+  getBodyJournalEntries,
   getDailyLineup,
   getDailyCompletionSummary,
+  getDisciplineMechanicsStatus,
+  getGrindMechanicsStatus,
+  getHealthMechanicsStatus,
   getKnightWeeklyReport,
+  getOutputLogs,
+  getTemptationLogs,
   getSwapAlternatives,
   getWarRoomEntries,
+  getVisionBoardSummary,
+  getWisdomLogs,
   getFriendRequests,
   getFriends,
   getGroups,
@@ -33,15 +42,25 @@ import {
   removePostReaction,
   removeFriend,
   sendFriendRequest,
+  sendAccountabilityRequest,
   setPostReaction,
   setTokens,
   setDailyIntention,
   signup,
+  acceptAccountabilityRequest,
+  createTemptationLog,
+  rejectAccountabilityRequest,
   submitQuestFeedback,
   swapQuest,
+  redeemFreedomDayToken,
+  activateDarkNight,
+  upsertBodyJournalEntry,
+  upsertOutputLog,
+  upsertWisdomLog,
   updatePostComment,
   updateSocialPost,
   upsertWarRoomEntry,
+  searchPlayers,
 } from './api';
 import { PathProvider } from './contexts/PathContext';
 import { PlayerContext } from './contexts/PlayerContext';
@@ -60,6 +79,21 @@ import ProfilePage from './pages/ProfilePage';
 import SignupPage from './pages/SignupPage';
 
 const PUBLIC_ROUTES = ['/login', '/signup'];
+
+function deriveProgressFromTotalExp(totalExp = 0, level = 1) {
+  const safeLevel = Math.max(1, Number(level) || 1);
+  const safeExp = Math.max(0, Number(totalExp) || 0);
+  const expFor = (lvl) => (lvl * lvl * 50) - 50;
+  const currentFloor = expFor(safeLevel);
+  const nextFloor = expFor(safeLevel + 1);
+  const expForLevel = Math.max(1, nextFloor - currentFloor);
+  const expInLevel = Math.max(0, safeExp - currentFloor);
+  return {
+    exp_in_level: expInLevel,
+    exp_for_level: expForLevel,
+    exp_to_next_level: Math.max(0, nextFloor - safeExp),
+  };
+}
 
 function useRoute() {
   const [route, setRoute] = useState(window.location.pathname || '/');
@@ -540,11 +574,13 @@ export default function App() {
 
       setPlayer((previous) => {
         if (!previous) return previous;
+        const progressState = deriveProgressFromTotalExp(response.player_exp, response.new_level);
         return {
           ...previous,
           exp: response.player_exp,
           level: response.new_level,
           streak: response.player_streak,
+          ...progressState,
         };
       });
 
@@ -575,6 +611,7 @@ export default function App() {
           text: note ? `Quest complete! +${response.exp_gained} EXP — shared to feed.` : `Quest complete! +${response.exp_gained} EXP.`,
         });
       }
+      await loadDashboard();
     } catch (error) {
       if (error.status === 401) {
         handleAuthExpired(error.message);
@@ -708,6 +745,25 @@ export default function App() {
         onLoadWarRoomEntries={async () => getWarRoomEntries()}
         onSubmitWarRoomEntry={async (payload) => upsertWarRoomEntry(payload)}
         onLoadKnightWeeklyReport={async (weekStart) => getKnightWeeklyReport(weekStart)}
+        onGetWisdomLogs={async () => getWisdomLogs()}
+        onUpsertWisdomLog={async (payload) => upsertWisdomLog(payload)}
+        onRedeemFreedomDay={async (payload) => redeemFreedomDayToken(payload)}
+        onActivateDarkNight={async (payload) => activateDarkNight(payload)}
+        onGetBodyJournalEntries={async () => getBodyJournalEntries()}
+        onGetHealthMechanicsStatus={async () => getHealthMechanicsStatus()}
+        onUpsertBodyJournalEntry={async (payload) => upsertBodyJournalEntry(payload)}
+        onGetVisionBoardSummary={async () => getVisionBoardSummary()}
+        onGetOutputLogs={async () => getOutputLogs()}
+        onGetGrindMechanicsStatus={async () => getGrindMechanicsStatus()}
+        onUpsertOutputLog={async (payload) => upsertOutputLog(payload)}
+        onGetDisciplineMechanicsStatus={async () => getDisciplineMechanicsStatus()}
+        onGetTemptationLogs={async () => getTemptationLogs()}
+        onCreateTemptationLog={async (payload) => createTemptationLog(payload)}
+        onGetAccountabilityRequests={async (direction) => getAccountabilityRequests(direction)}
+        onSearchPlayers={async (q) => searchPlayers(q)}
+        onSendAccountabilityRequest={async (toPlayerId) => sendAccountabilityRequest(toPlayerId)}
+        onAcceptAccountabilityRequest={async (requestId) => acceptAccountabilityRequest(requestId)}
+        onRejectAccountabilityRequest={async (requestId) => rejectAccountabilityRequest(requestId)}
       />
     );
   }

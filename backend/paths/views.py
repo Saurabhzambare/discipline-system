@@ -22,6 +22,7 @@ from .serializers import (
     OnboardingCompleteSerializer,
     SelectPathSerializer,
     SubmitAnswerSerializer,
+    TemptationLogSerializer,
     OutputLogSerializer,
     WarRoomEntrySerializer,
     WisdomLogSerializer,
@@ -34,6 +35,7 @@ from .services import (
     get_active_paths,
     list_body_journals,
     list_output_logs,
+    list_temptation_logs,
     list_war_room_entries,
     list_wisdom_logs,
     get_onboarding_status,
@@ -51,9 +53,13 @@ from .services import (
     submit_answer,
     upsert_body_journal,
     upsert_output_log,
+    create_temptation_log,
     upsert_war_room_entry,
     upsert_wisdom_log,
     get_war_room_weekly_input,
+    get_health_mechanics_status,
+    get_discipline_mechanics_status,
+    get_grind_mechanics_status,
 )
 from .mechanics import get_vision_board_summary, redeem_freedom_day_token
 
@@ -378,6 +384,40 @@ class VisionBoardSummaryView(APIView):
 
     def get(self, request):
         return Response(get_vision_board_summary(player=request.user.player, today=timezone.localdate()))
+
+
+class HealthMechanicsStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(get_health_mechanics_status(player=request.user.player))
+
+
+class DisciplineMechanicsStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(get_discipline_mechanics_status(player=request.user.player))
+
+
+class GrindMechanicsStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(get_grind_mechanics_status(player=request.user.player))
+
+
+class TemptationLogView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(TemptationLogSerializer(list_temptation_logs(player=request.user.player), many=True).data)
+
+    def post(self, request):
+        serializer = TemptationLogSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        obj = create_temptation_log(player=request.user.player, payload=serializer.validated_data)
+        return Response(TemptationLogSerializer(obj).data)
 
 
 class KnightWeeklyReportView(APIView):

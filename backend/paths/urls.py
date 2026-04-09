@@ -5,11 +5,14 @@ from .views import (
     ActivePathsView,
     BodyJournalView,
     DarkNightView,
+    DisciplineMechanicsStatusView,
     DisciplineCodeView,
     DisciplineKnightOnboardingView,
     FitnessWarriorOnboardingView,
     FreedomDayRedeemView,
     GrindVisionaryOnboardingView,
+    GrindMechanicsStatusView,
+    HealthMechanicsStatusView,
     HealthAlchemistOnboardingView,
     KnightWeeklyReportView,
     MindsetSageOnboardingView,
@@ -24,6 +27,7 @@ from .views import (
     VisionBoardSummaryView,
     WarRoomView,
     WisdomLogView,
+    TemptationLogView,
 )
 
 urlpatterns = [
@@ -46,8 +50,12 @@ urlpatterns = [
     path("mechanics/mindset/wisdom-log/", WisdomLogView.as_view(), name="mechanics-wisdom-log"),
     path("mechanics/mindset/dark-night/", DarkNightView.as_view(), name="mechanics-dark-night"),
     path("mechanics/health/body-journal/", BodyJournalView.as_view(), name="mechanics-body-journal"),
+    path("mechanics/health/status/", HealthMechanicsStatusView.as_view(), name="mechanics-health-status"),
     path("mechanics/discipline/war-room/", WarRoomView.as_view(), name="mechanics-war-room"),
+    path("mechanics/discipline/status/", DisciplineMechanicsStatusView.as_view(), name="mechanics-discipline-status"),
+    path("mechanics/discipline/temptation-log/", TemptationLogView.as_view(), name="mechanics-temptation-log"),
     path("mechanics/grind/output-log/", OutputLogView.as_view(), name="mechanics-output-log"),
     path("mechanics/grind/vision-board/", VisionBoardSummaryView.as_view(), name="mechanics-vision-board"),
+    path("mechanics/grind/status/", GrindMechanicsStatusView.as_view(), name="mechanics-grind-status"),
     path("mechanics/discipline/weekly-report/", KnightWeeklyReportView.as_view(), name="mechanics-knight-weekly-report"),
 ]
