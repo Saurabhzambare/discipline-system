@@ -53,6 +53,37 @@ function ArcGauge({ value, max, sublabel }) {
   );
 }
 
+function MiniCompletionRing({ completed = 0, total = 0 }) {
+  const safeTotal = Math.max(1, total || 1);
+  const pct = Math.min(100, Math.round((completed / safeTotal) * 100));
+  const radius = 28;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (pct / 100) * circumference;
+  return (
+    <svg viewBox="0 0 80 80" className="h-20 w-20">
+      <circle cx="40" cy="40" r={radius} stroke="#1a3a5c" strokeWidth="8" fill="none" />
+      <circle
+        cx="40"
+        cy="40"
+        r={radius}
+        stroke={pct >= 100 ? '#f59e0b' : pct >= 67 ? '#3b82f6' : pct >= 34 ? '#f59e0b' : '#ef4444'}
+        strokeWidth="8"
+        fill="none"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        transform="rotate(-90 40 40)"
+      />
+      <text x="40" y="36" textAnchor="middle" fill="#e2e8f0" fontSize="11" fontWeight="bold">
+        {completed}/{total}
+      </text>
+      <text x="40" y="50" textAnchor="middle" fill="#94a3b8" fontSize="8">
+        {pct}%
+      </text>
+    </svg>
+  );
+}
+
 /* ── Level-up overlay ── */
 function LevelUpOverlay({ newLevel, onDismiss }) {
   return (
@@ -224,6 +255,10 @@ export default function DashboardPage({
   onSwapQuest,
   onSubmitFeedback,
   onLoadSummary,
+  onLoadCompletionRing,
+  onLoadTomorrowPreview,
+  onLoadAdaptiveNudge,
+  onSetAdaptiveNudgeDecision,
   onLoadWarRoomEntries,
   onSubmitWarRoomEntry,
   onLoadKnightWeeklyReport,
@@ -256,6 +291,11 @@ export default function DashboardPage({
   const [activeFilter, setActiveFilter] = useState('all');
   const [summary, setSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [completionRing, setCompletionRing] = useState(null);
+  const [tomorrowPreview, setTomorrowPreview] = useState(null);
+  const [adaptiveNudge, setAdaptiveNudge] = useState(null);
+  const [missedReturn, setMissedReturn] = useState(null);
   const [swapState, setSwapState] = useState({ open: false, alternatives: [], quest: null, loading: false });
   const [intentionSaving, setIntentionSaving] = useState(false);
   const [intentionNotice, setIntentionNotice] = useState('');
@@ -375,6 +415,27 @@ export default function DashboardPage({
   useEffect(() => {
     loadMechanics();
   }, [loadMechanics]);
+
+  useEffect(() => {
+    if (!dailyLineup?.date) return;
+    if (onLoadCompletionRing) {
+      onLoadCompletionRing(dailyLineup.date).then((data) => setCompletionRing(data)).catch(() => {});
+    }
+    if (onLoadTomorrowPreview) {
+      onLoadTomorrowPreview(dailyLineup.date).then((data) => setTomorrowPreview(data)).catch(() => {});
+    }
+    if (onLoadAdaptiveNudge) {
+      onLoadAdaptiveNudge(dailyLineup.date).then((data) => setAdaptiveNudge(data)).catch(() => {});
+    }
+    setMissedReturn(dailyLineup?.missed_day_return || null);
+  }, [dailyLineup?.date, onLoadCompletionRing, onLoadTomorrowPreview, onLoadAdaptiveNudge, dailyLineup?.missed_day_return]);
+
+  useEffect(() => {
+    if (!dailyLineup?.missed_day_return?.show) return;
+    setMissedReturn(dailyLineup.missed_day_return);
+    const t = setTimeout(() => setMissedReturn(null), 3000);
+    return () => clearTimeout(t);
+  }, [dailyLineup?.missed_day_return]);
 
   useEffect(() => {
     if (levelUpInfo) {
@@ -973,6 +1034,23 @@ export default function DashboardPage({
               >
                 Refresh
               </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!onLoadSummary) return;
+                  setSummaryLoading(true);
+                  try {
+                    const data = await onLoadSummary(dailyLineup?.date);
+                    setSummary(data);
+                    setSummaryOpen(true);
+                  } finally {
+                    setSummaryLoading(false);
+                  }
+                }}
+                className="ml-2 rounded-lg border border-cyan-500/40 px-3 py-1.5 text-xs text-cyan-300 transition hover:bg-cyan-500/10"
+              >
+                {summaryLoading ? 'Loading Summary…' : 'View EOD Summary'}
+              </button>
             </div>
 
             {/* Filter pills (Feature 8) */}
@@ -1045,6 +1123,48 @@ export default function DashboardPage({
         {/* ── Right panel ── */}
         <ProgressPanel player={player} quests={quests} doneTodayCount={doneTodayCount} />
       </div>
+      <div className="mt-4 rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4 text-xs text-slate-300">
+        <p className="font-semibold text-slate-100">Session 7 Contract Proving</p>
+        <div className="mt-2 flex items-center gap-3">
+          <MiniCompletionRing completed={completionRing?.completed ?? 0} total={completionRing?.total ?? 0} />
+          <div>
+            <p>Completion Ring (API-driven)</p>
+            <p className="text-[11px] text-slate-500">No client-side quest math.</p>
+          </div>
+        </div>
+        <p className="mt-1">
+          Tomorrow categories: {(tomorrowPreview?.categories || []).join(', ') || '—'}
+        </p>
+        {adaptiveNudge?.show_nudge ? (
+          <div className="mt-2 rounded border border-amber-500/40 bg-amber-500/10 p-2 text-amber-200">
+            <p>{adaptiveNudge.message}</p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await onSetAdaptiveNudgeDecision?.('accept');
+                  const next = await onLoadAdaptiveNudge?.(dailyLineup?.date);
+                  setAdaptiveNudge(next || null);
+                }}
+                className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-[11px]"
+              >
+                Yes upgrade my quests
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await onSetAdaptiveNudgeDecision?.('decline');
+                  const next = await onLoadAdaptiveNudge?.(dailyLineup?.date);
+                  setAdaptiveNudge(next || null);
+                }}
+                className="rounded border border-[#1a3a5c] px-2 py-1 text-[11px]"
+              >
+                Not yet keep current
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
       {swapState.open ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4">
@@ -1079,6 +1199,34 @@ export default function DashboardPage({
             >
               Close
             </button>
+          </div>
+        </div>
+      ) : null}
+      {summaryOpen && summary ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4 text-xs text-slate-300">
+            <p className="text-sm font-semibold text-slate-100">End of Day Summary</p>
+            <p className="mt-2">Date: {summary.summary_date}</p>
+            <p>Hunter: {summary.username}</p>
+            <p>Completed: {summary.quests_completed}/{summary.quests_total}</p>
+            <p>Total EXP: {summary.total_exp_earned}</p>
+            <p className="mt-2 font-semibold text-slate-200">Tomorrow Preview (categories only)</p>
+            <p>{(summary.tomorrow_preview?.categories || []).join(', ') || '—'}</p>
+            <button
+              type="button"
+              onClick={() => setSummaryOpen(false)}
+              className="mt-3 rounded border border-[#1a3a5c] px-3 py-1 text-xs text-slate-300"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {missedReturn?.show ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="rounded-xl border border-cyan-500/40 bg-[#0a1628] p-6 text-center text-slate-100">
+            <p className="text-lg font-semibold">Welcome Back</p>
+            <p className="mt-2 text-sm text-slate-300">{missedReturn.message || 'Fresh start today.'}</p>
           </div>
         </div>
       ) : null}
