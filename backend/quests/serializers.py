@@ -130,3 +130,7 @@ class DailySummarySerializer(serializers.ModelSerializer):
             "streak_maintained",
             "cross_path_bonus_earned",
         ]
+
+
+class AdaptiveDifficultyDecisionSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=["accept", "decline"])

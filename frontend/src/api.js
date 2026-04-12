@@ -181,6 +181,28 @@ export async function getDailyCompletionSummary(date) {
   return authedRequest(`/api/quests/summary/${query}`);
 }
 
+export async function getCompletionRing(date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return authedRequest(`/api/quests/completion-ring/${query}`);
+}
+
+export async function getTomorrowPreview(date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return authedRequest(`/api/quests/tomorrow-preview/${query}`);
+}
+
+export async function getAdaptiveNudge(date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : '';
+  return authedRequest(`/api/quests/adaptive-nudge/${query}`);
+}
+
+export async function setAdaptiveNudgeDecision(decision) {
+  return authedRequest('/api/quests/adaptive-nudge/', {
+    method: 'POST',
+    body: { decision },
+  });
+}
+
 export async function getSocialPosts() {
   return authedRequest('/api/social/posts/');
 }

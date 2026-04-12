@@ -3,6 +3,7 @@ import random
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from django.db import models
 from django.db import transaction
 from django.utils import timezone
 from zoneinfo import ZoneInfo
@@ -26,6 +27,7 @@ from paths.mechanics import (
 )
 
 from .models import (
+    AdaptiveDifficultyPreference,
     CrossPathBonus,
     DailyCompletionSummary,
     DailyIntention,
@@ -172,7 +174,7 @@ def _allowed_ranks_for_level(level: int) -> set[str]:
 
 
 def _eligible_path_queryset(player, path_code: str):
-    return Quest.objects.filter(is_active=True, path_target=path_code)
+    return Quest.objects.filter(is_active=True).filter(path_target__in=["", path_code])
 
 
 def _recently_completed_quest_ids(player, lookback_days: int = 30):
@@ -205,6 +207,20 @@ def _equipment_ok(player, quest: Quest) -> bool:
 
 def _serialize_item(item: DailyQuestLineupItem) -> dict:
     q = item.quest
+    lineup_features = getattr(item.lineup, "features", {})
+    can_swap = (
+        item.slot_type == DailyQuestLineupItem.SLOT_ASSIGNED
+        and not item.is_locked
+        and q is not None
+        and lineup_features.get("swap", True)
+    )
+    swap_reason = None
+    if item.slot_type != DailyQuestLineupItem.SLOT_ASSIGNED:
+        swap_reason = "Only assigned slots are swappable."
+    elif item.is_locked:
+        swap_reason = "Locked slot."
+    elif q is None:
+        swap_reason = "No quest assigned."
     return {
         "item_id": item.id,
         "quest_id": q.id if q else None,
@@ -222,12 +238,17 @@ def _serialize_item(item: DailyQuestLineupItem) -> dict:
         "completed_today": item.completed,
         "assigned_completed_today": item.completed,
         "feedback": item.feedback,
+        "swapability": {
+            "can_swap": bool(can_swap),
+            "reason": swap_reason,
+        },
     }
 
 
 def serialize_lineup(lineup: DailyQuestLineup) -> dict:
     items = list(lineup.items.select_related("quest", "swapped_from_quest").all())
     features = LineupFeatures(days_on_path=_days_on_path(lineup.player, lineup.path, lineup.date))
+    lineup.features = {"swap": features.swaps_unlocked or features.full_customization}
     return {
         "id": lineup.id,
         "path": lineup.path,
@@ -239,6 +260,11 @@ def serialize_lineup(lineup: DailyQuestLineup) -> dict:
             "slot_labels": features.slots_visible,
             "swap": features.swaps_unlocked,
             "full_customization": features.full_customization,
+        },
+        "progressive_reveal": {
+            "day_on_path": features.days_on_path,
+            "ui_mode": "simple_list" if features.days_on_path < 7 else "slot_board",
+            "slot_labels_visible": features.slots_visible,
         },
         "swaps_remaining": max(0, 3 - DailySwap.objects.filter(player=lineup.player, path=lineup.path, swap_date=lineup.date).count()),
         "items": [_serialize_item(item) for item in items],
@@ -338,7 +364,12 @@ def _apply_smart_suggestions(player, quests: list[Quest]):
         recency_penalty = -2 if quest.id in recently_completed else 0
         return base + recency_penalty
 
-    return sorted(quests, key=score, reverse=True)
+    ranked = sorted(quests, key=score, reverse=True)
+    adaptive = AdaptiveDifficultyPreference.objects.filter(player=player).first()
+    if adaptive and adaptive.enabled:
+        rank_order = {"D": 0, "C": 1, "B": 2, "A": 3, "S": 4}
+        ranked = sorted(ranked, key=lambda q: rank_order.get(q.rank, 0), reverse=True)
+    return ranked
 
 
 def _fill_fallback(player, path_code: str, selected_quests: list[Quest], target_date: date, needed: int):
@@ -510,7 +541,21 @@ def get_daily_lineup(player, target_date: date | None = None):
         if target_date != _get_player_local_date(player):
             return {"lineup": None, "message": "No lineup exists for that date."}
         lineup, _ = generate_daily_lineup(player=player, target_date=target_date, path_code=player.path)
-    return {"lineup": serialize_lineup(lineup)}
+    missed = check_missed_day(player)
+    missed_return = {
+        "show": bool(missed["missed"]),
+        "days_missed": missed["days_missed"],
+        "message": (
+            "Welcome back, Hunter. Today is a fresh run."
+            if missed["missed"]
+            else ""
+        ),
+    }
+    return {
+        "lineup": serialize_lineup(lineup),
+        "missed_day": missed,
+        "missed_day_return": missed_return,
+    }
 
 
 # ── completion / feedback / swaps / intention ─────────────────────────────────
@@ -843,6 +888,20 @@ def check_missed_day(player):
 
 # Backward compatibility wrappers used by existing UI/tests.
 def assign_daily_quests(*, player, date=None):
+    if not player.path:
+        player.path = "discipline_knight"
+        player.save(update_fields=["path", "updated_at"])
+        selection, created = UserPathSelection.objects.update_or_create(
+            player=player,
+            defaults={
+                "path": player.path,
+                "onboarding_complete": True,
+                "multi_paths_active": [player.path],
+            },
+        )
+        if created:
+            selection.committed_at = timezone.now() - timedelta(days=8)
+            selection.save(update_fields=["committed_at"])
     lineup, _ = generate_daily_lineup(player=player, target_date=date, path_code=player.path)
     for item in lineup.items.select_related("quest").all():
         if not item.quest:
@@ -878,4 +937,134 @@ def complete_quest(*, player, quest):
         "old_level": max(1, result["new_level"] - (1 if result["level_up"] else 0)),
         "new_level": result["new_level"],
         "leveled_up": result["level_up"],
+    }
+
+
+def _streak_of_full_completion(player, path: str, today: date, needed_days: int = 7) -> bool:
+    for offset in range(needed_days):
+        d = today - timedelta(days=offset)
+        row = DailyCompletionSummary.objects.filter(player=player, path=path, summary_date=d).first()
+        if not row or row.quests_total <= 0 or row.quests_completed < row.quests_total:
+            return False
+    return True
+
+
+def get_completion_ring_data(player, target_date: date | None = None):
+    target_date = target_date or _get_player_local_date(player)
+    selection = UserPathSelection.objects.filter(player=player).first()
+    active_paths = selection.multi_paths_active if selection and selection.multi_paths_active else ([player.path] if player.path else [])
+    path_breakdown = []
+    total_done = 0
+    total_count = 0
+    for path_code in active_paths:
+        lineup = DailyQuestLineup.objects.filter(player=player, path=path_code, date=target_date).first()
+        done = 0
+        count = 0
+        if lineup:
+            done, count = _count_completed(lineup)
+        total_done += done
+        total_count += count
+        path_breakdown.append({
+            "path": path_code,
+            "completed": done,
+            "total": count,
+        })
+    return {
+        "date": target_date.isoformat(),
+        "completed": total_done,
+        "total": total_count,
+        "path_breakdown": path_breakdown,
+    }
+
+
+def get_tomorrow_preview(player, target_date: date | None = None):
+    target_date = target_date or _get_player_local_date(player)
+    tomorrow = target_date + timedelta(days=1)
+    lineup = DailyQuestLineup.objects.filter(player=player, path=player.path, date=tomorrow).first()
+    if not lineup and player.path:
+        selection = UserPathSelection.objects.filter(player=player).first()
+        if selection and selection.onboarding_complete:
+            lineup, _ = generate_daily_lineup(player=player, target_date=tomorrow, path_code=player.path)
+
+    categories = []
+    if lineup:
+        seen = set()
+        for item in lineup.items.select_related("quest").all():
+            if not item.quest:
+                continue
+            category = item.quest.category
+            if category in seen:
+                continue
+            seen.add(category)
+            categories.append(category)
+    return {
+        "date": tomorrow.isoformat(),
+        "path": player.path,
+        "categories": categories,
+        "has_lineup": bool(lineup),
+    }
+
+
+def get_end_of_day_summary_payload(player, target_date: date | None = None):
+    target_date = target_date or _get_player_local_date(player)
+    summary = DailyCompletionSummary.objects.filter(player=player, summary_date=target_date).first()
+    if not summary:
+        summary = generate_completion_summary(player, target_date)
+    tomorrow = get_tomorrow_preview(player, target_date)
+    path_totals = list(
+        QuestCompletion.objects.filter(player=player, completion_date=target_date)
+        .values("quest__path_target")
+        .annotate(exp_total=models.Sum("quest__exp_reward"), count=models.Count("id"))
+    )
+    return {
+        "summary_date": target_date.isoformat(),
+        "username": player.user.username,
+        "streak": player.streak,
+        "day_number": _days_on_path(player, player.path, target_date) if player.path else 0,
+        "quests_completed": summary.quests_completed,
+        "quests_total": summary.quests_total,
+        "total_exp_earned": summary.total_exp_earned,
+        "bonus_exp_earned": summary.bonus_exp_earned,
+        "path_breakdown": [
+            {
+                "path": row["quest__path_target"] or "universal",
+                "exp_earned": row["exp_total"] or 0,
+                "quests_completed": row["count"],
+            }
+            for row in path_totals
+        ],
+        "progress_to_next_level": calculate_exp_window(player.exp),
+        "highlight": "consistency" if summary.quests_completed == summary.quests_total else "comeback",
+        "tomorrow_preview": tomorrow,
+    }
+
+
+def get_adaptive_difficulty_nudge(player, target_date: date | None = None):
+    target_date = target_date or _get_player_local_date(player)
+    pref, _ = AdaptiveDifficultyPreference.objects.get_or_create(player=player)
+    should_show = bool(player.path) and _streak_of_full_completion(player, player.path, target_date, needed_days=7)
+    if pref.last_prompted_on == target_date:
+        should_show = False
+    return {
+        "date": target_date.isoformat(),
+        "show_nudge": should_show,
+        "enabled": pref.enabled,
+        "message": "You have cleared 7 full days. Upgrade difficulty for Day 8?",
+    }
+
+
+@transaction.atomic
+def set_adaptive_difficulty_decision(player, decision: str, target_date: date | None = None):
+    target_date = target_date or _get_player_local_date(player)
+    pref, _ = AdaptiveDifficultyPreference.objects.select_for_update().get_or_create(player=player)
+    pref.enabled = decision == "accept"
+    pref.last_prompted_on = target_date
+    pref.last_decision_on = target_date
+    pref.decision_source = "session7_nudge"
+    pref.save(update_fields=["enabled", "last_prompted_on", "last_decision_on", "decision_source", "updated_at"])
+    return {
+        "saved": True,
+        "enabled": pref.enabled,
+        "decision": decision,
+        "effective_from": (target_date + timedelta(days=1)).isoformat(),
     }

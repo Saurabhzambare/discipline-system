@@ -442,3 +442,24 @@ class DailyCompletionSummary(models.Model):
 
     def __str__(self):
         return f"{self.player.user.username} — summary {self.summary_date}"
+
+
+class AdaptiveDifficultyPreference(models.Model):
+    """
+    Per-player preference for adaptive difficulty nudge.
+    If enabled, lineup generation biases toward harder eligible ranks.
+    """
+    player = models.OneToOneField(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="adaptive_difficulty_preference",
+    )
+    enabled = models.BooleanField(default=False)
+    last_prompted_on = models.DateField(null=True, blank=True)
+    last_decision_on = models.DateField(null=True, blank=True)
+    decision_source = models.CharField(max_length=20, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        state = "enabled" if self.enabled else "disabled"
+        return f"{self.player.user.username} — adaptive difficulty {state}"

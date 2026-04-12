@@ -4,13 +4,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import DailyCompletionSummary, DailyQuestLineupItem, Quest
+from .models import Quest
 from .serializers import (
+    AdaptiveDifficultyDecisionSerializer,
     CompleteLineupItemSerializer,
     DailyIntentionSerializer,
     DailyLineupQuerySerializer,
     DailySummaryQuerySerializer,
-    DailySummarySerializer,
     QuestCompleteSerializer,
     QuestFeedbackSerializer,
     QuestSerializer,
@@ -26,6 +26,11 @@ from .services import (
     get_daily_lineup,
     get_swap_alternatives,
     serialize_lineup,
+    get_completion_ring_data,
+    get_end_of_day_summary_payload,
+    get_tomorrow_preview,
+    get_adaptive_difficulty_nudge,
+    set_adaptive_difficulty_decision,
     set_daily_intention,
     submit_quest_feedback,
     swap_quest,
@@ -125,6 +130,10 @@ class SwapAlternativesView(APIView):
         return Response({"alternatives": SwapAlternativeQuestSerializer(alternatives, many=True).data})
 
 
+class AlternativesAliasView(SwapAlternativesView):
+    """Backward-compatible alias for docs/older clients."""
+
+
 class SwapQuestView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -183,10 +192,47 @@ class DailySummaryView(APIView):
         serializer = DailySummaryQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         target_date = serializer.validated_data.get("date") or timezone.localdate()
-        summary = DailyCompletionSummary.objects.filter(player=request.user.player, summary_date=target_date).first()
-        if not summary:
-            try:
-                summary = generate_completion_summary(request.user.player, target_date)
-            except ValueError as exc:
-                return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(DailySummarySerializer(summary).data)
+        try:
+            payload = get_end_of_day_summary_payload(request.user.player, target_date)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(payload)
+
+
+class DailySummaryTodayView(DailySummaryView):
+    """Backward-compatible endpoint alias at /summary/today/."""
+
+
+class CompletionRingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = DailySummaryQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        target_date = serializer.validated_data.get("date")
+        return Response(get_completion_ring_data(request.user.player, target_date))
+
+
+class TomorrowPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = DailySummaryQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        target_date = serializer.validated_data.get("date")
+        return Response(get_tomorrow_preview(request.user.player, target_date))
+
+
+class AdaptiveDifficultyNudgeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = DailySummaryQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        target_date = serializer.validated_data.get("date")
+        return Response(get_adaptive_difficulty_nudge(request.user.player, target_date))
+
+    def post(self, request):
+        serializer = AdaptiveDifficultyDecisionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(set_adaptive_difficulty_decision(request.user.player, serializer.validated_data["decision"]))

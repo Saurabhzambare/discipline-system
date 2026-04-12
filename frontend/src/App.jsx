@@ -18,6 +18,9 @@ import {
   getBodyJournalEntries,
   getDailyLineup,
   getDailyCompletionSummary,
+  getCompletionRing,
+  getTomorrowPreview,
+  getAdaptiveNudge,
   getDisciplineMechanicsStatus,
   getGrindMechanicsStatus,
   getHealthMechanicsStatus,
@@ -51,6 +54,7 @@ import {
   createTemptationLog,
   rejectAccountabilityRequest,
   submitQuestFeedback,
+  setAdaptiveNudgeDecision,
   swapQuest,
   redeemFreedomDayToken,
   activateDarkNight,
@@ -181,7 +185,11 @@ export default function App() {
       const [playerData, lineupPayload] = await Promise.all([getPlayerMe(), getDailyLineup()]);
       setPlayer(playerData);
       if (lineupPayload?.lineup) {
-        setDailyLineup(lineupPayload.lineup);
+        setDailyLineup({
+          ...lineupPayload.lineup,
+          missed_day: lineupPayload.missed_day || { missed: false, days_missed: 0 },
+          missed_day_return: lineupPayload.missed_day_return || { show: false, days_missed: 0, message: '' },
+        });
         setLineupItems(lineupPayload.lineup.items || []);
         setIntentionState(lineupPayload.lineup.intention || null);
         setSwapsRemaining(lineupPayload.lineup.swaps_remaining ?? 3);
@@ -742,6 +750,10 @@ export default function App() {
           await loadDashboard();
         }}
         onLoadSummary={async (targetDate) => getDailyCompletionSummary(targetDate)}
+        onLoadCompletionRing={async (targetDate) => getCompletionRing(targetDate)}
+        onLoadTomorrowPreview={async (targetDate) => getTomorrowPreview(targetDate)}
+        onLoadAdaptiveNudge={async (targetDate) => getAdaptiveNudge(targetDate)}
+        onSetAdaptiveNudgeDecision={async (decision) => setAdaptiveNudgeDecision(decision)}
         onLoadWarRoomEntries={async () => getWarRoomEntries()}
         onSubmitWarRoomEntry={async (payload) => upsertWarRoomEntry(payload)}
         onLoadKnightWeeklyReport={async (weekStart) => getKnightWeeklyReport(weekStart)}
