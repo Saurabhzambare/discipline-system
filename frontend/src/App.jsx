@@ -349,7 +349,7 @@ export default function App() {
   }, []);
 
   const loadOnboardingStatus = useCallback(async () => {
-    if (!isAuthenticated || !player?.path) {
+    if (!isAuthenticated || !player) {
       setOnboardingStatus(null);
       return;
     }
@@ -359,7 +359,7 @@ export default function App() {
     } catch {
       setOnboardingStatus(null);
     }
-  }, [isAuthenticated, player?.path]);
+  }, [isAuthenticated, player]);
 
   const handleShareQuest = useCallback(
     async (quest, note) => {
@@ -469,15 +469,22 @@ export default function App() {
   }, [isAuthenticated, player, route, navigate]);
 
   useEffect(() => {
-    if (!isAuthenticated || !player?.path || !onboardingStatus) return;
-    if (!onboardingStatus.onboarding_complete && route !== '/path-onboarding') {
+    if (!isAuthenticated || !player || !onboardingStatus) return;
+
+    if (!onboardingStatus.path_selected && route !== '/onboarding') {
+      navigate('/onboarding');
+      return;
+    }
+
+    if (onboardingStatus.path_selected && !onboardingStatus.onboarding_complete && route !== '/path-onboarding' && route !== '/onboarding') {
       navigate('/path-onboarding');
       return;
     }
-    if (onboardingStatus.onboarding_complete && route === '/path-onboarding') {
+
+    if (onboardingStatus.onboarding_complete && (route === '/path-onboarding' || route === '/onboarding')) {
       navigate('/dashboard');
     }
-  }, [isAuthenticated, player?.path, onboardingStatus, route, navigate]);
+  }, [isAuthenticated, player, onboardingStatus, route, navigate]);
 
   useEffect(() => {
     const protectedRoute = !PUBLIC_ROUTES.includes(route);
@@ -521,7 +528,7 @@ export default function App() {
     if (isAuthenticated) {
       loadNotifications();
     }
-    if (isAuthenticated && player?.path) {
+    if (isAuthenticated && player) {
       loadOnboardingStatus();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
