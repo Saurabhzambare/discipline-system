@@ -172,12 +172,24 @@ export default function Layout({
     return () => clearTimeout(timeout);
   }, [flashMessage, onDismissFlash]);
 
+  const fullscreenFlowRoutes = ['/onboarding', '/discover'];
+  const isFullscreenFlow = fullscreenFlowRoutes.includes(route);
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#050d1a] text-slate-100">
         <div className="mx-auto max-w-lg px-4 pt-6">
           <FlashBanner flashMessage={flashMessage} />
         </div>
+        {children}
+      </div>
+    );
+  }
+
+  if (isFullscreenFlow) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0F] text-slate-100">
+        <FlashBanner flashMessage={flashMessage} />
         {children}
       </div>
     );
