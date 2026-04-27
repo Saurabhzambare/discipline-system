@@ -1,34 +1,32 @@
 import { useCallback, useState } from 'react';
-import { LOCKED_PATH, PATH_DATA, PATH_MAP } from '../data/pathData';
+import { LOCKED_PATH, PATH_MAP } from '../data/pathData';
 import { QUIZ_SCREEN, usePath } from '../contexts/pathContextShared';
+
+// All five screens are dark, centered, single-column, and chromeless (no
+// global navigation is rendered — Layout short-circuits on /onboarding).
+// Visual direction: Loveable cinematic handoff. Product truth:
+// docs/game-design/systems/path-discovery.md.
 
 // ── Welcome Screen ────────────────────────────────────────────────────────────
 
 function WelcomeScreen({ onStart, loading }) {
   return (
     <div className="min-h-screen bg-[#050d1a] flex flex-col items-center justify-center px-6 text-center">
-      <div className="max-w-md animate-fade-in">
-        <p className="text-xs uppercase tracking-[0.4em] text-cyan-400/60 mb-8">
-          Identity Trial
-        </p>
-        <h1 className="text-4xl font-black text-slate-100 leading-tight mb-6">
-          Discover Your Path
+      <div className="max-w-xl animate-fade-in">
+        <h1 className="text-3xl md:text-4xl font-bold text-slate-100 leading-[1.35] mb-8">
+          Before you begin your journey, Hunter — let us understand who
+          you are right now.
         </h1>
-        <p className="text-slate-400 leading-relaxed mb-3">
-          Before you begin your journey Hunter — let us understand who you are right now.
-        </p>
-        <p className="text-slate-500 text-sm leading-relaxed mb-12">
-          There are no wrong answers.
-          <br />
-          Only honest ones.
+        <p className="text-slate-400 text-base leading-relaxed mb-14 animate-fade-in-delay-1">
+          There are no wrong answers. Only honest ones.
         </p>
         <button
           type="button"
           onClick={onStart}
           disabled={loading}
-          className="rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-10 py-4 text-base font-bold text-cyan-200 transition hover:bg-cyan-500/20 hover:border-cyan-400/70 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="animate-fade-in-delay-2 rounded-xl border border-slate-700/80 bg-slate-800/60 px-14 py-4 text-sm font-semibold text-slate-100 tracking-wide transition hover:border-slate-500 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Preparing...' : 'Begin'}
+          {loading ? 'Preparing…' : 'Begin'}
         </button>
       </div>
     </div>
@@ -44,23 +42,23 @@ function QuestionScreen({ question, onAnswer, submitting }) {
     (key) => {
       if (selected || submitting) return;
       setSelected(key);
+      // Tiny highlight moment before advancing so the tap feels acknowledged.
       setTimeout(() => {
         onAnswer(question.number, key);
         setSelected(null);
-      }, 500);
+      }, 450);
     },
     [selected, submitting, question.number, onAnswer],
   );
 
   return (
     <div className="min-h-screen bg-[#050d1a] flex flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-lg">
-        {/* Question text */}
-        <h2 className="text-xl font-bold text-slate-100 text-center leading-snug mb-10">
+      <div className="w-full max-w-xl animate-fade-in" key={question.number}>
+        {/* No question number, no progress bar, no back button — by design. */}
+        <h2 className="text-2xl md:text-3xl font-bold text-slate-100 text-center leading-snug mb-12">
           {question.text}
         </h2>
 
-        {/* Answer options */}
         <div className="flex flex-col gap-3">
           {question.options.map((option) => {
             const isSelected = selected === option.key;
@@ -70,10 +68,10 @@ function QuestionScreen({ question, onAnswer, submitting }) {
                 type="button"
                 onClick={() => handleSelect(option.key)}
                 disabled={Boolean(selected) || submitting}
-                className={`w-full rounded-xl border px-5 py-4 text-left text-sm leading-relaxed transition-all duration-200 ${
+                className={`w-full rounded-xl border px-5 py-4 text-left text-[15px] leading-relaxed transition-all duration-200 ${
                   isSelected
-                    ? 'border-cyan-400/70 bg-cyan-500/15 text-cyan-100 shadow-[0_0_20px_rgba(6,182,212,0.15)]'
-                    : 'border-[#1a3a5c] bg-[#0a1628] text-slate-300 hover:border-[#2a4a7c] hover:bg-[#0d1f38]'
+                    ? 'border-slate-300/60 bg-slate-700/40 text-slate-50'
+                    : 'border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-600 hover:bg-slate-800/70 hover:text-slate-100'
                 } disabled:cursor-not-allowed`}
               >
                 {option.text}
@@ -91,27 +89,22 @@ function QuestionScreen({ question, onAnswer, submitting }) {
 function ResultsScreen({ results, onExplore }) {
   const top = results[0];
   const topPath = top ? PATH_MAP[top.path_code] : null;
-  const opener = topPath?.resultsOpener || '';
 
   return (
-    <div className="min-h-screen bg-[#050d1a] flex flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-lg">
-        <p className="text-xs uppercase tracking-[0.4em] text-cyan-400/60 text-center mb-4">
-          Your Path Affinity
-        </p>
-
-        {/* Top path opener */}
-        {opener && (
-          <p
-            className="text-center text-slate-300 text-sm leading-relaxed mb-10 italic border-l-2 pl-4 mx-4"
-            style={{ borderColor: topPath?.color?.accent || '#06b6d4' }}
+    <div className="min-h-screen bg-[#050d1a] flex flex-col items-center justify-center px-6 py-16">
+      <div className="w-full max-w-xl animate-fade-in">
+        {/* Path-specific opener — large, in top-path accent colour. */}
+        {topPath && (
+          <h2
+            className="text-2xl md:text-3xl font-bold text-center leading-[1.35] mb-12"
+            style={{ color: topPath.color.accent }}
           >
-            {opener}
-          </p>
+            {topPath.resultsOpener}
+          </h2>
         )}
 
-        {/* All 5 paths with percentage bars */}
-        <div className="flex flex-col gap-4 mb-10">
+        {/* Ranked path list with animated percentage bars. */}
+        <div className="flex flex-col gap-3 mb-12 animate-fade-in-delay-1">
           {results.map((r, idx) => {
             const path = PATH_MAP[r.path_code];
             if (!path) return null;
@@ -119,51 +112,44 @@ function ResultsScreen({ results, onExplore }) {
             return (
               <div
                 key={r.path_code}
-                className={`rounded-xl border p-4 transition-all ${
-                  isTop
-                    ? 'border-opacity-70 shadow-lg'
-                    : 'border-[#1a3a5c] bg-[#080f1e]'
-                }`}
+                className="rounded-xl border px-5 py-4 transition"
                 style={
                   isTop
                     ? {
                         borderColor: path.color.accent,
-                        backgroundColor: `${path.color.bg}55`,
-                        boxShadow: `0 0 24px ${path.color.accent}25`,
+                        backgroundColor: `${path.color.accent}12`,
+                        boxShadow: `0 0 28px ${path.color.accent}22`,
                       }
-                    : {}
+                    : {
+                        borderColor: '#1e293b',
+                        backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                      }
                 }
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{path.icon}</span>
-                    <span className={`text-sm font-bold ${isTop ? 'text-slate-100' : 'text-slate-300'}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl leading-none">{path.icon}</span>
+                    <span
+                      className={`text-sm font-semibold ${isTop ? 'text-slate-50' : 'text-slate-200'}`}
+                    >
                       {path.name}
                     </span>
-                    {isTop && (
-                      <span
-                        className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-                        style={{ color: path.color.accent, backgroundColor: `${path.color.accent}20` }}
-                      >
-                        Top Match
-                      </span>
-                    )}
                   </div>
                   <span
-                    className="text-sm font-black"
+                    className="text-sm font-bold tabular-nums"
                     style={{ color: isTop ? path.color.accent : '#94a3b8' }}
                   >
                     {r.match_percentage}%
                   </span>
                 </div>
-                {/* Progress bar */}
-                <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-slate-800/70 overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all duration-700"
+                    className="h-full rounded-full"
                     style={{
                       width: `${r.match_percentage}%`,
                       backgroundColor: path.color.accent,
-                      opacity: isTop ? 1 : 0.5,
+                      opacity: isTop ? 1 : 0.55,
+                      transition: 'width 900ms ease-out',
                     }}
                   />
                 </div>
@@ -172,17 +158,17 @@ function ResultsScreen({ results, onExplore }) {
           })}
         </div>
 
-        <p className="text-center text-xs text-slate-500 mb-8">
-          Your strongest match is highlighted. All paths are always available to you.
+        <p className="text-center text-xs text-slate-500 mb-8 animate-fade-in-delay-2">
+          Your strongest match is highlighted. Explore all paths before choosing.
         </p>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center animate-fade-in-delay-2">
           <button
             type="button"
             onClick={onExplore}
-            className="rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-10 py-4 text-sm font-bold text-cyan-200 hover:bg-cyan-500/20 transition"
+            className="rounded-xl border border-slate-600 bg-slate-800/70 px-10 py-3.5 text-sm font-semibold text-slate-100 tracking-wide transition hover:border-slate-400 hover:bg-slate-800"
           >
-            Explore Your Paths →
+            Explore Your Paths
           </button>
         </div>
       </div>
@@ -192,29 +178,28 @@ function ResultsScreen({ results, onExplore }) {
 
 // ── Path Cards Screen ─────────────────────────────────────────────────────────
 
-function PathCardsScreen({ results, onChoose }) {
-  // Order PATH_DATA by match percentage from results
+function PathCardsScreen({ results, onChoose, saving }) {
+  // Order by match percentage (server-sorted results are the source of truth).
   const orderedPaths = results
-    .map((r) => ({ ...PATH_MAP[r.path_code], matchPct: r.match_percentage }))
+    .map((r) => {
+      const path = PATH_MAP[r.path_code];
+      return path ? { ...path, matchPct: r.match_percentage } : null;
+    })
     .filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-[#050d1a] px-4 py-10 overflow-y-auto">
-      <div className="max-w-lg mx-auto">
-        <p className="text-xs uppercase tracking-[0.4em] text-cyan-400/60 text-center mb-2">
-          Choose Your Path
-        </p>
-        <h2 className="text-2xl font-black text-slate-100 text-center mb-8">
-          Your Results
-        </h2>
-
+    <div className="min-h-screen bg-[#050d1a] px-4 py-12 overflow-y-auto">
+      <div className="max-w-xl mx-auto animate-fade-in">
         <div className="flex flex-col gap-6">
-          {/* Live path cards */}
           {orderedPaths.map((path) => (
-            <PathCard key={path.code} path={path} matchPct={path.matchPct} onChoose={onChoose} />
+            <PathCard
+              key={path.code}
+              path={path}
+              matchPct={path.matchPct}
+              onChoose={onChoose}
+              saving={saving}
+            />
           ))}
-
-          {/* Locked 6th path */}
           <LockedPathCard />
         </div>
       </div>
@@ -222,96 +207,66 @@ function PathCardsScreen({ results, onChoose }) {
   );
 }
 
-function PathCard({ path, matchPct, onChoose }) {
-  const [expanded, setExpanded] = useState(false);
-
+function PathCard({ path, matchPct, onChoose, saving }) {
   return (
     <div
       className="rounded-2xl border overflow-hidden"
-      style={{ borderColor: `${path.color.accent}40`, backgroundColor: `${path.color.bg}33` }}
+      style={{
+        borderColor: `${path.color.accent}40`,
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+      }}
     >
-      {/* Card header */}
-      <div
-        className="px-5 pt-5 pb-4"
-        style={{ borderBottom: `1px solid ${path.color.accent}20` }}
-      >
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">{path.icon}</span>
-            <div>
-              <h3 className="text-lg font-black text-slate-100">{path.name}</h3>
-              <p className="text-xs text-slate-400 mt-0.5">{path.tagline}</p>
-            </div>
-          </div>
-          {/* Match badge */}
-          <span
-            className="text-xs font-black px-2.5 py-1 rounded-full flex-shrink-0"
-            style={{ color: path.color.accent, backgroundColor: `${path.color.accent}20` }}
-          >
-            {matchPct}% match
-          </span>
+      {/* Header */}
+      <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl leading-none">{path.icon}</span>
+          <h3 className="text-lg font-bold text-slate-50">{path.name}</h3>
         </div>
-      </div>
-
-      {/* Who you are now */}
-      <div className="px-5 py-4">
-        <p className="text-[11px] uppercase tracking-widest mb-2" style={{ color: path.color.accent }}>
-          Where you are now
-        </p>
-        <p className="text-sm text-slate-400 leading-relaxed">{path.whoYouAreNow}</p>
-      </div>
-
-      {/* Expandable details */}
-      {expanded && (
-        <>
-          <div className="px-5 py-4 border-t border-slate-800">
-            <p className="text-[11px] uppercase tracking-widest mb-2" style={{ color: path.color.accent }}>
-              Who you become in 90 days
-            </p>
-            <p className="text-sm text-slate-400 leading-relaxed">{path.whoYouBecome}</p>
-          </div>
-
-          <div className="px-5 py-4 border-t border-slate-800">
-            <p className="text-[11px] uppercase tracking-widest mb-3" style={{ color: path.color.accent }}>
-              What you gain
-            </p>
-            <ul className="flex flex-col gap-2">
-              {path.whatYouGain.map((item) => (
-                <li key={item} className="flex items-start gap-2 text-sm text-slate-400">
-                  <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: path.color.accent }} />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="px-5 py-4 border-t border-slate-800">
-            <p className="text-[11px] uppercase tracking-widest mb-2" style={{ color: path.color.accent }}>
-              This path is for you if
-            </p>
-            <p className="text-sm text-slate-400 leading-relaxed italic">{path.thisPathIsForYouIf}</p>
-          </div>
-        </>
-      )}
-
-      {/* Card actions */}
-      <div className="px-5 pb-5 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setExpanded((e) => !e)}
-          className="flex-1 rounded-xl border border-slate-700 bg-slate-800/50 py-2.5 text-xs font-semibold text-slate-400 hover:text-slate-200 hover:border-slate-600 transition"
+        <span
+          className="text-[11px] font-bold tracking-wide px-2.5 py-1 rounded-full"
+          style={{ color: path.color.accent, backgroundColor: `${path.color.accent}1f` }}
         >
-          {expanded ? 'Show less' : 'Read more'}
-        </button>
+          {matchPct}% match
+        </span>
+      </div>
+
+      {/* Sections (always expanded per design spec). */}
+      <div className="px-6 pb-2">
+        <Section label="Who you are now" color={path.color.accent}>
+          <p className="text-sm text-slate-300 leading-relaxed">{path.whoYouAreNow}</p>
+        </Section>
+
+        <Section label="Who you become" color={path.color.accent}>
+          <p className="text-sm text-slate-300 leading-relaxed">{path.whoYouBecome}</p>
+        </Section>
+
+        <Section label="What you gain" color={path.color.accent}>
+          <ul className="flex flex-col gap-1.5">
+            {path.whatYouGain.map((item) => (
+              <li key={item} className="flex items-start gap-2 text-sm text-slate-300">
+                <span
+                  className="mt-[7px] h-1 w-1 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: path.color.accent }}
+                />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </Section>
+
+        <Section label="This path is for you if" color={path.color.accent}>
+          <p className="text-sm text-slate-400 leading-relaxed">{path.thisPathIsForYouIf}</p>
+        </Section>
+      </div>
+
+      {/* Choose CTA — strong, solid in path accent. */}
+      <div className="px-6 pt-2 pb-6">
         <button
           type="button"
           onClick={() => onChoose(path.code)}
-          className="flex-1 rounded-xl border py-2.5 text-xs font-bold transition hover:opacity-90"
-          style={{
-            borderColor: path.color.accent,
-            backgroundColor: `${path.color.accent}18`,
-            color: path.color.accent,
-          }}
+          disabled={saving}
+          className="w-full rounded-xl py-3.5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ backgroundColor: path.color.accent }}
         >
           Choose {path.name}
         </button>
@@ -320,32 +275,40 @@ function PathCard({ path, matchPct, onChoose }) {
   );
 }
 
-function LockedPathCard() {
-  const [tapped, setTapped] = useState(false);
+function Section({ label, color, children }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden opacity-60">
-      <div className="px-5 py-5 flex items-center gap-4">
-        <span className="text-3xl grayscale">🔒</span>
-        <div className="flex-1">
-          <h3 className="text-lg font-black text-slate-500">{LOCKED_PATH.name}</h3>
-          <p className="text-xs text-slate-600 mt-0.5">{LOCKED_PATH.tagline}</p>
-        </div>
-        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-800 text-slate-500">
-          Coming Soon
-        </span>
-      </div>
-      <div className="px-5 pb-5">
-        {tapped ? (
-          <p className="text-xs text-slate-500 italic">{LOCKED_PATH.lockedMessage}</p>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setTapped(true)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-800/30 py-2.5 text-xs font-semibold text-slate-600 cursor-not-allowed"
-          >
-            Path Locked
-          </button>
-        )}
+    <div className="py-3 border-t border-slate-800/80 first:border-t-0">
+      <p
+        className="text-[10px] uppercase tracking-[0.18em] mb-2 font-semibold"
+        style={{ color }}
+      >
+        {label}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function LockedPathCard() {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden opacity-70">
+      <div className="px-6 py-8 flex flex-col items-center text-center gap-2">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-6 w-6 text-slate-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.8}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 11c-1.1 0-2 .9-2 2v2h4v-2c0-1.1-.9-2-2-2zM6 11V8a6 6 0 0112 0v3M5 11h14v10H5z"
+          />
+        </svg>
+        <p className="text-sm font-semibold text-slate-400">Coming Soon</p>
+        <p className="text-xs text-slate-600 max-w-xs">{LOCKED_PATH.lockedMessage}</p>
       </div>
     </div>
   );
@@ -361,43 +324,55 @@ function CommitmentScreen({ pathCode, onConfirm, saving, error }) {
 
   return (
     <div className="min-h-screen bg-[#050d1a] flex flex-col items-center justify-center px-6 text-center">
-      <div className="max-w-md">
-        <span className="text-6xl mb-6 block">{path.icon}</span>
+      <div className="max-w-lg animate-fade-in">
+        {/* Path icon framed in a soft halo in path colour. */}
+        <div
+          className="mx-auto mb-10 flex h-24 w-24 items-center justify-center rounded-full border"
+          style={{
+            borderColor: `${path.color.accent}60`,
+            backgroundColor: `${path.color.accent}12`,
+            boxShadow: `0 0 60px ${path.color.accent}33`,
+          }}
+        >
+          <span className="text-4xl leading-none">{path.icon}</span>
+        </div>
 
-        <div className="mb-8 space-y-3">
-          {lines.map((line, i) => (
-            <p
-              key={i}
-              className={
-                i === 0
-                  ? 'text-xl font-black text-slate-100'
-                  : i === lines.length - 1
-                  ? 'text-sm font-bold mt-4'
-                  : 'text-sm text-slate-400 leading-relaxed'
-              }
-              style={i === lines.length - 1 ? { color: path.color.accent } : {}}
-            >
-              {line}
-            </p>
-          ))}
+        <div className="mb-12 space-y-4 animate-fade-in-delay-1">
+          {lines.map((line, i) => {
+            const isTitle = i === 0;
+            const isClosing = i === lines.length - 1;
+            return (
+              <p
+                key={i}
+                className={
+                  isTitle
+                    ? 'text-xl md:text-2xl font-bold text-slate-50 leading-snug'
+                    : isClosing
+                    ? 'text-sm font-semibold tracking-wide mt-6'
+                    : 'text-[15px] text-slate-300 leading-relaxed'
+                }
+                style={isClosing ? { color: path.color.accent } : undefined}
+              >
+                {line}
+              </p>
+            );
+          })}
         </div>
 
         {error && (
-          <p className="text-xs text-red-400 mb-4">{error}</p>
+          <p className="text-xs text-rose-400 mb-4" role="alert">
+            {error}
+          </p>
         )}
 
         <button
           type="button"
           onClick={onConfirm}
           disabled={saving}
-          className="rounded-xl border px-10 py-4 text-sm font-bold transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            borderColor: path.color.accent,
-            backgroundColor: `${path.color.accent}18`,
-            color: path.color.accent,
-          }}
+          className="w-full max-w-sm rounded-xl py-4 text-sm font-bold text-white tracking-wide transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed animate-fade-in-delay-2"
+          style={{ backgroundColor: path.color.accent }}
         >
-          {saving ? 'Saving your path...' : 'Begin My Journey'}
+          {saving ? 'Saving your path…' : 'Begin My Journey'}
         </button>
       </div>
     </div>
@@ -434,6 +409,8 @@ export default function OnboardingPage({ onNavigate }) {
     [answerQuestion],
   );
 
+  // Atomic: server persists selection before we route onward. If it fails,
+  // stay on the commitment screen and surface the error.
   const handleBeginJourney = useCallback(async () => {
     const success = await confirmPath();
     if (success) onNavigate('/path-onboarding');
@@ -460,7 +437,9 @@ export default function OnboardingPage({ onNavigate }) {
       return <ResultsScreen results={results} onExplore={goToPathCards} />;
 
     case QUIZ_SCREEN.PATH_CARDS:
-      return <PathCardsScreen results={results} onChoose={choosePath} />;
+      return (
+        <PathCardsScreen results={results} onChoose={choosePath} saving={savingPath} />
+      );
 
     case QUIZ_SCREEN.COMMITMENT:
       return (
