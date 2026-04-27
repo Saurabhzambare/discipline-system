@@ -1,0 +1,206 @@
+# Discipline System — Current Status
+
+**Last updated:** 2026-04-22
+**Purpose:** This is the single source of truth for where the project stands.
+Every session should read this first. Update it at the end of every session.
+
+---
+
+## 1. Active Phase
+
+**Phase 5B — Quest System Redesign** (in progress)
+
+We are in the middle of Phase 5B. Multiple sessions have been completed.
+The next work is closing out Session 6, then executing Sessions 8 and 9.
+The old plan to hand off the frontend to Lovable has been **abandoned**.
+All frontend polish will be done here using Claude Code.
+
+---
+
+## 2. Phase 5B Session Progress
+
+| Session | Scope | Status |
+|---------|-------|--------|
+| Pre-build audit | Repo inspection, conflict map | ✅ Complete |
+| Session 1 | Foundation models (Quest, DailyQuestLineup, path models, migrations) | ✅ Complete |
+| Session 2 | Path Discovery Quiz (9-question backend, scoring, match %, retake) | ✅ Complete |
+| Session 3 | Quest seeding for all 5 paths (+ hardening patch) | ✅ Complete |
+| Session 4 | Path-specific onboarding flows, DK oath moderation, GV skill tree init | ✅ Complete |
+| Session 5 | Daily Quest Assignment Engine (5-layer algo, lineups, swaps, intention, feedback, summary) | ✅ Complete |
+| Session 6 | Path mechanic persistence hooks, log endpoints, protection-order service, accountability partner flow | 🟡 In progress |
+| Session 7 | Backend contract freeze (quest board, completion ring, EOD summary, tomorrow preview, missed-day, adaptive nudge) | ✅ Complete |
+| Session 8 | Social & Achievement Features (badges, leaderboards, cross-path titles, weekly boss) | ⬜ Not started |
+| Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
+
+---
+
+## 3. What Exists Today
+
+### Backend apps (`backend/`)
+
+- **`config/`** — Django project settings, URLs, WSGI/ASGI.
+- **`core/`** — Shared utilities.
+- **`users/`** — Custom user model, auth (JWT), signup/login.
+- **`players/`** — Player profile, EXP, level (quadratic formula), streak, daily intention, daily summary.
+- **`quests/`** — Quest, QuestCompletion, DailyQuestLineup, DailyQuestLineupItem, services (5-layer assignment, swap, feedback, intention, summary, tomorrow preview, adaptive nudge), management command `seed_quests`.
+- **`paths/`** — PathDiscoveryQuiz, QuizAnswer, PathMatchScore, UserPathSelection, PathOnboardingProgress, path-specific profiles (FitnessWarriorProfile, MindsetSageProfile, HealthAlchemistProfile, DisciplineKnightProfile, GrindVisionaryProfile), path-specific mechanics (SplitDayState, ArmorSystem, ArmorPiece, ElixirProgress, EquipmentProfile, DisciplineCode, GraceToken, StreakShield, WarRoomEntry, TemptationLog, KnightWeeklyReport, XPMultiplier, MultiplierProtection, SingularGoal, SkillTree, SkillTreeNode, OutputLog, PostFirstDollarChain, QuestChain, TransmutationMilestone, BodyJournal, WisdomLog, DarkNightEntry), management command `seed_session6_test_accounts`.
+- **`social/`** — FriendRequest, Friendship, SocialPost, PostComment, PostReaction, ActivityEvent, SocialGroup, GroupMembership, AccountabilityPartnerRequest, AccountabilityPartnership, Badge, UserBadge, AchievementCard, WeeklyBossQuest, WeeklyBossCompletion.
+
+### Backend test modules
+
+- `core/tests.py`
+- `users/tests.py` — passing
+- `social/tests.py` — passing
+- `players/tests.py` — 2 stale failures (old path codes)
+- `quests/tests.py` — 4 failures + 5 errors (stale tests)
+- `quests/tests_session5.py` — passing
+- `paths/tests_session6.py`
+- `paths/tests_onboarding_completion.py`
+- `paths/tests_seed_session6_accounts.py`
+
+### Frontend pages (`frontend/src/pages/`)
+
+- `LoginPage.jsx`
+- `SignupPage.jsx`
+- `OnboardingPage.jsx` (legacy path-picker — superseded by PathOnboardingPage, still referenced)
+- `PathOnboardingPage.jsx` (new 5-path onboarding: quiz → results → path-specific form → commitment)
+- `DashboardPage.jsx` (quest lineup, completion ring, intention, swap, feedback, EOD summary, path mechanics widgets, placeholder leaderboard)
+- `ProfilePage.jsx` (player stats, friends list, friend request lifecycle)
+- `FeedPage.jsx` (posts CRUD, comments, reactions, profile modal, placeholder mini-leaderboard)
+- `GroupsPage.jsx` (create/join/leave groups, group feed)
+- `ComingSoonPage.jsx` (roadmap showcase — not wired to backend)
+- `PreviewPage.jsx` (static demo screen — not wired)
+
+### Frontend components (`frontend/src/components/`)
+
+- `Layout.jsx` (sidebar nav, top bar, notification bell, flash banner)
+- `QuestCard.jsx`
+- `ProgressCard.jsx`
+- (plus embedded sub-components in pages)
+
+### Frontend state / utilities
+
+- `App.jsx` (monolithic route + state orchestrator — technical debt)
+- `api.js` (all API call helpers)
+- `PathContext.jsx` (React Context for path state)
+
+---
+
+## 4. Known Outstanding Issues
+
+### Code quality
+
+1. **Backend tests are stale.** `players/tests.py` asserts old path codes (`gym`, `runner`); `quests/tests.py` assumes linear EXP formula (100/level) instead of quadratic, and doesn't set up `UserPathSelection`. The *code* is correct; the *tests* need rewriting.
+2. **Frontend has 9 ESLint errors.** Unused imports in `App.jsx` and `GroupsPage.jsx`. `react-refresh/only-export-components` violations in `PathContext.jsx`.
+3. **No CI.** No `.github/workflows/*` exists. Test drift goes undetected.
+4. **Monolithic `App.jsx`.** State orchestration is concentrated in one file; should eventually be broken up.
+
+### Phase 5B functional gaps
+
+5. **Session 6 incomplete.** Outstanding: full path mechanic persistence hooks wiring, log endpoints, protection-order service integration, accountability partner invite flow finalization.
+6. **Session 8 not started.** No achievement cards generated, badge system not wired to trigger events, leaderboards not implemented, cross-path identity titles not granted, weekly boss quest system only partially seeded.
+7. **Placeholder UI.** Dashboard leaderboard card, feed right-panel mini-leaderboard, and achievement blocks currently show hardcoded dummy data.
+
+### Production readiness
+
+8. `DEBUG=True` in Django settings.
+9. `ALLOWED_HOSTS` empty.
+10. `SECRET_KEY` hardcoded in settings.
+11. Custom client-side routing (manual `history.pushState`) — should migrate to a proper router (React Router) before launch.
+12. No pagination on feed/groups/posts endpoints.
+13. Nothing pushed to `main` recently per saved memory — local work needs to be reconciled with `origin/main`.
+
+---
+
+## 5. Path to Completion
+
+### Stage A — Stabilize (1–2 sessions)
+
+- Rewrite stale `players/tests.py` and `quests/tests.py` to match Phase 5B architecture.
+- Fix all 9 frontend ESLint errors.
+- Finish Session 6 (path mechanic hooks, log endpoints, protection order, accountability flow).
+- Reconcile local branches with `origin/main`; push clean baseline.
+- Optional: add basic GitHub Actions CI (backend tests + frontend lint/build).
+
+### Stage B — Finish Phase 5B backend (2–3 sessions)
+
+- **Session 8** — Social & Achievement Features (BUILD_ORDER steps 80–88).
+- **Session 9** — End-to-end verification (BUILD_ORDER steps 89–105).
+
+### Stage C — Frontend polish pass (3–5 sessions)
+
+This replaces the abandoned Lovable plan. Work is done here in Claude Code.
+
+- Design system pass: Tailwind tokens, colour palette (Solo Leveling dark/cyan/amber), typography scale, shared component primitives.
+- Replace placeholder Dashboard leaderboard with real backend leaderboard data (depends on Session 8).
+- Replace placeholder Feed leaderboard with real data.
+- Polish completion ring, EOD summary modal, tomorrow preview, missed-day return interstitial, adaptive nudge prompt — currently shipped as minimal "proving UI."
+- Polish path mechanics widgets: War Room, Wisdom Log, Body Journal, Output Log, Vision Board, Skill Tree display.
+- Login/signup visual redesign toward immersive Solo Leveling aesthetic.
+- Migrate `App.jsx` custom routing to React Router.
+
+### Stage D — Production deployment (1–2 sessions)
+
+- Move `SECRET_KEY` to env; set `DEBUG=False`; populate `ALLOWED_HOSTS`; configure CORS.
+- Configure PostgreSQL for production; run migrations.
+- Railway deployment: Dockerfile review, `railway.toml`, env vars, cron for midnight quest scheduler.
+- Add error logging (Sentry or similar).
+- Basic monitoring.
+
+### Stage E — Post-launch (Phases 7+)
+
+Per `docs/web-development-roadmap.md`:
+
+- Phase 7 — Formalize reward engine & achievements
+- Phase 8 — Competitive systems (tournaments, challenges)
+- Phase 9 — Privacy & settings system
+- Phase 10 — Avatar system
+- Phase 11 — Device integration
+- Phase 12 — Subscription system
+- Phase 13 — Merchandising
+- Phase 14 — Immersive experience layer
+- Phase 15 — Platform stabilization
+- Phase 16 — Mobile apps (iOS + Android)
+
+---
+
+## 6. Architectural Decisions (Locked)
+
+- **Level formula:** quadratic — `EXP needed = level² × 50 − 50`
+- **State management:** React Context + custom hooks (NOT Redux)
+- **Scheduler:** Django management command via cron (NOT Celery or Redis)
+- **Backend app boundaries:** users / players / quests / paths / social / core. No further app splits planned during Phase 5B.
+- **Frontend routing:** currently custom, planned migration to React Router in Stage C.
+- **Database:** SQLite (dev), PostgreSQL (prod).
+- **Deployment target:** Railway with Docker.
+- **Auth:** JWT (already configured).
+- **All EXP logic is server-side only.** No frontend EXP calculation.
+- **Timezone:** Per-user timezone stored on Player; all midnight resets use player-local time.
+
+---
+
+## 7. Documents That Matter Right Now
+
+Read these at the start of every coding session:
+
+1. `AGENTS.md` — project coding rules
+2. `docs/architecture.md` — architecture philosophy
+3. `docs/CURRENT_STATUS.md` — this file
+4. `docs/phase-5b-quest-system-redesign.md` — active phase scope
+5. `docs/game-design/BUILD_ORDER.md` — step-level task tracker
+6. `docs/game-design/README.md` — index to path and system specs
+7. Specific path or system spec only when working on it
+
+Everything else is historical reference — see `docs/archive/` once cleanup lands.
+
+---
+
+## 8. How To Update This Doc
+
+At the end of every session:
+
+1. Update the "Last updated" date at the top.
+2. Move completed work into the done columns.
+3. Add any new "Known Issues" you discovered.
+4. Remove issues you resolved.
+5. Commit in the same PR as the code changes.

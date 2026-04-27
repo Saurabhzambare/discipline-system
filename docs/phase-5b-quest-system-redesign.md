@@ -1,15 +1,21 @@
 # Phase 5B — Quest System Redesign
 
 ## Status
-In Progress
+**In Progress.** See `docs/CURRENT_STATUS.md` for the single source of truth
+on session progress. Update both this doc and CURRENT_STATUS.md at the end
+of every session.
 
-### Progress Snapshot
-- Session 1: complete
-- Session 2: complete
-- Session 3: complete (including hardening patch)
-- Session 4: complete (path onboarding flows, resume-safe onboarding status, DK oath moderation, GV skill-tree initialization)
-- Session 5: complete enough (daily lineup generation hardening, dashboard lineup source-of-truth wiring, intention/swap/feedback/summary entry points)
-- Session 6: in progress (path mechanic persistence hooks, log endpoints, protection-order service integration, social-domain accountability partner invite flow)
+### Progress Snapshot (updated 2026-04-22)
+
+- ✅ Session 1: Foundation models complete
+- ✅ Session 2: Path Discovery quiz complete
+- ✅ Session 3: Quest seeding complete (with hardening patch)
+- ✅ Session 4: Path onboarding flows complete (resume-safe status, DK oath moderation, GV skill-tree initialization)
+- ✅ Session 5: Daily Quest Assignment Engine complete (lineup generation, intention/swap/feedback/summary entry points)
+- 🟡 Session 6: In progress — path mechanic persistence hooks, log endpoints, protection-order service integration, social-domain accountability partner invite flow
+- ✅ Session 7: Backend contract layer complete — quest board, completion ring, EOD summary, tomorrow preview, missed-day return, adaptive difficulty nudge
+- ⬜ Session 8: Social & achievement features — not started
+- ⬜ Session 9: Final verification — not started
 
 ## Phase Type
 Expansion of Phase 5 — Quest Expansion System
@@ -17,6 +23,7 @@ Expansion of Phase 5 — Quest Expansion System
 ## Must Read Before Implementing
 - AGENTS.md
 - docs/architecture.md
+- docs/CURRENT_STATUS.md
 - docs/game-design/README.md
 - docs/game-design/BUILD_ORDER.md
 - docs/game-design/paths/fitness-warrior.md
@@ -50,6 +57,25 @@ path-specific progression mechanics.
 This phase must be completed before Phase 7
 (Reward Engine and Achievements) and Phase 8
 (Competitive Systems) can begin.
+
+---
+
+## Frontend Strategy (UPDATED 2026-04-22)
+
+**The plan to hand off the frontend to Lovable has been abandoned.**
+
+All frontend work — including final visual polish, dashboard redesign,
+onboarding UX, and path mechanics presentation — will be completed here
+using Claude Code. Any references to "Lovable handoff" in historical
+docs (`docs/archive/session-7-*`) are obsolete.
+
+What this means in practice:
+
+- The current React frontend is the frontend we ship.
+- Session 7 "proving UI" widgets will be polished in-place in Stage C
+  of the plan in CURRENT_STATUS.md — not rebuilt elsewhere.
+- Tailwind-based component primitives and a cohesive design system
+  will be developed incrementally within `frontend/src/`.
 
 ---
 
@@ -97,9 +123,7 @@ These Player.path field values are being introduced:
 - discipline_knight
 - grind_visionary
 
-The Player.path field must be updated via a Django
-migration. Show the developer the migration file
-before running it.
+The Player.path field was updated via Django migration in Session 1.
 
 ---
 
@@ -257,136 +281,94 @@ Additional rules specific to this phase:
    logic uses player local timezone — midnight reset,
    expiry notifications, end of day summary.
 
-6. New Django app recommended:
-   backend/paths/
-   This app should own: path discovery quiz, path
-   onboarding, path-specific mechanics per path.
-   Confirm against existing structure before creating.
+6. Backend app structure (FINAL for Phase 5B):
+   - `backend/paths/` owns path discovery quiz, path
+     onboarding, path-specific mechanics per path
+   - `backend/social/` extended for achievement cards,
+     badges, and leaderboards (no separate app)
 
-7. Extend the existing social app for achievement
-   cards, badges, and leaderboards. Do not create
-   a separate social-achievements app.
-
-8. Never run migrations without showing the developer
+7. Never run migrations without showing the developer
    the full migration file first and getting approval.
 
-9. Body Journal data must be preserved permanently
+8. Body Journal data must be preserved permanently
    regardless of whether Health Alchemist path
    is active or deactivated.
 
-10. Freedom Day token overflow: if player earns a
-    fourth token while already at maximum of three,
-    award 200 bonus EXP instead of the token.
+9. Freedom Day token overflow: if player earns a
+   fourth token while already at maximum of three,
+   award 200 bonus EXP instead of the token.
 
-11. Cross-path bonus quests must be exempt from
+10. Cross-path bonus quests must be exempt from
     Recovery day filtering — always surface if
     available even on Recovery days.
 
-12. Tomorrow preview must show quest categories only.
+11. Tomorrow preview must show quest categories only.
     Never show specific quest titles in preview.
     This prevents players gaming the system by
     waiting for easier quests.
 
-13. Never shame a player for missing a day.
+12. Never shame a player for missing a day.
     All missed day language must be forward-facing.
 
-14. Quest model must include a pack_id field for
+13. Quest model must include a pack_id field for
     future expansion pack support even if unused now.
 
 ---
 
 ## Files To Inspect Before Writing Any Code
 
-backend/players/models.py
-- Read Player model carefully
-- Note existing path field and its current choices
-- Note level, exp, streak fields
+### Backend
 
-backend/quests/models.py
-- Read Quest model carefully
-- Read PlayerDailyQuestAssignment model
-- Note all existing fields before extending
+- `backend/players/models.py` — Player model, EXP/level/streak fields
+- `backend/quests/models.py` — Quest, QuestCompletion, DailyQuestLineup, DailyQuestLineupItem
+- `backend/quests/services.py` — 5-layer assignment, swap, feedback, intention, summary, tomorrow preview, adaptive nudge
+- `backend/quests/management/commands/seed_quests.py` — quest seed data for all 5 paths
+- `backend/paths/models.py` — path discovery, onboarding progress, all path-specific profiles and mechanics
+- `backend/paths/services.py` — quiz scoring, onboarding save flows, mechanics orchestration
+- `backend/social/models.py` — friend/post/group/badge/achievement models
+- `backend/social/services.py` — social domain service patterns
 
-backend/quests/services.py
-- Understand existing quest service patterns
-- New quest logic must follow same patterns
+### Frontend
 
-backend/quests/management/commands/seed_quests.py
-- Read existing seed logic
-- Extend this file — do not replace it
-- Clear old data then seed new data
-
-backend/social/models.py
-- Read all existing social models
-- Badge and achievement models extend here
-
-backend/social/services.py
-- Follow existing service patterns
-
-frontend/src/pages/OnboardingPage.jsx
-- Read current onboarding flow
-- This will be replaced by Path Discovery System
-- Confirm with developer before replacing
-
-frontend/src/pages/DashboardPage.jsx
-- Read current dashboard structure
-- Quest board, completion ring, end of day summary
-- extend this page — do not rebuild from scratch
-
-frontend/src/components/QuestCard.jsx
-- Read existing quest card component
-- Extend to support new quest types and slot UI
-
-frontend/src/components/ProgressCard.jsx
-- Read existing progress card
-- Extend to support completion ring
-
-frontend/src/api.js
-- Read existing API call patterns
-- All new API calls must follow same patterns
-
----
-
-## Pre-Build Checklist
-
-Before writing any code Claude Code must complete
-all of the following and show results to developer:
-
-- [ ] All files listed above inspected and summarized
-- [ ] Conflict map produced showing:
-      what already exists
-      what needs to be created
-      what needs to be modified
-      what needs to be deleted
-- [ ] Migration plan for Player.path field shown
-- [ ] Confirmation that old quest data wipe plan
-      is safe and will not affect user accounts
-- [ ] List of new models to be created confirmed
-      against existing models (no duplicates)
-- [ ] Developer approval received on conflict map
-- [ ] Only then begin building
+- `frontend/src/App.jsx` — routing and state orchestration (monolithic — technical debt)
+- `frontend/src/api.js` — all API call helpers
+- `frontend/src/pages/PathOnboardingPage.jsx` — 5-path onboarding flow
+- `frontend/src/pages/DashboardPage.jsx` — quest board, completion ring, path mechanics widgets
+- `frontend/src/pages/ProfilePage.jsx`
+- `frontend/src/pages/FeedPage.jsx`
+- `frontend/src/pages/GroupsPage.jsx`
+- `frontend/src/components/Layout.jsx` — sidebar nav, flash banner
+- `frontend/src/components/QuestCard.jsx`
 
 ---
 
 ## Definition of Done
 
 Phase 5B is complete when all items in
-docs/game-design/BUILD_ORDER.md are checked off
+`docs/game-design/BUILD_ORDER.md` are checked off
 and the following are verified:
 
-- [ ] Player.path field updated with new path values
-- [ ] Old quest seed data wiped cleanly
-- [ ] All five paths have complete quest data seeded
-- [ ] Path Discovery Quiz works end to end
-- [ ] Path-specific onboarding works all five paths
+- [ ] Player.path field updated with new path values (done)
+- [ ] Old quest seed data wiped cleanly (done)
+- [ ] All five paths have complete quest data seeded (done)
+- [ ] Path Discovery Quiz works end to end (done)
+- [ ] Path-specific onboarding works all five paths (done)
 - [ ] Daily Quest Assignment Engine runs at midnight
-      in player local timezone
-- [ ] Quest board shows correct daily lineup per player
-- [ ] All path-specific mechanics working
-- [ ] Cross-path bonus system working
-- [ ] Social achievement features working
-- [ ] Existing user accounts completely unaffected
-- [ ] Existing social features still working
+      in player local timezone (done)
+- [ ] Quest board shows correct daily lineup per player (done)
+- [ ] All path-specific mechanics working (Session 6 — in progress)
+- [ ] Cross-path bonus system working (partial — detection present, titles not granted)
+- [ ] Social achievement features working (Session 8 — not started)
+- [ ] Existing user accounts completely unaffected (verified)
+- [ ] Existing social features still working (verified)
 - [ ] No broken migrations
 - [ ] All new code follows service layer pattern
 - [ ] All EXP logic is server-side only
+
+---
+
+## Notes
+
+Historical session plans and handoff documents (including the abandoned
+Lovable plan) are preserved in `docs/archive/` for context but are no
+longer operative.
