@@ -1,7 +1,7 @@
 # Discipline System — Build Order and Progress Tracker
 # docs/game-design/BUILD_ORDER.md
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-04-28
 
 ---
 
@@ -163,7 +163,7 @@ Rules:
 - [x] Step 54: Freedom Day Token accumulation + overflow bonus EXP
 - [x] Step 55: Wisdom Log CRUD + count milestones
 - [x] Step 56: Dark Night Quest manual activation + entry logging
-- [ ] Step 57: Sage archetype quest pool filtering — verify wired to lineup
+- [x] Step 57: Sage archetype quest pool filtering — wired in `_apply_path_overrides` (Session A1)
 
 ### Health Alchemist mechanics
 - [x] Step 58: Elixir System brew counter + Day 7 completion
@@ -177,7 +177,7 @@ Rules:
 - [x] Step 64: Streak Shield auto-activation
 - [x] Step 65: War Room morning + evening entries + same-day bonus EXP
 - [x] Step 66: Temptation Log CRUD
-- [ ] Step 67: Knight Weekly Report auto-generation on Sunday — verify scheduler trigger
+- [x] Step 67: Knight Weekly Report auto-generation on Sunday — wired into `generate_daily_quests` command (Session A1)
 
 ### Grind Visionary mechanics
 - [x] Step 68: XP Multiplier calculation (1.0x → 2.0x over 30 days)
@@ -189,7 +189,7 @@ Rules:
 - [x] Step 74: First Dollar legendary moment + post-first-dollar quest chain
 
 ### Cross-cutting
-- [ ] Step 75: Protection-order service consolidated into single helper — verify
+- [x] Step 75: Protection-order service consolidated into single helper — verified in `paths/mechanics.py:apply_missed_day_protections` (Session A1)
 - [ ] Step 76: Path-mechanic log endpoints wired to frontend widgets — audit gaps
 
 ---
@@ -314,5 +314,11 @@ for frontend polish plan.
 
 [2026-04-22] — Documentation cleanup. Historical phase docs and
 session-7 Lovable handoff docs moved to docs/archive/.
+
+[2026-04-28] — Session A1 cleanup. Wired Sage archetype filtering (Step 57),
+Knight Weekly Report Sunday trigger (Step 67). Verified protection-order
+consolidation (Step 75). Deleted OnboardingPage.jsx orphan; all /onboarding
+routes redirect to /path-onboarding. Backend: 63 tests green. Frontend: lint
+clean, build succeeds. Pending: Steps 73 and 76 (Session 6 remaining gaps).
 
 ---

@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-04-22
+**Last updated:** 2026-04-28
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -51,12 +51,14 @@ All frontend polish will be done here using Claude Code.
 - `core/tests.py`
 - `users/tests.py` — passing
 - `social/tests.py` — passing
-- `players/tests.py` — 2 stale failures (old path codes)
-- `quests/tests.py` — 4 failures + 5 errors (stale tests)
+- `players/tests.py` — passing (3 tests)
+- `quests/tests.py` — passing (12 tests, Session 7 contract tests)
 - `quests/tests_session5.py` — passing
-- `paths/tests_session6.py`
+- `paths/tests_session6.py` — passing (includes new archetype filtering tests)
 - `paths/tests_onboarding_completion.py`
 - `paths/tests_seed_session6_accounts.py`
+
+Total: 63 tests, all passing.
 
 ### Frontend pages (`frontend/src/pages/`)
 
@@ -90,14 +92,13 @@ All frontend polish will be done here using Claude Code.
 
 ### Code quality
 
-1. **Backend tests are stale.** `players/tests.py` asserts old path codes (`gym`, `runner`); `quests/tests.py` assumes linear EXP formula (100/level) instead of quadratic, and doesn't set up `UserPathSelection`. The *code* is correct; the *tests* need rewriting.
-2. **Frontend has 9 ESLint errors.** Unused imports in `App.jsx` and `GroupsPage.jsx`. `react-refresh/only-export-components` violations in `PathContext.jsx`.
-3. **No CI.** No `.github/workflows/*` exists. Test drift goes undetected.
-4. **Monolithic `App.jsx`.** State orchestration is concentrated in one file; should eventually be broken up.
+1. **No CI.** No `.github/workflows/*` exists. Test drift goes undetected.
+2. **Monolithic `App.jsx`.** State orchestration is concentrated in one file; should eventually be broken up.
+3. **Pending Django migrations.** Django 5 auto-detects `id` field type changes (AutoField → BigAutoField) for `paths` and `social` apps. Migrations `paths/0008_*` and `social/0005_*` need to be created and run before deploying to a fresh database. No functional impact on dev SQLite.
 
 ### Phase 5B functional gaps
 
-5. **Session 6 incomplete.** Outstanding: full path mechanic persistence hooks wiring, log endpoints, protection-order service integration, accountability partner invite flow finalization.
+4. **Session 6 partially complete.** Fixed in Session A1: Sage archetype filtering wired (Step 57), Knight Weekly Report Sunday trigger wired to `generate_daily_quests` command (Step 67), protection-order service verified consolidated (Step 75). Outstanding: Step 73 (accountability partner invite flow), Step 76 (path-mechanic log endpoint audit).
 6. **Session 8 not started.** No achievement cards generated, badge system not wired to trigger events, leaderboards not implemented, cross-path identity titles not granted, weekly boss quest system only partially seeded.
 7. **Placeholder UI.** Dashboard leaderboard card, feed right-panel mini-leaderboard, and achievement blocks currently show hardcoded dummy data.
 
