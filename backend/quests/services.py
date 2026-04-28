@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from paths.models import (
     DisciplineCode,
     EquipmentProfile,
+    MindsetSageProfile,
     PostFirstDollarChain,
     QuestChain,
     SingularGoal,
@@ -41,6 +42,13 @@ from .models import (
     QuestPreference,
 )
 
+
+SAGE_ARCHETYPE_PRIORITY_PACKS = {
+    "stoic": {"ms_reframes", "ms_shadow_work", "ms_emotional_mastery", "ms_dark_night"},
+    "scholar": {"ms_wisdom_log", "ms_reflection", "cross_reading"},
+    "monk": {"ms_meditation", "ms_breathwork", "ms_clarity", "cross_breathwork"},
+    "warrior_sage": set(),
+}
 
 RANK_UNLOCK_BY_LEVEL = {
     1: {"D"},
@@ -345,8 +353,13 @@ def _apply_path_overrides(player, path_code: str, quests: list[Quest], target_da
         return quests
 
     if path_code == "mindset_sage":
-        # V1 lightweight hook only; no Session 6 mechanics build-out here.
-        _ = DisciplineCode.objects.filter(player=player).first()
+        profile = MindsetSageProfile.objects.filter(player=player).first()
+        archetype = profile.archetype if profile else None
+        priority_packs = SAGE_ARCHETYPE_PRIORITY_PACKS.get(archetype, set())
+        if priority_packs:
+            priority = [q for q in quests if q.pack_id in priority_packs]
+            rest = [q for q in quests if q.pack_id not in priority_packs]
+            return priority + rest
         return quests
 
     return quests

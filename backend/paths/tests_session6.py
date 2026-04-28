@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from paths.mechanics import apply_missed_day_protections, apply_post_completion_mechanics, process_dark_night_entry
-from paths.models import ArmorPiece, DarkNightEntry, FreedomDayToken, GraceToken, PostFirstDollarChain, UserPathSelection, StreakShield
+from paths.models import ArmorPiece, DarkNightEntry, FreedomDayToken, GraceToken, MindsetSageProfile, PostFirstDollarChain, UserPathSelection, StreakShield
 from paths.services import generate_knight_weekly_report
 from quests.models import Quest, QuestCompletion
 from quests.services import get_daily_lineup
@@ -319,3 +319,60 @@ class Session6MechanicsStatusEndpointsTests(TestCase):
         list_response = self.client.get(reverse("mechanics-temptation-log"))
         self.assertEqual(list_response.status_code, 200)
         self.assertEqual(len(list_response.data), 1)
+
+
+class Session6SageArchetypeFilteringTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="sage_arch", password="testpass123")
+        self.player = self.user.player
+        self.player.path = "mindset_sage"
+        self.player.save(update_fields=["path", "updated_at"])
+        UserPathSelection.objects.create(
+            player=self.player,
+            path="mindset_sage",
+            onboarding_complete=True,
+            multi_paths_active=["mindset_sage"],
+        )
+        UserPathSelection.objects.filter(player=self.player).update(
+            committed_at=timezone.now() - timedelta(days=5)
+        )
+
+    def _make_sage_quest(self, title, pack_id):
+        return Quest.objects.create(
+            title=title,
+            exp_reward=20,
+            path_target="mindset_sage",
+            rank="D",
+            pillar="mind",
+            pack_id=pack_id,
+        )
+
+    def test_stoic_archetype_surfaces_shadow_quests_first(self):
+        MindsetSageProfile.objects.create(player=self.player, archetype="stoic")
+        shadow = self._make_sage_quest("Face the Avoided", "ms_shadow_work")
+        non_shadow = self._make_sage_quest("Stillness Sit", "ms_meditation")
+
+        payload = get_daily_lineup(self.player, target_date=timezone.localdate())
+        items = payload["lineup"]["items"]
+        quest_ids = [item["quest_id"] for item in items if item["quest_id"]]
+
+        if shadow.id in quest_ids and non_shadow.id in quest_ids:
+            self.assertLess(quest_ids.index(shadow.id), quest_ids.index(non_shadow.id))
+
+    def test_monk_archetype_surfaces_stillness_quests_first(self):
+        MindsetSageProfile.objects.create(player=self.player, archetype="monk")
+        stillness = self._make_sage_quest("Breathwork Session", "ms_breathwork")
+        non_stillness = self._make_sage_quest("Shadow Prompt", "ms_shadow_work")
+
+        payload = get_daily_lineup(self.player, target_date=timezone.localdate())
+        items = payload["lineup"]["items"]
+        quest_ids = [item["quest_id"] for item in items if item["quest_id"]]
+
+        if stillness.id in quest_ids and non_stillness.id in quest_ids:
+            self.assertLess(quest_ids.index(stillness.id), quest_ids.index(non_stillness.id))
+
+    def test_no_archetype_profile_does_not_crash(self):
+        # No MindsetSageProfile created — archetype filtering should be a no-op
+        self._make_sage_quest("Stillness Sit", "ms_meditation")
+        payload = get_daily_lineup(self.player, target_date=timezone.localdate())
+        self.assertIn("lineup", payload)

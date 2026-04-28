@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from zoneinfo import ZoneInfo
 
 from paths.models import UserPathSelection
+from paths.services import generate_knight_weekly_report
 from players.models import Player
 from quests.models import DailyQuestLineup
 from quests.services import generate_daily_lineup
@@ -79,3 +80,18 @@ class Command(BaseCommand):
                 f"Generated {generated} lineups across {len(touched_timezones)} timezones. {skipped} skipped (already existed). {errors} errors."
             )
         )
+
+        # On Sundays, auto-generate Knight Weekly Reports for all active Knight players.
+        today = override_date or timezone.localdate()
+        if today.weekday() == 6:
+            week_start = today - timedelta(days=6)
+            knight_players = Player.objects.filter(path="discipline_knight")
+            knight_reports = 0
+            for knight in knight_players.iterator():
+                try:
+                    generate_knight_weekly_report(player=knight, week_start=week_start)
+                    knight_reports += 1
+                except Exception as exc:  # noqa: BLE001
+                    self.stderr.write(self.style.ERROR(f"ERROR knight weekly report player={knight.id}: {exc}"))
+            if knight_reports:
+                self.stdout.write(self.style.SUCCESS(f"Generated knight weekly reports for {knight_reports} player(s) at week_start={week_start}"))
