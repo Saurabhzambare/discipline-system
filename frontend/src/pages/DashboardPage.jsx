@@ -602,7 +602,7 @@ export default function DashboardPage({
 
               <button
                 type="button"
-                onClick={() => onNavigate('/onboarding')}
+                onClick={() => onNavigate('/path-onboarding')}
                 className="rounded-lg border border-[#1a3a5c] bg-[#070f1e] px-3 py-2 text-xs text-slate-400 transition hover:border-cyan-500/40 hover:text-cyan-300"
               >
                 Path: {selectedPathDisplay || 'Choose'}

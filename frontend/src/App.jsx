@@ -76,7 +76,6 @@ import DashboardPage from './pages/DashboardPage';
 import FeedPage from './pages/FeedPage';
 import GroupsPage from './pages/GroupsPage';
 import LoginPage from './pages/LoginPage';
-import OnboardingPage from './pages/OnboardingPage';
 import PathOnboardingPage from './pages/PathOnboardingPage';
 import PreviewPage from './pages/PreviewPage';
 import ProfilePage from './pages/ProfilePage';
@@ -463,8 +462,8 @@ export default function App() {
 
   // Enforce onboarding for users who haven't chosen a path yet
   useEffect(() => {
-    if (isAuthenticated && player && !player.path && route !== '/onboarding') {
-      navigate('/onboarding');
+    if (isAuthenticated && player && !player.path && route !== '/path-onboarding') {
+      navigate('/path-onboarding');
     }
   }, [isAuthenticated, player, route, navigate]);
 
@@ -502,7 +501,7 @@ export default function App() {
         });
     }
 
-    if (isAuthenticated && (route === '/dashboard' || route === '/profile' || route === '/onboarding')) {
+    if (isAuthenticated && (route === '/dashboard' || route === '/profile')) {
       loadDashboard();
     }
 
@@ -638,7 +637,9 @@ export default function App() {
   } else if (route === '/signup') {
     page = <SignupPage onSignup={handleSignup} onGoogleAuth={handleGoogleAuth} onNavigate={navigate} />;
   } else if (route === '/onboarding') {
-    page = <OnboardingPage onNavigate={navigate} />;
+    // Legacy route — redirect immediately to the current onboarding flow
+    navigate('/path-onboarding');
+    page = null;
   } else if (route === '/path-onboarding') {
     page = (
       <PathOnboardingPage

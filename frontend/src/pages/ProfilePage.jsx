@@ -307,7 +307,7 @@ export default function ProfilePage({
               </div>
               <button
                 type="button"
-                onClick={() => onNavigate('/onboarding')}
+                onClick={() => onNavigate('/path-onboarding')}
                 className="flex-shrink-0 rounded-lg border border-[#1a3a5c] px-3 py-2 text-xs text-slate-400 transition hover:border-cyan-500/40 hover:text-cyan-300"
               >
                 Change Path
