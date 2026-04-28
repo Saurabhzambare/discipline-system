@@ -1,5 +1,8 @@
 # Discipline System
 
+[![Backend Tests](https://github.com/Saurabhzambare/discipline-system/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/Saurabhzambare/discipline-system/actions/workflows/backend-tests.yml)
+[![Frontend Checks](https://github.com/Saurabhzambare/discipline-system/actions/workflows/frontend-checks.yml/badge.svg)](https://github.com/Saurabhzambare/discipline-system/actions/workflows/frontend-checks.yml)
+
 A Solo Leveling–inspired discipline web app where real-life habits become quests and are converted into progression through EXP, levels, and streaks.
 
 ## What this app is
