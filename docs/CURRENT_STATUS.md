@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-04-28
+**Last updated:** 2026-04-28 (Session A2 complete)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -109,19 +109,21 @@ Total: 63 tests, all passing.
 10. `SECRET_KEY` hardcoded in settings.
 11. Custom client-side routing (manual `history.pushState`) — should migrate to a proper router (React Router) before launch.
 12. No pagination on feed/groups/posts endpoints.
-13. Nothing pushed to `main` recently per saved memory — local work needs to be reconciled with `origin/main`.
+13. **Pending Django migrations** — Django 5 BigAutoField drift detected in `paths` (0008) and `social` (0005) apps. No functional impact on dev SQLite. Must be created and applied before deploying to a fresh PostgreSQL instance.
 
 ---
 
 ## 5. Path to Completion
 
-### Stage A — Stabilize (1–2 sessions)
+### Stage A — Stabilize ✅ COMPLETE (Sessions A1 + A2)
 
-- Rewrite stale `players/tests.py` and `quests/tests.py` to match Phase 5B architecture.
-- Fix all 9 frontend ESLint errors.
-- Finish Session 6 (path mechanic hooks, log endpoints, protection order, accountability flow).
-- Reconcile local branches with `origin/main`; push clean baseline.
-- Optional: add basic GitHub Actions CI (backend tests + frontend lint/build).
+- ✅ Rewrote stale `players/tests.py` and `quests/tests.py` (tests were already clean in prior commit; verified 63 passing).
+- ✅ Fixed all 9 frontend ESLint errors (PathContext split, unused imports removed).
+- ✅ Session 6 gaps addressed: Sage archetype filtering (Step 57), Knight Weekly Report Sunday trigger (Step 67), protection-order consolidation verified (Step 75). Remaining: Steps 73, 76 (moved to B1).
+- ✅ Reconciled local branches with `origin/main`; pushed clean baseline.
+- ✅ Added GitHub Actions CI: `backend-tests.yml` and `frontend-checks.yml`.
+- ✅ Added `.gitignore`; untracked 10 legacy `.pyc` files.
+- ✅ Deleted `OnboardingPage.jsx` orphan; all `/onboarding` routes redirect to `/path-onboarding`.
 
 ### Stage B — Finish Phase 5B backend (2–3 sessions)
 
