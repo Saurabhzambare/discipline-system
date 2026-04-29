@@ -277,7 +277,7 @@ class QuestChain(models.Model):
         ordering = ["sequence_order", "id"]
         constraints = [
             models.CheckConstraint(
-                check=~models.Q(parent_quest=models.F("child_quest")),
+                condition=~models.Q(parent_quest=models.F("child_quest")),
                 name="paths_questchain_no_self_reference",
             ),
         ]

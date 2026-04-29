@@ -38,7 +38,7 @@ class FriendRequest(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                check=~Q(from_player=models.F("to_player")),
+                condition=~Q(from_player=models.F("to_player")),
                 name="social_friend_request_not_self",
             ),
             models.UniqueConstraint(
@@ -68,7 +68,7 @@ class Friendship(models.Model):
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
-                check=Q(player_one__lt=models.F("player_two")),
+                condition=Q(player_one__lt=models.F("player_two")),
                 name="social_friendship_ordered_pair",
             ),
             models.UniqueConstraint(
@@ -320,7 +320,7 @@ class AccountabilityPartnerRequest(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=~Q(from_player=models.F("to_player")),
+                condition=~Q(from_player=models.F("to_player")),
                 name="social_accountability_request_not_self",
             ),
             models.UniqueConstraint(
@@ -351,7 +351,7 @@ class AccountabilityPartnership(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=Q(player_one__lt=models.F("player_two")),
+                condition=Q(player_one__lt=models.F("player_two")),
                 name="social_accountability_ordered_pair",
             ),
             models.UniqueConstraint(

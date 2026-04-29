@@ -30,6 +30,13 @@ jobs:
         working-directory: backend
         run: pip install -r requirements.txt
 
+      - name: Django system check
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings
+          SECRET_KEY: ci-secret-key-not-for-production
+        run: python manage.py check
+
       - name: Run tests
         working-directory: backend
         env:
