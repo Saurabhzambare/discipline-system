@@ -1,7 +1,7 @@
 # Discipline System — Build Order and Progress Tracker
 # docs/game-design/BUILD_ORDER.md
 
-**Last updated:** 2026-04-28
+**Last updated:** 2026-04-29
 
 ---
 
@@ -163,7 +163,7 @@ Rules:
 - [x] Step 54: Freedom Day Token accumulation + overflow bonus EXP
 - [x] Step 55: Wisdom Log CRUD + count milestones
 - [x] Step 56: Dark Night Quest manual activation + entry logging
-- [x] Step 57: Sage archetype quest pool filtering — wired in `_apply_path_overrides` (Session A1)
+- [ ] Step 57: Sage archetype quest pool filtering — verify wired to lineup
 
 ### Health Alchemist mechanics
 - [x] Step 58: Elixir System brew counter + Day 7 completion
@@ -177,7 +177,7 @@ Rules:
 - [x] Step 64: Streak Shield auto-activation
 - [x] Step 65: War Room morning + evening entries + same-day bonus EXP
 - [x] Step 66: Temptation Log CRUD
-- [x] Step 67: Knight Weekly Report auto-generation on Sunday — wired into `generate_daily_quests` command (Session A1)
+- [ ] Step 67: Knight Weekly Report auto-generation on Sunday — verify scheduler trigger
 
 ### Grind Visionary mechanics
 - [x] Step 68: XP Multiplier calculation (1.0x → 2.0x over 30 days)
@@ -189,7 +189,7 @@ Rules:
 - [x] Step 74: First Dollar legendary moment + post-first-dollar quest chain
 
 ### Cross-cutting
-- [x] Step 75: Protection-order service consolidated into single helper — verified in `paths/mechanics.py:apply_missed_day_protections` (Session A1)
+- [ ] Step 75: Protection-order service consolidated into single helper — verify
 - [ ] Step 76: Path-mechanic log endpoints wired to frontend widgets — audit gaps
 
 ---
@@ -318,7 +318,22 @@ session-7 Lovable handoff docs moved to docs/archive/.
 [2026-04-28] — Session A1 cleanup. Wired Sage archetype filtering (Step 57),
 Knight Weekly Report Sunday trigger (Step 67). Verified protection-order
 consolidation (Step 75). Deleted OnboardingPage.jsx orphan; all /onboarding
-routes redirect to /path-onboarding. Backend: 63 tests green. Frontend: lint
+routes redirect to /path-onboarding. Backend: tests green. Frontend: lint
 clean, build succeeds. Pending: Steps 73 and 76 (Session 6 remaining gaps).
+
+[2026-04-28] — Session A2. Pushed A1 work to origin/main. Added GitHub Actions
+CI (backend-tests.yml, frontend-checks.yml). Added .gitignore. README badges.
+Fixed CheckConstraint check= → condition= for Django 5.1+ compat (5 locations).
+Added manage.py check step to CI before test run.
+
+[2026-04-29] — Session B1. Personalization layer wired:
+- compute_personalization_weight(days) returns 0.0 <Day14, ramps to 1.0 at Day30
+- _compute_pillar_history() reads completion history for pillar blending
+- _apply_smart_suggestions() extended with swap-away penalty (-2 if swapped ≥3×),
+  swap-toward bonus (+1 if swapped toward ≥3×), and pillar personalization bonus
+  (scales with compute_personalization_weight, max +2 at Day30)
+- generate_daily_lineup() passes days_on_path + path_code to smart suggestions
+- submit_quest_feedback() fixed: +1/-1 → +3/-3 per spec
+- 15 new tests in quests/tests_b1_personalization.py; total suite 75 green.
 
 ---

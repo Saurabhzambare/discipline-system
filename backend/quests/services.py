@@ -101,6 +101,30 @@ DIFFICULTY_MULTIPLIERS = {
 }
 
 
+def compute_personalization_weight(days_on_path: int) -> float:
+    """0.0 before Day 14; ramps 5%/day from Day 14; caps at 1.0 on Day 30."""
+    if days_on_path < 14:
+        return 0.0
+    if days_on_path >= 30:
+        return 1.0
+    return 0.30 + (days_on_path - 14) * 0.05
+
+
+def _compute_pillar_history(player, path_code: str, lookback_days: int = 30) -> dict:
+    """Returns {pillar: completion_count} for the player's recent path completions."""
+    since = timezone.localdate() - timedelta(days=lookback_days)
+    rows = (
+        QuestCompletion.objects.filter(
+            player=player,
+            completion_date__gte=since,
+            quest__path_target__in=["", path_code],
+        )
+        .values("quest__pillar")
+        .annotate(count=models.Count("id"))
+    )
+    return {row["quest__pillar"]: row["count"] for row in rows if row["quest__pillar"]}
+
+
 @dataclass
 class LineupFeatures:
     days_on_path: int
@@ -365,17 +389,48 @@ def _apply_path_overrides(player, path_code: str, quests: list[Quest], target_da
     return quests
 
 
-def _apply_smart_suggestions(player, quests: list[Quest]):
+def _apply_smart_suggestions(player, quests: list[Quest], days_on_path: int = 0, path_code: str = ""):
+    if not quests:
+        return quests
+
+    quest_ids = [q.id for q in quests]
+
     preferences = {
         pref.quest_id: pref.preference_score
-        for pref in QuestPreference.objects.filter(player=player, quest_id__in=[q.id for q in quests])
+        for pref in QuestPreference.objects.filter(player=player, quest_id__in=quest_ids)
     }
     recently_completed = _recently_completed_quest_ids(player)
+
+    # Swap learning: count how many times each quest was swapped away from / toward
+    swap_away_counts = {
+        row["quest_removed_id"]: row["n"]
+        for row in DailySwap.objects.filter(player=player, quest_removed_id__in=quest_ids)
+        .values("quest_removed_id")
+        .annotate(n=models.Count("id"))
+    }
+    swap_toward_counts = {
+        row["quest_added_id"]: row["n"]
+        for row in DailySwap.objects.filter(player=player, quest_added_id__in=quest_ids)
+        .values("quest_added_id")
+        .annotate(n=models.Count("id"))
+    }
+
+    # Pillar personalization: from Day 14 onwards, blend completion history into pillar scoring
+    pillar_bonus: dict[str, float] = {}
+    pers_weight = compute_personalization_weight(days_on_path)
+    if pers_weight > 0 and path_code:
+        history = _compute_pillar_history(player, path_code)
+        total = sum(history.values()) or 1
+        for pillar, count in history.items():
+            pillar_bonus[pillar] = pers_weight * (count / total) * 2  # max +2 at full weight
 
     def score(quest):
         base = preferences.get(quest.id, 0)
         recency_penalty = -2 if quest.id in recently_completed else 0
-        return base + recency_penalty
+        swap_away_penalty = -2 if swap_away_counts.get(quest.id, 0) >= 3 else 0
+        swap_toward_bonus = 1 if swap_toward_counts.get(quest.id, 0) >= 3 else 0
+        pillar_score = pillar_bonus.get(quest.pillar, 0)
+        return base + recency_penalty + swap_away_penalty + swap_toward_bonus + pillar_score
 
     ranked = sorted(quests, key=score, reverse=True)
     adaptive = AdaptiveDifficultyPreference.objects.filter(player=player).first()
@@ -502,7 +557,7 @@ def generate_daily_lineup(player, target_date: date | None = None, path_code: st
 
     hard = _get_hard_filtered_quests(player, path_code, target_date, limit=4)
     hard = _apply_path_overrides(player, path_code, hard, target_date)
-    hard = _apply_smart_suggestions(player, hard)
+    hard = _apply_smart_suggestions(player, hard, days_on_path=days_on_path, path_code=path_code)
 
     for q in hard:
         if q.id not in [x[0].id for x in selected]:
@@ -882,7 +937,7 @@ def submit_quest_feedback(player, lineup_item_id: int, feedback: str):
         defaults={"rating": feedback},
     )
     pref, _ = QuestPreference.objects.get_or_create(player=player, quest=item.quest)
-    pref.preference_score = pref.preference_score + (1 if feedback == "up" else -1)
+    pref.preference_score = pref.preference_score + (3 if feedback == "up" else -3)
     if feedback == "up":
         pref.last_completed = item.lineup.date
     else:
