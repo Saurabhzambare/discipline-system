@@ -36,6 +36,13 @@ from .serializers import (
     PublicProfileSerializer,
     SocialPostSerializer,
 )
+from .services.leaderboards import (
+    armor_leaderboard,
+    global_cross_path_leaderboard,
+    multiplier_streak_leaderboard,
+    output_log_monthly_leaderboard,
+    weekly_exp_leaderboard,
+)
 from .services import (
     SocialNotFoundError,
     accept_accountability_request,
@@ -589,3 +596,67 @@ class NotificationsView(SocialBaseView):
 
         notifications.sort(key=lambda x: x["created_at"], reverse=True)
         return Response(notifications[:25])
+
+
+# ── LEADERBOARDS ─────────────────────────────────────────────────────────────
+
+PATH_VALUES = {value for value, _label in Player.PATH_CHOICES}
+
+
+class _LeaderboardBaseView(SocialBaseView):
+    def _limit(self, request):
+        raw = request.query_params.get("limit")
+        if raw is None:
+            return 10
+        try:
+            return int(raw)
+        except ValueError:
+            return 10
+
+
+class WeeklyLeaderboardView(_LeaderboardBaseView):
+    def get(self, request, path):
+        if path not in PATH_VALUES:
+            return _error_response(detail="Unknown path.", status_code=status.HTTP_404_NOT_FOUND)
+        data = weekly_exp_leaderboard(
+            path=path,
+            limit=self._limit(request),
+            requesting_player=request.user.player,
+        )
+        return Response(data)
+
+
+class GlobalLeaderboardView(_LeaderboardBaseView):
+    def get(self, request):
+        data = global_cross_path_leaderboard(
+            limit=self._limit(request),
+            requesting_player=request.user.player,
+        )
+        return Response(data)
+
+
+class ArmorLeaderboardView(_LeaderboardBaseView):
+    def get(self, request):
+        data = armor_leaderboard(
+            limit=self._limit(request),
+            requesting_player=request.user.player,
+        )
+        return Response(data)
+
+
+class MultiplierStreakLeaderboardView(_LeaderboardBaseView):
+    def get(self, request):
+        data = multiplier_streak_leaderboard(
+            limit=self._limit(request),
+            requesting_player=request.user.player,
+        )
+        return Response(data)
+
+
+class OutputMonthlyLeaderboardView(_LeaderboardBaseView):
+    def get(self, request):
+        data = output_log_monthly_leaderboard(
+            limit=self._limit(request),
+            requesting_player=request.user.player,
+        )
+        return Response(data)

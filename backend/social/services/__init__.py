@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from players.models import Player
 
-from .models import (
+from social.models import (
     AccountabilityPartnership,
     AccountabilityPartnerRequest,
     ActivityEvent,
@@ -19,7 +19,7 @@ from .models import (
     SocialGroup,
     SocialPost,
 )
-from .selectors import friend_ids_for_player
+from social.selectors import friend_ids_for_player
 
 
 class SocialNotFoundError(Exception):

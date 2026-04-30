@@ -229,22 +229,37 @@ docs/game-design/README.md cross-path section
       [Session 8A: 68 badges in seed_badges command; award_badge() service;
        trigger hooks in complete_lineup_item and apply_post_completion_mechanics;
        check_streak_milestones, check_level_milestones, grant_cross_path_title]
-- [ ] Step 82: Build weekly EXP leaderboard
+- [x] Step 82: Build weekly EXP leaderboard
       per path —
       resets Monday 00:00
       shows top 10 globally plus user own rank
-- [ ] Step 83: Build global cross-path
+      [Session 8B: weekly_exp_leaderboard() service;
+       GET /api/social/leaderboards/weekly/<path>/;
+       UTC week boundary; aggregates DailyCompletionSummary;
+       Dashboard right panel renders top 5 + own rank]
+- [x] Step 83: Build global cross-path
       EXP leaderboard —
       combined EXP across all active paths
       with multiplier applied for Visionary
-- [ ] Step 84: Build armor leaderboard (Knight) —
+      [Session 8B: global_cross_path_leaderboard() service;
+       GET /api/social/leaderboards/global/;
+       Visionary multiplier already baked in at completion;
+       Feed right panel renders top 3]
+- [x] Step 84: Build armor leaderboard (Knight) —
       permanent all-time
       shows most armor pieces forged globally
       armor color shown (silver or gold prestige)
-- [ ] Step 85: Build multiplier streak leaderboard
+      [Session 8B: armor_leaderboard() service;
+       GET /api/social/leaderboards/armor/;
+       tier='gold_prestige' when pieces >= 6, else 'silver']
+- [x] Step 85: Build multiplier streak leaderboard
       (Visionary) —
       current active multiplier streak
       resets if multiplier breaks
+      [Session 8B: multiplier_streak_leaderboard() service;
+       GET /api/social/leaderboards/multiplier-streak/;
+       active when player streak > 0 and multiplier > 1.0;
+       sibling endpoint /leaderboards/output-monthly/ for Output Log]
 - [ ] Step 86: Build cross-path identity titles —
       Warrior-Sage
       The Optimized Human
