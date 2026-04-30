@@ -37,6 +37,9 @@ All frontend polish will be done here using Claude Code.
 | Session 8 | Social & Achievement Features — leaderboards, frontend badge UI, cross-path title display | 🟡 In progress |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
 
+
+**Documentation note:** The achievement service currently lives at `backend/social/achievements.py`.
+
 ---
 
 ## 3. What Exists Today
