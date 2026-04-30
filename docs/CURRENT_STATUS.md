@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-04-29 (Session B1 complete)
+**Last updated:** 2026-04-29 (Session B2 complete)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -32,6 +32,7 @@ All frontend polish will be done here using Claude Code.
 | Session A1 | Repo stabilize: fix stale tests, ESLint, Session 6 gaps, CI, .gitignore | ✅ Complete |
 | Session A2 | Push to origin/main, README badges, Stage A docs | ✅ Complete |
 | Session B1 | Personalization weight, feedback learning fix, swap learning — all wired and tested | ✅ Complete |
+| Session B2 | Algorithm gaps: carry-over verified, cross-path bonus visual flag, Visionary multiplier on bonus, skill tree thresholds, midnight scheduler hardened | ✅ Complete |
 | Session 8 | Social & Achievement Features (badges, leaderboards, cross-path titles, weekly boss) | ⬜ Not started |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
 
@@ -58,11 +59,12 @@ All frontend polish will be done here using Claude Code.
 - `quests/tests.py` — passing (Session 7 contract tests)
 - `quests/tests_session5.py` — passing
 - `quests/tests_b1_personalization.py` — passing (15 tests: weight, feedback, swap, integration)
+- `quests/tests_b2_algorithms.py` — passing (19 tests: carry-over, cross-path flag, Visionary multiplier, skill tree, scheduler)
 - `paths/tests_session6.py` — passing (includes Sage archetype filtering tests)
 - `paths/tests_onboarding_completion.py`
 - `paths/tests_seed_session6_accounts.py`
 
-Total: 75 tests, all passing.
+Total: 97 tests, all passing.
 
 ### Frontend pages (`frontend/src/pages/`)
 
@@ -133,6 +135,7 @@ Total: 75 tests, all passing.
 ### Stage B — Finish Phase 5B backend (2–3 sessions)
 
 - ✅ **Session B1** — Personalization weight, feedback learning fix (+3/-3), swap learning wired into `_apply_smart_suggestions`. 15 new tests.
+- ✅ **Session B2** — Five algorithm gaps closed: (1) carry-over D/C verified, (2) `is_cross_path_bonus` field added with `apply_cross_path_bonus_flags` post-generation flagging, (3) Visionary XP multiplier now applied to base + cross-path bonus consistently, (4) `SKILL_TREE_THRESHOLDS` defined in `paths/constants.py` + `check_and_unlock_skill_tree_nodes` hooked into `apply_post_completion_mechanics`, (5) `generate_daily_quests` scheduler restructured to group by timezone and only generate inside the local midnight window (00:00–00:14). 19 new tests; 1 migration (`quests/0009`).
 - **Session 8** — Social & Achievement Features (BUILD_ORDER steps 80–88).
 - **Session 9** — End-to-end verification (BUILD_ORDER steps 89–105).
 

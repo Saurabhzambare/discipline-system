@@ -41,6 +41,11 @@ from .models import (
     XPMultiplier,
 )
 from .quiz_data import PATH_CODES, calculate_path_scores, get_randomized_questions
+from .constants import (
+    MASTERY_LAB_PACK_IDS,
+    SKILL_TREE_NODE_ORDER,
+    SKILL_TREE_THRESHOLDS,
+)
 
 RETAKE_COOLDOWN_DAYS = 7
 DISCIPLINE_BLOCKLIST = {
@@ -545,6 +550,48 @@ def complete_path_onboarding(player: Player, path_code: str) -> dict:
         raise ValueError(f"Invalid path: {path_code}")
     _complete_onboarding(player=player, path_code=path_code)
     return {"completed": True, "path_code": path_code}
+
+
+def count_mastery_lab_completions(*, player: Player) -> int:
+    """Cumulative count of Mastery Lab quest completions for a player."""
+    return QuestCompletion.objects.filter(
+        player=player,
+        quest__pack_id__in=MASTERY_LAB_PACK_IDS,
+    ).count()
+
+
+@transaction.atomic
+def check_and_unlock_skill_tree_nodes(*, player: Player) -> list[str]:
+    """
+    Check Mastery Lab completions against SKILL_TREE_THRESHOLDS and unlock
+    any newly-eligible skill tree nodes for the Grind Visionary path.
+    Returns the list of node_keys that were just unlocked (so the frontend
+    can celebrate them).
+    """
+    tree = SkillTree.objects.filter(player=player, path="grind_visionary").first()
+    if not tree:
+        return []
+
+    completions = count_mastery_lab_completions(player=player)
+    newly_unlocked: list[str] = []
+
+    existing_nodes = {n.node_key: n for n in tree.nodes.all()}
+
+    for node_key in SKILL_TREE_NODE_ORDER:
+        threshold = SKILL_TREE_THRESHOLDS.get(node_key, 0)
+        node = existing_nodes.get(node_key)
+        if node is None:
+            # Tree wasn't fully initialized — defer to onboarding to populate.
+            continue
+        if node.is_unlocked:
+            continue
+        if completions >= threshold:
+            node.is_unlocked = True
+            node.unlocked_at = timezone.now()
+            node.save(update_fields=["is_unlocked", "unlocked_at"])
+            newly_unlocked.append(node_key)
+
+    return newly_unlocked
 
 
 def list_wisdom_logs(*, player: Player):

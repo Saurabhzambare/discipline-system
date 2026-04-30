@@ -266,6 +266,7 @@ def _serialize_item(item: DailyQuestLineupItem) -> dict:
         "slot_type": item.slot_type,
         "is_locked": item.is_locked,
         "is_carried_over": item.is_carried_over,
+        "is_cross_path_bonus": item.is_cross_path_bonus,
         "selection_reason": item.selection_reason,
         "completed_today": item.completed,
         "assigned_completed_today": item.completed,
@@ -470,6 +471,15 @@ def _get_carry_over_quests(player, path_code: str, target_date: date):
     return carry
 
 
+CROSS_PATH_BONUS_KEYWORDS = {
+    "cold_shower": ["cold shower", "cold plunge"],
+    "breathwork": ["breath", "meditate"],
+    "deep_work": ["deep work"],
+    "wake_5am": ["5am", "wake"],
+    "reading": ["reading", "read"],
+}
+
+
 def _check_cross_path_bonus(player, target_date: date, lineup_items: list[DailyQuestLineupItem]):
     selection = UserPathSelection.objects.filter(player=player).first()
     active_paths = set(selection.multi_paths_active if selection else ([] if not player.path else [player.path]))
@@ -479,19 +489,66 @@ def _check_cross_path_bonus(player, target_date: date, lineup_items: list[DailyQ
     for key, pair_paths, bonus_exp in sorted(CROSS_PATH_BONUS_PAIRS, key=lambda x: x[2], reverse=True):
         if not pair_paths.issubset(active_paths):
             continue
-        keywords = {
-            "cold_shower": ["cold shower", "cold plunge"],
-            "breathwork": ["breath", "meditate"],
-            "deep_work": ["deep work"],
-            "wake_5am": ["5am", "wake"],
-            "reading": ["reading", "read"],
-        }.get(key, [])
+        keywords = CROSS_PATH_BONUS_KEYWORDS.get(key, [])
         matched = [
             item for item in lineup_items
             if item.quest and any(k in (item.quest.title + " " + item.quest.description).lower() for k in keywords)
         ]
         if len(matched) >= 2:
             return {"key": key, "bonus_exp": bonus_exp, "matched_item_ids": [i.id for i in matched[:2]]}
+    return None
+
+
+@transaction.atomic
+def apply_cross_path_bonus_flags(player, target_date: date) -> dict | None:
+    """
+    Scan all of today's lineup items across active paths and flag matching
+    cross-path bonus pairs (max one pair per day; highest-EXP pair wins).
+    Sets is_cross_path_bonus=True on both matched items.
+    Returns the matched pair info or None.
+    """
+    selection = UserPathSelection.objects.filter(player=player).first()
+    active_paths = set(selection.multi_paths_active if selection else ([player.path] if player.path else []))
+    if len(active_paths) < 2:
+        return None
+
+    items_by_path: dict[str, list[DailyQuestLineupItem]] = {}
+    for path_code in active_paths:
+        lineup = DailyQuestLineup.objects.filter(player=player, path=path_code, date=target_date).first()
+        if lineup:
+            items_by_path[path_code] = list(lineup.items.select_related("quest").all())
+
+    # Reset any prior flags for the day so re-runs are idempotent.
+    DailyQuestLineupItem.objects.filter(
+        lineup__player=player, lineup__date=target_date, is_cross_path_bonus=True
+    ).update(is_cross_path_bonus=False)
+
+    for key, pair_paths, bonus_exp in sorted(CROSS_PATH_BONUS_PAIRS, key=lambda x: x[2], reverse=True):
+        if not pair_paths.issubset(set(items_by_path.keys())):
+            continue
+        keywords = CROSS_PATH_BONUS_KEYWORDS.get(key, [])
+        path_a, path_b = list(pair_paths)
+        match_a = next(
+            (it for it in items_by_path[path_a]
+             if it.quest and any(k in (it.quest.title + " " + it.quest.description).lower() for k in keywords)),
+            None,
+        )
+        match_b = next(
+            (it for it in items_by_path[path_b]
+             if it.quest and any(k in (it.quest.title + " " + it.quest.description).lower() for k in keywords)),
+            None,
+        )
+        if match_a and match_b:
+            match_a.is_cross_path_bonus = True
+            match_b.is_cross_path_bonus = True
+            match_a.save(update_fields=["is_cross_path_bonus"])
+            match_b.save(update_fields=["is_cross_path_bonus"])
+            return {
+                "key": key,
+                "bonus_exp": bonus_exp,
+                "paths": [path_a, path_b],
+                "matched_item_ids": [match_a.id, match_b.id],
+            }
     return None
 
 
@@ -753,13 +810,19 @@ def complete_lineup_item(player, lineup_item_id: int):
     )
 
     old_level = player.level
-    exp_earned = item.quest.exp_reward
-    if item.lineup.path == "grind_visionary":
-        multiplier = XPMultiplier.objects.filter(player=player).values_list("multiplier", flat=True).first()
-        if multiplier:
-            exp_earned = int(round(exp_earned * float(multiplier)))
+    base_exp_raw = item.quest.exp_reward
+    bonus_exp_raw = detect_cross_path_bonus(player, local_today)
 
-    bonus_exp = detect_cross_path_bonus(player, local_today)
+    multiplier = 1.0
+    if item.lineup.path == "grind_visionary":
+        m = XPMultiplier.objects.filter(player=player).values_list("multiplier", flat=True).first()
+        if m:
+            multiplier = float(m)
+
+    # Apply Visionary multiplier to base AND cross-path bonus consistently.
+    exp_earned = int(round(base_exp_raw * multiplier))
+    bonus_exp = int(round(bonus_exp_raw * multiplier))
+
     player.exp += exp_earned + bonus_exp
     player.level = calculate_level_from_exp(player.exp)
 

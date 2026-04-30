@@ -107,8 +107,16 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
 
         armor.save(update_fields=["total_cracks", "repaired_at", "last_cracked_on"])
 
-    # Grind Visionary: multipliers and first-dollar progression.
+    # Grind Visionary: multipliers, first-dollar, and skill tree progression.
     if lineup_path == "grind_visionary":
+        # Skill tree: unlock new nodes when Mastery Lab thresholds are crossed.
+        from paths.services import check_and_unlock_skill_tree_nodes
+        from paths.constants import MASTERY_LAB_PACK_IDS
+        if quest and quest.pack_id in MASTERY_LAB_PACK_IDS:
+            unlocked = check_and_unlock_skill_tree_nodes(player=player)
+            for node_key in unlocked:
+                notes.append(f"skill_tree_node_unlocked:{node_key}")
+
         multiplier, _ = XPMultiplier.objects.get_or_create(player=player)
         days_active = max(player.streak, 1)
         # 1.0x -> 2.0x over 30 days.

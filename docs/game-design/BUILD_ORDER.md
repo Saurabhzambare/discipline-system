@@ -1,7 +1,7 @@
 # Discipline System — Build Order and Progress Tracker
 # docs/game-design/BUILD_ORDER.md
 
-**Last updated:** 2026-04-29
+**Last updated:** 2026-04-29 (B2 complete)
 
 ---
 
@@ -335,5 +335,30 @@ Added manage.py check step to CI before test run.
 - generate_daily_lineup() passes days_on_path + path_code to smart suggestions
 - submit_quest_feedback() fixed: +1/-1 → +3/-3 per spec
 - 15 new tests in quests/tests_b1_personalization.py; total suite 75 green.
+
+[2026-04-29] — Session B2. Five algorithm gaps closed:
+- Step 40 (Quest expiry/carry-over): VERIFIED. _get_carry_over_quests() correctly
+  carries D/C rank quests once, expires them after a second miss, and skips B/A/S.
+  Spec-coverage tests added.
+- Step 49 (Cross-path bonus visual flag): BUILT. Added is_cross_path_bonus field
+  to DailyQuestLineupItem (migration 0009), apply_cross_path_bonus_flags()
+  service function flags both quests in the highest-EXP eligible pair after all
+  paths' lineups are generated. Scheduler now invokes this post-generation.
+  Serializer exposes is_cross_path_bonus.
+- Step 48 / Visionary XP multiplier: BUG FIXED. complete_lineup_item() now
+  applies the multiplier to base + cross-path bonus consistently, instead of
+  only to base. Non-Visionary path: no change.
+- Step 71 (Skill Tree node unlock sequence): COMPLETED via thresholds.
+  paths/constants.py introduced with SKILL_TREE_THRESHOLDS
+  (consistency=5, execution=15, shipping=30, audience=50, monetization=80,
+  scaling=120; foundation stays free at onboarding). MASTERY_LAB_PACK_IDS
+  set to {gv_skill_building, gv_study, gv_skill_tree}.
+  check_and_unlock_skill_tree_nodes() hooked into apply_post_completion_mechanics
+  for grind_visionary players completing Mastery Lab quests.
+- Step 37 (Timezone-aware midnight scheduler): RESTRUCTURED.
+  generate_daily_quests now groups players by timezone, computes local now per
+  timezone, and only generates inside [00:00, 00:14] local. --force/--date/
+  --player-id/--all-timezones bypass the gate for manual runs and tests.
+- 19 new tests in quests/tests_b2_algorithms.py; total suite 97 green.
 
 ---
