@@ -263,7 +263,7 @@ docs/game-design/README.md cross-path section
       Elixir progress visualization (Alchemist)
       skill tree current node (Visionary)
       output log public entries (Visionary)
-- [x] Step 88: Build weekly boss quest system —
+- [ ] Step 88: Build weekly boss quest system —
       appears every Monday reset Monday 00:00
       one boss quest per path
       rotating examples per path as defined
@@ -272,6 +272,7 @@ docs/game-design/README.md cross-path section
       multiplier applied
       [Session 8A: complete_weekly_boss() service; awards path-specific + universal
        boss badges; generates AchievementCard; applies Visionary XP multiplier]
+      Partial backend completion service exists from Session 8A; full user-facing weekly boss flow remains for Session 8C.
 
 ---
 
