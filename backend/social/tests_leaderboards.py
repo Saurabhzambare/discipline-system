@@ -11,7 +11,7 @@ from rest_framework.test import APIClient
 
 from paths.models import ArmorPiece, OutputLog, XPMultiplier
 from players.models import Player
-from quests.models import DailyCompletionSummary
+from quests.models import DailyCompletionSummary, Quest, QuestCompletion
 
 from .services.leaderboards import (
     _start_of_week_utc,
@@ -36,7 +36,7 @@ def _make_player(username: str, *, path: str = "", streak: int = 0) -> Player:
     return player
 
 
-def _add_summary(
+def _add_completion(
     player: Player,
     *,
     path: str,
@@ -45,12 +45,28 @@ def _add_summary(
 ):
     return DailyCompletionSummary.objects.create(
         player=player,
-        summary_date=summary_date,
+        completion_date=summary_date,
         path=path,
         quests_completed=1,
         quests_total=1,
         total_exp_earned=exp,
         bonus_exp_earned=0,
+    )
+
+
+def _add_completion(player: Player, *, path: str, completion_date: date, exp: int):
+    quest = Quest.objects.create(
+        title=f"{player.user.username}-{path}-{completion_date}-{exp}",
+        description="leaderboard test quest",
+        path_target=path,
+        exp_reward=exp,
+        rank="D",
+        is_active=True,
+    )
+    return QuestCompletion.objects.create(
+        player=player,
+        quest=quest,
+        completion_date=completion_date,
     )
 
 
@@ -66,7 +82,7 @@ class WeeklyExpLeaderboardTests(TestCase):
 
     def test_single_player_appears_at_rank_1(self):
         p = _make_player("solo", path=self.path)
-        _add_summary(p, path=self.path, summary_date=self.week_start, exp=120)
+        _add_completion(p, path=self.path, completion_date=self.week_start, exp=120)
         result = weekly_exp_leaderboard(self.path, requesting_player=p)
         self.assertEqual(len(result["leaderboard"]), 1)
         self.assertEqual(result["leaderboard"][0]["rank"], 1)
@@ -78,9 +94,9 @@ class WeeklyExpLeaderboardTests(TestCase):
         a = _make_player("alpha", path=self.path)
         b = _make_player("bravo", path=self.path)
         c = _make_player("charlie", path=self.path)
-        _add_summary(a, path=self.path, summary_date=self.week_start, exp=50)
-        _add_summary(b, path=self.path, summary_date=self.week_start, exp=200)
-        _add_summary(c, path=self.path, summary_date=self.week_start, exp=100)
+        _add_completion(a, path=self.path, completion_date=self.week_start, exp=50)
+        _add_completion(b, path=self.path, completion_date=self.week_start, exp=200)
+        _add_completion(c, path=self.path, completion_date=self.week_start, exp=100)
 
         result = weekly_exp_leaderboard(self.path)
         ids = [row["player_id"] for row in result["leaderboard"]]
@@ -89,8 +105,8 @@ class WeeklyExpLeaderboardTests(TestCase):
     def test_tie_breaker_uses_player_id_ascending(self):
         a = _make_player("aaa", path=self.path)
         b = _make_player("bbb", path=self.path)
-        _add_summary(a, path=self.path, summary_date=self.week_start, exp=100)
-        _add_summary(b, path=self.path, summary_date=self.week_start, exp=100)
+        _add_completion(a, path=self.path, completion_date=self.week_start, exp=100)
+        _add_completion(b, path=self.path, completion_date=self.week_start, exp=100)
 
         rows = weekly_exp_leaderboard(self.path)["leaderboard"]
         self.assertEqual(rows[0]["player_id"], a.id)
@@ -99,15 +115,15 @@ class WeeklyExpLeaderboardTests(TestCase):
     def test_limit_respected(self):
         for i in range(5):
             p = _make_player(f"p{i}", path=self.path)
-            _add_summary(p, path=self.path, summary_date=self.week_start, exp=10 * (i + 1))
+            _add_completion(p, path=self.path, completion_date=self.week_start, exp=10 * (i + 1))
         result = weekly_exp_leaderboard(self.path, limit=2)
         self.assertEqual(len(result["leaderboard"]), 2)
 
     def test_user_rank_when_in_top_10(self):
         a = _make_player("a", path=self.path)
         b = _make_player("b", path=self.path)
-        _add_summary(a, path=self.path, summary_date=self.week_start, exp=200)
-        _add_summary(b, path=self.path, summary_date=self.week_start, exp=100)
+        _add_completion(a, path=self.path, completion_date=self.week_start, exp=200)
+        _add_completion(b, path=self.path, completion_date=self.week_start, exp=100)
         result = weekly_exp_leaderboard(self.path, requesting_player=b)
         self.assertEqual(result["user_rank"], 2)
 
@@ -115,7 +131,7 @@ class WeeklyExpLeaderboardTests(TestCase):
         players = []
         for i in range(11):
             p = _make_player(f"player{i}", path=self.path)
-            _add_summary(p, path=self.path, summary_date=self.week_start, exp=1000 - i)
+            _add_completion(p, path=self.path, completion_date=self.week_start, exp=1000 - i)
             players.append(p)
         # Last player has the lowest exp -> rank 11
         result = weekly_exp_leaderboard(self.path, limit=5, requesting_player=players[-1])
@@ -125,20 +141,20 @@ class WeeklyExpLeaderboardTests(TestCase):
     def test_user_rank_null_when_no_qualifying_activity(self):
         a = _make_player("a", path=self.path)
         outsider = _make_player("outsider", path=self.path)
-        _add_summary(a, path=self.path, summary_date=self.week_start, exp=50)
+        _add_completion(a, path=self.path, completion_date=self.week_start, exp=50)
         result = weekly_exp_leaderboard(self.path, requesting_player=outsider)
         self.assertIsNone(result["user_rank"])
 
     def test_previous_week_does_not_contribute(self):
         p = _make_player("p", path=self.path)
         previous_week = self.week_start - timedelta(days=7)
-        _add_summary(p, path=self.path, summary_date=previous_week, exp=999)
+        _add_completion(p, path=self.path, completion_date=previous_week, exp=999)
         result = weekly_exp_leaderboard(self.path)
         self.assertEqual(result["leaderboard"], [])
 
     def test_current_week_does_contribute(self):
         p = _make_player("p", path=self.path)
-        _add_summary(p, path=self.path, summary_date=self.week_start, exp=42)
+        _add_completion(p, path=self.path, completion_date=self.week_start, exp=42)
         result = weekly_exp_leaderboard(self.path)
         self.assertEqual(result["leaderboard"][0]["exp"], 42)
 
@@ -146,15 +162,15 @@ class WeeklyExpLeaderboardTests(TestCase):
         sunday_prev_week = self.week_start - timedelta(days=1)
         p_old = _make_player("old", path=self.path)
         p_new = _make_player("new", path=self.path)
-        _add_summary(p_old, path=self.path, summary_date=sunday_prev_week, exp=500)
-        _add_summary(p_new, path=self.path, summary_date=self.week_start, exp=10)
+        _add_completion(p_old, path=self.path, completion_date=sunday_prev_week, exp=500)
+        _add_completion(p_new, path=self.path, completion_date=self.week_start, exp=10)
         rows = weekly_exp_leaderboard(self.path)["leaderboard"]
         ids = [r["player_id"] for r in rows]
         self.assertEqual(ids, [p_new.id])
 
     def test_other_path_summaries_excluded(self):
         p = _make_player("p", path=self.path)
-        _add_summary(p, path=Player.PATH_MINDSET_SAGE, summary_date=self.week_start, exp=999)
+        _add_completion(p, path=Player.PATH_MINDSET_SAGE, completion_date=self.week_start, exp=999)
         result = weekly_exp_leaderboard(self.path)
         self.assertEqual(result["leaderboard"], [])
 
@@ -172,9 +188,9 @@ class GlobalCrossPathLeaderboardTests(TestCase):
         # DailyCompletionSummary has unique (player, summary_date), so a multi-path
         # player accrues per-day rows on different days; the leaderboard sums them.
         p = _make_player("p", path=Player.PATH_FITNESS_WARRIOR)
-        _add_summary(p, path=Player.PATH_FITNESS_WARRIOR, summary_date=self.week_start, exp=100)
-        _add_summary(p, path=Player.PATH_MINDSET_SAGE,
-                     summary_date=self.week_start + timedelta(days=1), exp=50)
+        _add_completion(p, path=Player.PATH_FITNESS_WARRIOR, completion_date=self.week_start, exp=100)
+        _add_completion(p, path=Player.PATH_MINDSET_SAGE,
+                     completion_date=self.week_start + timedelta(days=1), exp=50)
         result = global_cross_path_leaderboard(requesting_player=p)
         self.assertEqual(result["leaderboard"][0]["exp"], 150)
         self.assertEqual(result["user_rank"], 1)
@@ -183,8 +199,8 @@ class GlobalCrossPathLeaderboardTests(TestCase):
         # Stored summary EXP for a Visionary player already has multiplier baked in.
         v = _make_player("vision", path=Player.PATH_GRIND_VISIONARY)
         normal = _make_player("normal", path=Player.PATH_FITNESS_WARRIOR)
-        _add_summary(v, path=Player.PATH_GRIND_VISIONARY, summary_date=self.week_start, exp=300)
-        _add_summary(normal, path=Player.PATH_FITNESS_WARRIOR, summary_date=self.week_start, exp=200)
+        _add_completion(v, path=Player.PATH_GRIND_VISIONARY, completion_date=self.week_start, exp=300)
+        _add_completion(normal, path=Player.PATH_FITNESS_WARRIOR, completion_date=self.week_start, exp=200)
         rows = global_cross_path_leaderboard()["leaderboard"]
         self.assertEqual(rows[0]["player_id"], v.id)
         self.assertEqual(rows[1]["player_id"], normal.id)
@@ -192,15 +208,15 @@ class GlobalCrossPathLeaderboardTests(TestCase):
     def test_tie_breaker_player_id_ascending(self):
         a = _make_player("a", path=Player.PATH_FITNESS_WARRIOR)
         b = _make_player("b", path=Player.PATH_MINDSET_SAGE)
-        _add_summary(a, path=Player.PATH_FITNESS_WARRIOR, summary_date=self.week_start, exp=80)
-        _add_summary(b, path=Player.PATH_MINDSET_SAGE, summary_date=self.week_start, exp=80)
+        _add_completion(a, path=Player.PATH_FITNESS_WARRIOR, completion_date=self.week_start, exp=80)
+        _add_completion(b, path=Player.PATH_MINDSET_SAGE, completion_date=self.week_start, exp=80)
         rows = global_cross_path_leaderboard()["leaderboard"]
         self.assertEqual([r["player_id"] for r in rows], [a.id, b.id])
 
     def test_limit_respected(self):
         for i in range(4):
             p = _make_player(f"g{i}", path=Player.PATH_FITNESS_WARRIOR)
-            _add_summary(p, path=Player.PATH_FITNESS_WARRIOR, summary_date=self.week_start, exp=10 * (i + 1))
+            _add_completion(p, path=Player.PATH_FITNESS_WARRIOR, completion_date=self.week_start, exp=10 * (i + 1))
         result = global_cross_path_leaderboard(limit=2)
         self.assertEqual(len(result["leaderboard"]), 2)
 
@@ -398,8 +414,8 @@ class LeaderboardEndpointAuthTests(TestCase):
         self.week_start = _start_of_week_utc().date()
 
     def test_weekly_endpoint_returns_payload(self):
-        _add_summary(self.user.player, path=Player.PATH_FITNESS_WARRIOR,
-                     summary_date=self.week_start, exp=33)
+        _add_completion(self.user.player, path=Player.PATH_FITNESS_WARRIOR,
+                     completion_date=self.week_start, exp=33)
         url = reverse("social-leaderboard-weekly", args=[Player.PATH_FITNESS_WARRIOR])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -416,8 +432,8 @@ class LeaderboardEndpointAuthTests(TestCase):
         self.assertEqual(anon.get(url).status_code, 401)
 
     def test_global_endpoint(self):
-        _add_summary(self.user.player, path=Player.PATH_FITNESS_WARRIOR,
-                     summary_date=self.week_start, exp=10)
+        _add_completion(self.user.player, path=Player.PATH_FITNESS_WARRIOR,
+                     completion_date=self.week_start, exp=10)
         response = self.client.get(reverse("social-leaderboard-global"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["leaderboard"][0]["player_id"], self.user.player.id)
@@ -455,10 +471,10 @@ class LeaderboardEndpointAuthTests(TestCase):
     def test_limit_query_param(self):
         # Two summaries, limit=1
         other = User.objects.create_user(username="other", password="testpass123")
-        _add_summary(self.user.player, path=Player.PATH_FITNESS_WARRIOR,
-                     summary_date=self.week_start, exp=10)
-        _add_summary(other.player, path=Player.PATH_FITNESS_WARRIOR,
-                     summary_date=self.week_start, exp=20)
+        _add_completion(self.user.player, path=Player.PATH_FITNESS_WARRIOR,
+                     completion_date=self.week_start, exp=10)
+        _add_completion(other.player, path=Player.PATH_FITNESS_WARRIOR,
+                     completion_date=self.week_start, exp=20)
         url = reverse("social-leaderboard-weekly", args=[Player.PATH_FITNESS_WARRIOR]) + "?limit=1"
         response = self.client.get(url)
         self.assertEqual(len(response.data["leaderboard"]), 1)

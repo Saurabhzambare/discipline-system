@@ -80,18 +80,20 @@ def weekly_exp_leaderboard(
     requesting_player: Optional[Player] = None,
 ) -> dict:
     """Top players in `path` by EXP earned in the current UTC week."""
-    from quests.models import DailyCompletionSummary
+    from quests.models import QuestCompletion
 
     limit = _clamp_limit(limit)
     week_start = _start_of_week_utc().date()
 
     qs = (
-        DailyCompletionSummary.objects.filter(
-            path=path,
-            summary_date__gte=week_start,
+        QuestCompletion.objects.filter(
+            quest__path_target=path,
+            completion_date__gte=week_start,
         )
         .values("player_id", username=F("player__user__username"))
-        .annotate(exp=Coalesce(Sum("total_exp_earned"), Value(0), output_field=IntegerField()))
+        # Use completion records so today's completions appear immediately,
+        # without waiting for end-of-day summary generation.
+        .annotate(exp=Coalesce(Sum("quest__exp_reward"), Value(0), output_field=IntegerField()))
         .filter(exp__gt=0)
         .order_by("-exp", "player_id")
     )
@@ -114,19 +116,18 @@ def global_cross_path_leaderboard(
 ) -> dict:
     """Top players globally by total weekly EXP across all active paths.
 
-    EXP earned on Grind Visionary lineups already has the player's XP multiplier
-    applied at completion time, so summing stored ``total_exp_earned`` naturally
-    yields multiplier-boosted EXP for visionaries.
+    Uses raw quest-completion EXP (``quest.exp_reward``) from completion records.
+    This intentionally avoids double-applying Visionary multipliers at read time.
     """
-    from quests.models import DailyCompletionSummary
+    from quests.models import QuestCompletion
 
     limit = _clamp_limit(limit)
     week_start = _start_of_week_utc().date()
 
     qs = (
-        DailyCompletionSummary.objects.filter(summary_date__gte=week_start)
+        QuestCompletion.objects.filter(completion_date__gte=week_start)
         .values("player_id", username=F("player__user__username"))
-        .annotate(exp=Coalesce(Sum("total_exp_earned"), Value(0), output_field=IntegerField()))
+        .annotate(exp=Coalesce(Sum("quest__exp_reward"), Value(0), output_field=IntegerField()))
         .filter(exp__gt=0)
         .order_by("-exp", "player_id")
     )
