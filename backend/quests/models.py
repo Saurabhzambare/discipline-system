@@ -259,6 +259,7 @@ class DailyQuestLineupItem(models.Model):
         related_name="swapped_from_lineup_items",
     )
     feedback = models.CharField(max_length=4, choices=FEEDBACK_CHOICES, null=True, blank=True)
+    is_cross_path_bonus = models.BooleanField(default=False)
 
     class Meta:
         constraints = [

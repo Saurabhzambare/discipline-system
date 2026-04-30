@@ -31,6 +31,7 @@ from social.services import has_active_accountability_partner
 class CompletionMechanicResult:
     bonus_exp: int = 0
     notes: list[str] | None = None
+    badge_keys: list[str] | None = None
 
 
 FIRST_DOLLAR_PACK = "gv_first_dollar"
@@ -42,7 +43,10 @@ FIRST_DOLLAR_CHAIN_MONTHLY_PACK = "gv_first_dollar_monthly"
 @transaction.atomic
 def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date, quest=None) -> CompletionMechanicResult:
     notes: list[str] = []
+    badge_keys: list[str] = []
     bonus_exp = 0
+
+    from social.achievements import award_badge, generate_achievement_card
 
     # Mindset Sage: Freedom token every 7-day streak, cap 3, overflow bonus exp.
     if lineup_path == "mindset_sage" and player.streak > 0 and player.streak % 7 == 0:
@@ -53,6 +57,9 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
         else:
             FreedomDayToken.objects.create(player=player, earned_on=completion_date)
             notes.append("freedom_token_earned")
+            ub = award_badge(player, "ms_first_freedom_token")
+            if ub:
+                badge_keys.append(ub.badge.key)
 
     # Health Alchemist: fill elixir progress and award milestones.
     if lineup_path == "health_alchemist":
@@ -65,16 +72,27 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
                 progress.last_brew_date = completion_date
                 progress.fill_days = 0
                 notes.append("elixir_brew_completed")
+                # First elixir brew (Day 7) badge.
+                ub = award_badge(player, "ha_elixir_day7")
+                if ub:
+                    badge_keys.append(ub.badge.key)
             progress.save(update_fields=["fill_days", "last_fill_date", "brews_completed", "last_brew_date"])
 
-        milestone_edges = [(1, "first_brew"), (3, "triple_brew"), (7, "master_formula")]
-        for threshold, key in milestone_edges:
+        brew_badge_map = {
+            "triple_brew": "ha_triple_brew",
+            "master_formula": "ha_master_formula",
+        }
+        for threshold, key in [(1, "first_brew"), (3, "triple_brew"), (7, "master_formula")]:
             if progress.brews_completed >= threshold:
-                TransmutationMilestone.objects.get_or_create(
+                _, created = TransmutationMilestone.objects.get_or_create(
                     player=player,
                     milestone_key=key,
                     defaults={"achieved_on": completion_date},
                 )
+                if created and key in brew_badge_map:
+                    ub = award_badge(player, brew_badge_map[key])
+                    if ub:
+                        badge_keys.append(ub.badge.key)
 
     # Discipline Knight: armor progression and streak shield earn threshold.
     if lineup_path == "discipline_knight":
@@ -91,11 +109,28 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
             slots = slot_map.get(player.streak, [])
             for slot in slots:
                 label = slot.replace("_", " ").title()
-                ArmorPiece.objects.get_or_create(
+                _, created = ArmorPiece.objects.get_or_create(
                     player=player,
                     slot=slot,
                     defaults={"name": f"Forged {label}"},
                 )
+                if created:
+                    if slot == "boots":
+                        ub = award_badge(player, "dk_armor_boots")
+                        if ub:
+                            badge_keys.append(ub.badge.key)
+            # Full armor at streak 42 (shield + sword both earned).
+            if player.streak == 42:
+                ub = award_badge(player, "dk_armor_full")
+                if ub:
+                    badge_keys.append(ub.badge.key)
+                    generate_achievement_card(
+                        player,
+                        card_type="dk_armor_complete",
+                        title="Fully Armored Knight",
+                        subtitle="You have completed the full Knight armor set.",
+                        metadata={"streak": player.streak},
+                    )
 
         if player.streak > 0 and player.streak % 14 == 0:
             shield, _ = StreakShield.objects.get_or_create(player=player)
@@ -107,8 +142,20 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
 
         armor.save(update_fields=["total_cracks", "repaired_at", "last_cracked_on"])
 
-    # Grind Visionary: multipliers and first-dollar progression.
+    # Grind Visionary: multipliers, first-dollar, and skill tree progression.
     if lineup_path == "grind_visionary":
+        # Skill tree: unlock new nodes when Mastery Lab thresholds are crossed.
+        from paths.services import check_and_unlock_skill_tree_nodes
+        from paths.constants import MASTERY_LAB_PACK_IDS
+        if quest and quest.pack_id in MASTERY_LAB_PACK_IDS:
+            unlocked = check_and_unlock_skill_tree_nodes(player=player)
+            for node_key in unlocked:
+                notes.append(f"skill_tree_node_unlocked:{node_key}")
+                skill_badge_key = f"gv_skill_tree_{node_key}"
+                ub = award_badge(player, skill_badge_key)
+                if ub:
+                    badge_keys.append(ub.badge.key)
+
         multiplier, _ = XPMultiplier.objects.get_or_create(player=player)
         days_active = max(player.streak, 1)
         # 1.0x -> 2.0x over 30 days.
@@ -116,6 +163,10 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
         multiplier.multiplier = round(next_multiplier, 2)
         multiplier.source = "streak_growth"
         multiplier.save(update_fields=["multiplier", "source"])
+        if multiplier.multiplier >= 2.0:
+            ub = award_badge(player, "gv_multiplier_2x")
+            if ub:
+                badge_keys.append(ub.badge.key)
 
         if quest and quest.pack_id == FIRST_DOLLAR_PACK:
             chain, _ = PostFirstDollarChain.objects.get_or_create(player=player)
@@ -142,6 +193,16 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
                     ]
                 )
                 notes.append("first_dollar_triggered")
+                ub = award_badge(player, "gv_first_dollar")
+                if ub:
+                    badge_keys.append(ub.badge.key)
+                    generate_achievement_card(
+                        player,
+                        card_type="gv_first_dollar",
+                        title="First Dollar Earned!",
+                        subtitle="You completed the First Dollar quest. Your entrepreneurial journey begins.",
+                        metadata={"exp_reward": first_dollar_reward},
+                    )
 
         if quest and quest.pack_id == FIRST_DOLLAR_CHAIN_10_PACK:
             chain, _ = PostFirstDollarChain.objects.get_or_create(player=player)
@@ -150,6 +211,9 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
                 chain.chain_stage = max(chain.chain_stage, 2)
                 chain.save(update_fields=["first_ten_completed", "chain_stage"])
                 notes.append("first_dollar_chain_10_completed")
+                ub = award_badge(player, "gv_first_ten")
+                if ub:
+                    badge_keys.append(ub.badge.key)
 
         if quest and quest.pack_id == FIRST_DOLLAR_CHAIN_100_PACK:
             chain, _ = PostFirstDollarChain.objects.get_or_create(player=player)
@@ -158,6 +222,9 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
                 chain.chain_stage = max(chain.chain_stage, 3)
                 chain.save(update_fields=["first_hundred_completed", "chain_stage"])
                 notes.append("first_dollar_chain_100_completed")
+                ub = award_badge(player, "gv_first_hundred")
+                if ub:
+                    badge_keys.append(ub.badge.key)
 
         if quest and quest.pack_id == FIRST_DOLLAR_CHAIN_MONTHLY_PACK:
             chain, _ = PostFirstDollarChain.objects.get_or_create(player=player)
@@ -182,7 +249,7 @@ def apply_post_completion_mechanics(*, player, lineup_path: str, completion_date
         if has_active_accountability_partner(player=player):
             notes.append("accountability_partner_active")
 
-    return CompletionMechanicResult(bonus_exp=bonus_exp, notes=notes)
+    return CompletionMechanicResult(bonus_exp=bonus_exp, notes=notes, badge_keys=badge_keys)
 
 
 @transaction.atomic

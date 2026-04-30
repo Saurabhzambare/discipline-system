@@ -101,6 +101,30 @@ DIFFICULTY_MULTIPLIERS = {
 }
 
 
+def compute_personalization_weight(days_on_path: int) -> float:
+    """0.0 before Day 14; ramps 5%/day from Day 14; caps at 1.0 on Day 30."""
+    if days_on_path < 14:
+        return 0.0
+    if days_on_path >= 30:
+        return 1.0
+    return 0.30 + (days_on_path - 14) * 0.05
+
+
+def _compute_pillar_history(player, path_code: str, lookback_days: int = 30) -> dict:
+    """Returns {pillar: completion_count} for the player's recent path completions."""
+    since = timezone.localdate() - timedelta(days=lookback_days)
+    rows = (
+        QuestCompletion.objects.filter(
+            player=player,
+            completion_date__gte=since,
+            quest__path_target__in=["", path_code],
+        )
+        .values("quest__pillar")
+        .annotate(count=models.Count("id"))
+    )
+    return {row["quest__pillar"]: row["count"] for row in rows if row["quest__pillar"]}
+
+
 @dataclass
 class LineupFeatures:
     days_on_path: int
@@ -242,6 +266,7 @@ def _serialize_item(item: DailyQuestLineupItem) -> dict:
         "slot_type": item.slot_type,
         "is_locked": item.is_locked,
         "is_carried_over": item.is_carried_over,
+        "is_cross_path_bonus": item.is_cross_path_bonus,
         "selection_reason": item.selection_reason,
         "completed_today": item.completed,
         "assigned_completed_today": item.completed,
@@ -365,17 +390,48 @@ def _apply_path_overrides(player, path_code: str, quests: list[Quest], target_da
     return quests
 
 
-def _apply_smart_suggestions(player, quests: list[Quest]):
+def _apply_smart_suggestions(player, quests: list[Quest], days_on_path: int = 0, path_code: str = ""):
+    if not quests:
+        return quests
+
+    quest_ids = [q.id for q in quests]
+
     preferences = {
         pref.quest_id: pref.preference_score
-        for pref in QuestPreference.objects.filter(player=player, quest_id__in=[q.id for q in quests])
+        for pref in QuestPreference.objects.filter(player=player, quest_id__in=quest_ids)
     }
     recently_completed = _recently_completed_quest_ids(player)
+
+    # Swap learning: count how many times each quest was swapped away from / toward
+    swap_away_counts = {
+        row["quest_removed_id"]: row["n"]
+        for row in DailySwap.objects.filter(player=player, quest_removed_id__in=quest_ids)
+        .values("quest_removed_id")
+        .annotate(n=models.Count("id"))
+    }
+    swap_toward_counts = {
+        row["quest_added_id"]: row["n"]
+        for row in DailySwap.objects.filter(player=player, quest_added_id__in=quest_ids)
+        .values("quest_added_id")
+        .annotate(n=models.Count("id"))
+    }
+
+    # Pillar personalization: from Day 14 onwards, blend completion history into pillar scoring
+    pillar_bonus: dict[str, float] = {}
+    pers_weight = compute_personalization_weight(days_on_path)
+    if pers_weight > 0 and path_code:
+        history = _compute_pillar_history(player, path_code)
+        total = sum(history.values()) or 1
+        for pillar, count in history.items():
+            pillar_bonus[pillar] = pers_weight * (count / total) * 2  # max +2 at full weight
 
     def score(quest):
         base = preferences.get(quest.id, 0)
         recency_penalty = -2 if quest.id in recently_completed else 0
-        return base + recency_penalty
+        swap_away_penalty = -2 if swap_away_counts.get(quest.id, 0) >= 3 else 0
+        swap_toward_bonus = 1 if swap_toward_counts.get(quest.id, 0) >= 3 else 0
+        pillar_score = pillar_bonus.get(quest.pillar, 0)
+        return base + recency_penalty + swap_away_penalty + swap_toward_bonus + pillar_score
 
     ranked = sorted(quests, key=score, reverse=True)
     adaptive = AdaptiveDifficultyPreference.objects.filter(player=player).first()
@@ -415,6 +471,15 @@ def _get_carry_over_quests(player, path_code: str, target_date: date):
     return carry
 
 
+CROSS_PATH_BONUS_KEYWORDS = {
+    "cold_shower": ["cold shower", "cold plunge"],
+    "breathwork": ["breath", "meditate"],
+    "deep_work": ["deep work"],
+    "wake_5am": ["5am", "wake"],
+    "reading": ["reading", "read"],
+}
+
+
 def _check_cross_path_bonus(player, target_date: date, lineup_items: list[DailyQuestLineupItem]):
     selection = UserPathSelection.objects.filter(player=player).first()
     active_paths = set(selection.multi_paths_active if selection else ([] if not player.path else [player.path]))
@@ -424,19 +489,66 @@ def _check_cross_path_bonus(player, target_date: date, lineup_items: list[DailyQ
     for key, pair_paths, bonus_exp in sorted(CROSS_PATH_BONUS_PAIRS, key=lambda x: x[2], reverse=True):
         if not pair_paths.issubset(active_paths):
             continue
-        keywords = {
-            "cold_shower": ["cold shower", "cold plunge"],
-            "breathwork": ["breath", "meditate"],
-            "deep_work": ["deep work"],
-            "wake_5am": ["5am", "wake"],
-            "reading": ["reading", "read"],
-        }.get(key, [])
+        keywords = CROSS_PATH_BONUS_KEYWORDS.get(key, [])
         matched = [
             item for item in lineup_items
             if item.quest and any(k in (item.quest.title + " " + item.quest.description).lower() for k in keywords)
         ]
         if len(matched) >= 2:
             return {"key": key, "bonus_exp": bonus_exp, "matched_item_ids": [i.id for i in matched[:2]]}
+    return None
+
+
+@transaction.atomic
+def apply_cross_path_bonus_flags(player, target_date: date) -> dict | None:
+    """
+    Scan all of today's lineup items across active paths and flag matching
+    cross-path bonus pairs (max one pair per day; highest-EXP pair wins).
+    Sets is_cross_path_bonus=True on both matched items.
+    Returns the matched pair info or None.
+    """
+    selection = UserPathSelection.objects.filter(player=player).first()
+    active_paths = set(selection.multi_paths_active if selection else ([player.path] if player.path else []))
+    if len(active_paths) < 2:
+        return None
+
+    items_by_path: dict[str, list[DailyQuestLineupItem]] = {}
+    for path_code in active_paths:
+        lineup = DailyQuestLineup.objects.filter(player=player, path=path_code, date=target_date).first()
+        if lineup:
+            items_by_path[path_code] = list(lineup.items.select_related("quest").all())
+
+    # Reset any prior flags for the day so re-runs are idempotent.
+    DailyQuestLineupItem.objects.filter(
+        lineup__player=player, lineup__date=target_date, is_cross_path_bonus=True
+    ).update(is_cross_path_bonus=False)
+
+    for key, pair_paths, bonus_exp in sorted(CROSS_PATH_BONUS_PAIRS, key=lambda x: x[2], reverse=True):
+        if not pair_paths.issubset(set(items_by_path.keys())):
+            continue
+        keywords = CROSS_PATH_BONUS_KEYWORDS.get(key, [])
+        path_a, path_b = list(pair_paths)
+        match_a = next(
+            (it for it in items_by_path[path_a]
+             if it.quest and any(k in (it.quest.title + " " + it.quest.description).lower() for k in keywords)),
+            None,
+        )
+        match_b = next(
+            (it for it in items_by_path[path_b]
+             if it.quest and any(k in (it.quest.title + " " + it.quest.description).lower() for k in keywords)),
+            None,
+        )
+        if match_a and match_b:
+            match_a.is_cross_path_bonus = True
+            match_b.is_cross_path_bonus = True
+            match_a.save(update_fields=["is_cross_path_bonus"])
+            match_b.save(update_fields=["is_cross_path_bonus"])
+            return {
+                "key": key,
+                "bonus_exp": bonus_exp,
+                "paths": [path_a, path_b],
+                "matched_item_ids": [match_a.id, match_b.id],
+            }
     return None
 
 
@@ -502,7 +614,7 @@ def generate_daily_lineup(player, target_date: date | None = None, path_code: st
 
     hard = _get_hard_filtered_quests(player, path_code, target_date, limit=4)
     hard = _apply_path_overrides(player, path_code, hard, target_date)
-    hard = _apply_smart_suggestions(player, hard)
+    hard = _apply_smart_suggestions(player, hard, days_on_path=days_on_path, path_code=path_code)
 
     for q in hard:
         if q.id not in [x[0].id for x in selected]:
@@ -698,13 +810,19 @@ def complete_lineup_item(player, lineup_item_id: int):
     )
 
     old_level = player.level
-    exp_earned = item.quest.exp_reward
-    if item.lineup.path == "grind_visionary":
-        multiplier = XPMultiplier.objects.filter(player=player).values_list("multiplier", flat=True).first()
-        if multiplier:
-            exp_earned = int(round(exp_earned * float(multiplier)))
+    base_exp_raw = item.quest.exp_reward
+    bonus_exp_raw = detect_cross_path_bonus(player, local_today)
 
-    bonus_exp = detect_cross_path_bonus(player, local_today)
+    multiplier = 1.0
+    if item.lineup.path == "grind_visionary":
+        m = XPMultiplier.objects.filter(player=player).values_list("multiplier", flat=True).first()
+        if m:
+            multiplier = float(m)
+
+    # Apply Visionary multiplier to base AND cross-path bonus consistently.
+    exp_earned = int(round(base_exp_raw * multiplier))
+    bonus_exp = int(round(bonus_exp_raw * multiplier))
+
     player.exp += exp_earned + bonus_exp
     player.level = calculate_level_from_exp(player.exp)
 
@@ -729,6 +847,28 @@ def complete_lineup_item(player, lineup_item_id: int):
         player.level = calculate_level_from_exp(player.exp)
         player.save(update_fields=["exp", "level", "updated_at"])
 
+    # Badge and achievement card triggers.
+    from social.achievements import (
+        check_level_milestones,
+        check_streak_milestones,
+        generate_achievement_card,
+    )
+    badges_earned = []
+    level_badges = check_level_milestones(player, old_level, player.level)
+    for badge in level_badges:
+        badges_earned.append(badge.key)
+        generate_achievement_card(
+            player,
+            card_type="level_milestone",
+            title=f"Level {player.level} Reached!",
+            subtitle=f"You reached Level {player.level} — {badge.name}.",
+            metadata={"level": player.level, "badge_key": badge.key},
+        )
+    streak_badges = check_streak_milestones(player)
+    for badge in streak_badges:
+        badges_earned.append(badge.key)
+    badges_earned.extend(mechanic_result.badge_keys or [])
+
     completed, total = _count_completed(item.lineup)
     if completed >= total > 0:
         item.lineup.is_complete = True
@@ -746,7 +886,7 @@ def complete_lineup_item(player, lineup_item_id: int):
         "exp_progress": calculate_exp_window(player.exp),
         "streak_update": player.streak,
         "daily_progress": {"completed": completed, "total": total},
-        "badges_earned": [],
+        "badges_earned": badges_earned,
         "mechanic_notes": mechanic_result.notes or [],
     }
 
@@ -882,7 +1022,7 @@ def submit_quest_feedback(player, lineup_item_id: int, feedback: str):
         defaults={"rating": feedback},
     )
     pref, _ = QuestPreference.objects.get_or_create(player=player, quest=item.quest)
-    pref.preference_score = pref.preference_score + (1 if feedback == "up" else -1)
+    pref.preference_score = pref.preference_score + (3 if feedback == "up" else -3)
     if feedback == "up":
         pref.last_completed = item.lineup.date
     else:

@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-04-28 (Session A2 complete)
+**Last updated:** 2026-04-30 (Session 8A complete)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -29,7 +29,12 @@ All frontend polish will be done here using Claude Code.
 | Session 5 | Daily Quest Assignment Engine (5-layer algo, lineups, swaps, intention, feedback, summary) | ✅ Complete |
 | Session 6 | Path mechanic persistence hooks, log endpoints, protection-order service, accountability partner flow | 🟡 In progress |
 | Session 7 | Backend contract freeze (quest board, completion ring, EOD summary, tomorrow preview, missed-day, adaptive nudge) | ✅ Complete |
-| Session 8 | Social & Achievement Features (badges, leaderboards, cross-path titles, weekly boss) | ⬜ Not started |
+| Session A1 | Repo stabilize: fix stale tests, ESLint, Session 6 gaps, CI, .gitignore | ✅ Complete |
+| Session A2 | Push to origin/main, README badges, Stage A docs | ✅ Complete |
+| Session B1 | Personalization weight, feedback learning fix, swap learning — all wired and tested | ✅ Complete |
+| Session B2 | Algorithm gaps: carry-over verified, cross-path bonus visual flag, Visionary multiplier on bonus, skill tree thresholds, midnight scheduler hardened | ✅ Complete |
+| Session 8A | Badge catalog (seed_badges), achievement service, trigger hooks, weekly boss completion, 32 tests | ✅ Complete |
+| Session 8 | Social & Achievement Features — leaderboards, frontend badge UI, cross-path title display | 🟡 In progress |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
 
 ---
@@ -42,29 +47,31 @@ All frontend polish will be done here using Claude Code.
 - **`core/`** — Shared utilities.
 - **`users/`** — Custom user model, auth (JWT), signup/login.
 - **`players/`** — Player profile, EXP, level (quadratic formula), streak, daily intention, daily summary.
-- **`quests/`** — Quest, QuestCompletion, DailyQuestLineup, DailyQuestLineupItem, services (5-layer assignment, swap, feedback, intention, summary, tomorrow preview, adaptive nudge), management command `seed_quests`.
+- **`quests/`** — Quest, QuestCompletion, DailyQuestLineup, DailyQuestLineupItem, services (5-layer assignment, swap, feedback, intention, summary, tomorrow preview, adaptive nudge, personalization weight, swap learning), management command `seed_quests`.
 - **`paths/`** — PathDiscoveryQuiz, QuizAnswer, PathMatchScore, UserPathSelection, PathOnboardingProgress, path-specific profiles (FitnessWarriorProfile, MindsetSageProfile, HealthAlchemistProfile, DisciplineKnightProfile, GrindVisionaryProfile), path-specific mechanics (SplitDayState, ArmorSystem, ArmorPiece, ElixirProgress, EquipmentProfile, DisciplineCode, GraceToken, StreakShield, WarRoomEntry, TemptationLog, KnightWeeklyReport, XPMultiplier, MultiplierProtection, SingularGoal, SkillTree, SkillTreeNode, OutputLog, PostFirstDollarChain, QuestChain, TransmutationMilestone, BodyJournal, WisdomLog, DarkNightEntry), management command `seed_session6_test_accounts`.
-- **`social/`** — FriendRequest, Friendship, SocialPost, PostComment, PostReaction, ActivityEvent, SocialGroup, GroupMembership, AccountabilityPartnerRequest, AccountabilityPartnership, Badge, UserBadge, AchievementCard, WeeklyBossQuest, WeeklyBossCompletion.
+- **`social/`** — FriendRequest, Friendship, SocialPost, PostComment, PostReaction, ActivityEvent, SocialGroup, GroupMembership, AccountabilityPartnerRequest, AccountabilityPartnership, Badge, UserBadge, AchievementCard, WeeklyBossQuest, WeeklyBossCompletion. Achievement service (`social/achievements.py`): `award_badge`, `generate_achievement_card`, `grant_cross_path_title`, `check_streak_milestones`, `check_level_milestones`, `complete_weekly_boss`. Badge catalog management command (`seed_badges`): 68 badges across all paths + universal milestones.
 
 ### Backend test modules
 
 - `core/tests.py`
 - `users/tests.py` — passing
 - `social/tests.py` — passing
-- `players/tests.py` — passing (3 tests)
-- `quests/tests.py` — passing (12 tests, Session 7 contract tests)
+- `players/tests.py` — passing
+- `quests/tests.py` — passing (Session 7 contract tests)
 - `quests/tests_session5.py` — passing
-- `paths/tests_session6.py` — passing (includes new archetype filtering tests)
+- `quests/tests_b1_personalization.py` — passing (15 tests: weight, feedback, swap, integration)
+- `quests/tests_b2_algorithms.py` — passing (19 tests: carry-over, cross-path flag, Visionary multiplier, skill tree, scheduler)
+- `paths/tests_session6.py` — passing (includes Sage archetype filtering tests)
 - `paths/tests_onboarding_completion.py`
 - `paths/tests_seed_session6_accounts.py`
+- `social/tests_achievements.py` — passing (32 tests: award_badge, generate_achievement_card, grant_cross_path_title, check_streak_milestones, check_level_milestones, quest completion integration, weekly boss integration)
 
-Total: 63 tests, all passing.
+Total: 129 tests, all passing.
 
 ### Frontend pages (`frontend/src/pages/`)
 
 - `LoginPage.jsx`
 - `SignupPage.jsx`
-- `OnboardingPage.jsx` (legacy path-picker — superseded by PathOnboardingPage, still referenced)
 - `PathOnboardingPage.jsx` (new 5-path onboarding: quiz → results → path-specific form → commitment)
 - `DashboardPage.jsx` (quest lineup, completion ring, intention, swap, feedback, EOD summary, path mechanics widgets, placeholder leaderboard)
 - `ProfilePage.jsx` (player stats, friends list, friend request lifecycle)
@@ -92,24 +99,24 @@ Total: 63 tests, all passing.
 
 ### Code quality
 
-1. **No CI.** No `.github/workflows/*` exists. Test drift goes undetected.
-2. **Monolithic `App.jsx`.** State orchestration is concentrated in one file; should eventually be broken up.
-3. **Pending Django migrations.** Django 5 auto-detects `id` field type changes (AutoField → BigAutoField) for `paths` and `social` apps. Migrations `paths/0008_*` and `social/0005_*` need to be created and run before deploying to a fresh database. No functional impact on dev SQLite.
+1. **Monolithic `App.jsx`.** State orchestration is concentrated in one file; should eventually be broken up.
+2. **Pending Django migrations.** Django 5 auto-detects `id` field type changes (AutoField → BigAutoField) for `paths` and `social` apps. Migrations `paths/0008_*` and `social/0005_*` need to be created and run before deploying to a fresh database. No functional impact on dev SQLite.
 
 ### Phase 5B functional gaps
 
-4. **Session 6 partially complete.** Fixed in Session A1: Sage archetype filtering wired (Step 57), Knight Weekly Report Sunday trigger wired to `generate_daily_quests` command (Step 67), protection-order service verified consolidated (Step 75). Outstanding: Step 73 (accountability partner invite flow), Step 76 (path-mechanic log endpoint audit).
-6. **Session 8 not started.** No achievement cards generated, badge system not wired to trigger events, leaderboards not implemented, cross-path identity titles not granted, weekly boss quest system only partially seeded.
-7. **Placeholder UI.** Dashboard leaderboard card, feed right-panel mini-leaderboard, and achievement blocks currently show hardcoded dummy data.
+3. **Session 6 partially complete.** Outstanding: Step 73 (accountability partner invite flow), Step 76 (path-mechanic log endpoint audit).
+4. **Session 8A complete.** Badge catalog seeded (68 badges), achievement service live, trigger hooks wired into `complete_lineup_item` and `apply_post_completion_mechanics`, weekly boss completion service implemented. Remaining Session 8 work: leaderboards, frontend badge display, cross-path title UI.
+5. **Placeholder UI.** Dashboard leaderboard card, feed right-panel mini-leaderboard, and achievement blocks currently show hardcoded dummy data.
+6. **Layer 3 weekly rhythm tables not implemented.** `_apply_smart_suggestions` now has personalization weight (Day 14+ pillar history blending), but the per-path default weekly pillar priority tables (Mon=strength, Tue=cardio, etc.) from the spec are not yet built. The personalization layer correctly blends history from Day 14+ but has no default rhythm to blend against before Day 14.
 
 ### Production readiness
 
-8. `DEBUG=True` in Django settings.
-9. `ALLOWED_HOSTS` empty.
-10. `SECRET_KEY` hardcoded in settings.
-11. Custom client-side routing (manual `history.pushState`) — should migrate to a proper router (React Router) before launch.
-12. No pagination on feed/groups/posts endpoints.
-13. **Pending Django migrations** — Django 5 BigAutoField drift detected in `paths` (0008) and `social` (0005) apps. No functional impact on dev SQLite. Must be created and applied before deploying to a fresh PostgreSQL instance.
+7. `DEBUG=True` in Django settings.
+8. `ALLOWED_HOSTS` empty.
+9. `SECRET_KEY` hardcoded in settings.
+10. Custom client-side routing (manual `history.pushState`) — should migrate to a proper router (React Router) before launch.
+11. No pagination on feed/groups/posts endpoints.
+12. **Pending Django migrations** — Django 5 BigAutoField drift detected in `paths` (0008) and `social` (0005) apps. No functional impact on dev SQLite. Must be created and applied before deploying to a fresh PostgreSQL instance.
 
 ---
 
@@ -117,17 +124,22 @@ Total: 63 tests, all passing.
 
 ### Stage A — Stabilize ✅ COMPLETE (Sessions A1 + A2)
 
-- ✅ Rewrote stale `players/tests.py` and `quests/tests.py` (tests were already clean in prior commit; verified 63 passing).
+- ✅ Rewrote stale `players/tests.py` and `quests/tests.py`.
 - ✅ Fixed all 9 frontend ESLint errors (PathContext split, unused imports removed).
-- ✅ Session 6 gaps addressed: Sage archetype filtering (Step 57), Knight Weekly Report Sunday trigger (Step 67), protection-order consolidation verified (Step 75). Remaining: Steps 73, 76 (moved to B1).
+- ✅ Session 6 gaps addressed: Sage archetype filtering (Step 57), Knight Weekly Report Sunday trigger (Step 67), protection-order consolidation verified (Step 75). Remaining: Steps 73, 76.
 - ✅ Reconciled local branches with `origin/main`; pushed clean baseline.
 - ✅ Added GitHub Actions CI: `backend-tests.yml` and `frontend-checks.yml`.
 - ✅ Added `.gitignore`; untracked 10 legacy `.pyc` files.
 - ✅ Deleted `OnboardingPage.jsx` orphan; all `/onboarding` routes redirect to `/path-onboarding`.
+- ✅ Fixed `CheckConstraint(check=...)` → `condition=` for Django 5.1+ compat (5 constraints).
+- ✅ Added `manage.py check` step to CI before test run.
 
 ### Stage B — Finish Phase 5B backend (2–3 sessions)
 
-- **Session 8** — Social & Achievement Features (BUILD_ORDER steps 80–88).
+- ✅ **Session B1** — Personalization weight, feedback learning fix (+3/-3), swap learning wired into `_apply_smart_suggestions`. 15 new tests.
+- ✅ **Session B2** — Five algorithm gaps closed: (1) carry-over D/C verified, (2) `is_cross_path_bonus` field added with `apply_cross_path_bonus_flags` post-generation flagging, (3) Visionary XP multiplier now applied to base + cross-path bonus consistently, (4) `SKILL_TREE_THRESHOLDS` defined in `paths/constants.py` + `check_and_unlock_skill_tree_nodes` hooked into `apply_post_completion_mechanics`, (5) `generate_daily_quests` scheduler restructured to group by timezone and only generate inside the local midnight window (00:00–00:14). 19 new tests; 1 migration (`quests/0009`).
+- ✅ **Session 8A** — Badge catalog (68 badges in `seed_badges` command), achievement service (`social/achievements.py`), trigger hooks in `complete_lineup_item` + `apply_post_completion_mechanics`, `complete_weekly_boss` service with EXP + Visionary multiplier + badge + card. `CompletionMechanicResult` extended with `badge_keys`. 32 new tests.
+- **Session 8** — Leaderboards, frontend badge/achievement UI (BUILD_ORDER steps 82–88).
 - **Session 9** — End-to-end verification (BUILD_ORDER steps 89–105).
 
 ### Stage C — Frontend polish pass (3–5 sessions)

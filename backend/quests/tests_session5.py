@@ -262,7 +262,7 @@ class Session5InteractionHappyPathTests(TestCase):
         self.assertEqual(response.data["feedback"], "up")
 
         preference = QuestPreference.objects.get(player=self.player, quest_id=item["quest_id"])
-        self.assertEqual(preference.preference_score, 1)
+        self.assertEqual(preference.preference_score, 3)
 
     def test_summary_happy_path_returns_daily_completion_summary(self):
         item = self._first_assigned_item()

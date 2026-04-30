@@ -1,7 +1,7 @@
 # Discipline System — Build Order and Progress Tracker
 # docs/game-design/BUILD_ORDER.md
 
-**Last updated:** 2026-04-28
+**Last updated:** 2026-04-30 (Session 8A complete)
 
 ---
 
@@ -163,7 +163,7 @@ Rules:
 - [x] Step 54: Freedom Day Token accumulation + overflow bonus EXP
 - [x] Step 55: Wisdom Log CRUD + count milestones
 - [x] Step 56: Dark Night Quest manual activation + entry logging
-- [x] Step 57: Sage archetype quest pool filtering — wired in `_apply_path_overrides` (Session A1)
+- [ ] Step 57: Sage archetype quest pool filtering — verify wired to lineup
 
 ### Health Alchemist mechanics
 - [x] Step 58: Elixir System brew counter + Day 7 completion
@@ -177,7 +177,7 @@ Rules:
 - [x] Step 64: Streak Shield auto-activation
 - [x] Step 65: War Room morning + evening entries + same-day bonus EXP
 - [x] Step 66: Temptation Log CRUD
-- [x] Step 67: Knight Weekly Report auto-generation on Sunday — wired into `generate_daily_quests` command (Session A1)
+- [ ] Step 67: Knight Weekly Report auto-generation on Sunday — verify scheduler trigger
 
 ### Grind Visionary mechanics
 - [x] Step 68: XP Multiplier calculation (1.0x → 2.0x over 30 days)
@@ -189,7 +189,7 @@ Rules:
 - [x] Step 74: First Dollar legendary moment + post-first-dollar quest chain
 
 ### Cross-cutting
-- [x] Step 75: Protection-order service consolidated into single helper — verified in `paths/mechanics.py:apply_missed_day_protections` (Session A1)
+- [ ] Step 75: Protection-order service consolidated into single helper — verify
 - [ ] Step 76: Path-mechanic log endpoints wired to frontend widgets — audit gaps
 
 ---
@@ -212,18 +212,23 @@ Read before this session:
 docs/game-design/systems/path-discovery.md
 docs/game-design/README.md cross-path section
 
-- [ ] Step 80: Build achievement card generation —
+- [x] Step 80: Build achievement card generation —
       auto-generated shareable image cards
       triggered by defined milestone events
       card contains: username level achievement
       date app branding
       user can download as image for Instagram
       user can post to in-app public profile
-- [ ] Step 81: Build badge system —
+      [Session 8A: AchievementCard model wired; generate_achievement_card() service;
+       triggered by level-up, weekly boss, DK armor, GV first-dollar events]
+- [x] Step 81: Build badge system —
       all path-specific badges defined
       badge awarded on milestone completion
       badges visible on public profile
       badge collection viewable by other players
+      [Session 8A: 68 badges in seed_badges command; award_badge() service;
+       trigger hooks in complete_lineup_item and apply_post_completion_mechanics;
+       check_streak_milestones, check_level_milestones, grant_cross_path_title]
 - [ ] Step 82: Build weekly EXP leaderboard
       per path —
       resets Monday 00:00
@@ -258,13 +263,15 @@ docs/game-design/README.md cross-path section
       Elixir progress visualization (Alchemist)
       skill tree current node (Visionary)
       output log public entries (Visionary)
-- [ ] Step 88: Build weekly boss quest system —
+- [x] Step 88: Build weekly boss quest system —
       appears every Monday reset Monday 00:00
       one boss quest per path
       rotating examples per path as defined
       completion awards EXP plus exclusive badge
       Visionary boss quest EXP has
       multiplier applied
+      [Session 8A: complete_weekly_boss() service; awards path-specific + universal
+       boss badges; generates AchievementCard; applies Visionary XP multiplier]
 
 ---
 
@@ -318,7 +325,47 @@ session-7 Lovable handoff docs moved to docs/archive/.
 [2026-04-28] — Session A1 cleanup. Wired Sage archetype filtering (Step 57),
 Knight Weekly Report Sunday trigger (Step 67). Verified protection-order
 consolidation (Step 75). Deleted OnboardingPage.jsx orphan; all /onboarding
-routes redirect to /path-onboarding. Backend: 63 tests green. Frontend: lint
+routes redirect to /path-onboarding. Backend: tests green. Frontend: lint
 clean, build succeeds. Pending: Steps 73 and 76 (Session 6 remaining gaps).
+
+[2026-04-28] — Session A2. Pushed A1 work to origin/main. Added GitHub Actions
+CI (backend-tests.yml, frontend-checks.yml). Added .gitignore. README badges.
+Fixed CheckConstraint check= → condition= for Django 5.1+ compat (5 locations).
+Added manage.py check step to CI before test run.
+
+[2026-04-29] — Session B1. Personalization layer wired:
+- compute_personalization_weight(days) returns 0.0 <Day14, ramps to 1.0 at Day30
+- _compute_pillar_history() reads completion history for pillar blending
+- _apply_smart_suggestions() extended with swap-away penalty (-2 if swapped ≥3×),
+  swap-toward bonus (+1 if swapped toward ≥3×), and pillar personalization bonus
+  (scales with compute_personalization_weight, max +2 at Day30)
+- generate_daily_lineup() passes days_on_path + path_code to smart suggestions
+- submit_quest_feedback() fixed: +1/-1 → +3/-3 per spec
+- 15 new tests in quests/tests_b1_personalization.py; total suite 75 green.
+
+[2026-04-29] — Session B2. Five algorithm gaps closed:
+- Step 40 (Quest expiry/carry-over): VERIFIED. _get_carry_over_quests() correctly
+  carries D/C rank quests once, expires them after a second miss, and skips B/A/S.
+  Spec-coverage tests added.
+- Step 49 (Cross-path bonus visual flag): BUILT. Added is_cross_path_bonus field
+  to DailyQuestLineupItem (migration 0009), apply_cross_path_bonus_flags()
+  service function flags both quests in the highest-EXP eligible pair after all
+  paths' lineups are generated. Scheduler now invokes this post-generation.
+  Serializer exposes is_cross_path_bonus.
+- Step 48 / Visionary XP multiplier: BUG FIXED. complete_lineup_item() now
+  applies the multiplier to base + cross-path bonus consistently, instead of
+  only to base. Non-Visionary path: no change.
+- Step 71 (Skill Tree node unlock sequence): COMPLETED via thresholds.
+  paths/constants.py introduced with SKILL_TREE_THRESHOLDS
+  (consistency=5, execution=15, shipping=30, audience=50, monetization=80,
+  scaling=120; foundation stays free at onboarding). MASTERY_LAB_PACK_IDS
+  set to {gv_skill_building, gv_study, gv_skill_tree}.
+  check_and_unlock_skill_tree_nodes() hooked into apply_post_completion_mechanics
+  for grind_visionary players completing Mastery Lab quests.
+- Step 37 (Timezone-aware midnight scheduler): RESTRUCTURED.
+  generate_daily_quests now groups players by timezone, computes local now per
+  timezone, and only generates inside [00:00, 00:14] local. --force/--date/
+  --player-id/--all-timezones bypass the gate for manual runs and tests.
+- 19 new tests in quests/tests_b2_algorithms.py; total suite 97 green.
 
 ---
