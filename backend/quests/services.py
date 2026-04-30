@@ -847,6 +847,28 @@ def complete_lineup_item(player, lineup_item_id: int):
         player.level = calculate_level_from_exp(player.exp)
         player.save(update_fields=["exp", "level", "updated_at"])
 
+    # Badge and achievement card triggers.
+    from social.achievements import (
+        check_level_milestones,
+        check_streak_milestones,
+        generate_achievement_card,
+    )
+    badges_earned = []
+    level_badges = check_level_milestones(player, old_level, player.level)
+    for badge in level_badges:
+        badges_earned.append(badge.key)
+        generate_achievement_card(
+            player,
+            card_type="level_milestone",
+            title=f"Level {player.level} Reached!",
+            subtitle=f"You reached Level {player.level} — {badge.name}.",
+            metadata={"level": player.level, "badge_key": badge.key},
+        )
+    streak_badges = check_streak_milestones(player)
+    for badge in streak_badges:
+        badges_earned.append(badge.key)
+    badges_earned.extend(mechanic_result.badge_keys or [])
+
     completed, total = _count_completed(item.lineup)
     if completed >= total > 0:
         item.lineup.is_complete = True
@@ -864,7 +886,7 @@ def complete_lineup_item(player, lineup_item_id: int):
         "exp_progress": calculate_exp_window(player.exp),
         "streak_update": player.streak,
         "daily_progress": {"completed": completed, "total": total},
-        "badges_earned": [],
+        "badges_earned": badges_earned,
         "mechanic_notes": mechanic_result.notes or [],
     }
 

@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-04-29 (Session B2 complete)
+**Last updated:** 2026-04-30 (Session 8A complete)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -33,7 +33,8 @@ All frontend polish will be done here using Claude Code.
 | Session A2 | Push to origin/main, README badges, Stage A docs | ✅ Complete |
 | Session B1 | Personalization weight, feedback learning fix, swap learning — all wired and tested | ✅ Complete |
 | Session B2 | Algorithm gaps: carry-over verified, cross-path bonus visual flag, Visionary multiplier on bonus, skill tree thresholds, midnight scheduler hardened | ✅ Complete |
-| Session 8 | Social & Achievement Features (badges, leaderboards, cross-path titles, weekly boss) | ⬜ Not started |
+| Session 8A | Badge catalog (seed_badges), achievement service, trigger hooks, weekly boss completion, 32 tests | ✅ Complete |
+| Session 8 | Social & Achievement Features — leaderboards, frontend badge UI, cross-path title display | 🟡 In progress |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
 
 ---
@@ -48,7 +49,7 @@ All frontend polish will be done here using Claude Code.
 - **`players/`** — Player profile, EXP, level (quadratic formula), streak, daily intention, daily summary.
 - **`quests/`** — Quest, QuestCompletion, DailyQuestLineup, DailyQuestLineupItem, services (5-layer assignment, swap, feedback, intention, summary, tomorrow preview, adaptive nudge, personalization weight, swap learning), management command `seed_quests`.
 - **`paths/`** — PathDiscoveryQuiz, QuizAnswer, PathMatchScore, UserPathSelection, PathOnboardingProgress, path-specific profiles (FitnessWarriorProfile, MindsetSageProfile, HealthAlchemistProfile, DisciplineKnightProfile, GrindVisionaryProfile), path-specific mechanics (SplitDayState, ArmorSystem, ArmorPiece, ElixirProgress, EquipmentProfile, DisciplineCode, GraceToken, StreakShield, WarRoomEntry, TemptationLog, KnightWeeklyReport, XPMultiplier, MultiplierProtection, SingularGoal, SkillTree, SkillTreeNode, OutputLog, PostFirstDollarChain, QuestChain, TransmutationMilestone, BodyJournal, WisdomLog, DarkNightEntry), management command `seed_session6_test_accounts`.
-- **`social/`** — FriendRequest, Friendship, SocialPost, PostComment, PostReaction, ActivityEvent, SocialGroup, GroupMembership, AccountabilityPartnerRequest, AccountabilityPartnership, Badge, UserBadge, AchievementCard, WeeklyBossQuest, WeeklyBossCompletion.
+- **`social/`** — FriendRequest, Friendship, SocialPost, PostComment, PostReaction, ActivityEvent, SocialGroup, GroupMembership, AccountabilityPartnerRequest, AccountabilityPartnership, Badge, UserBadge, AchievementCard, WeeklyBossQuest, WeeklyBossCompletion. Achievement service (`social/achievements.py`): `award_badge`, `generate_achievement_card`, `grant_cross_path_title`, `check_streak_milestones`, `check_level_milestones`, `complete_weekly_boss`. Badge catalog management command (`seed_badges`): 68 badges across all paths + universal milestones.
 
 ### Backend test modules
 
@@ -63,8 +64,9 @@ All frontend polish will be done here using Claude Code.
 - `paths/tests_session6.py` — passing (includes Sage archetype filtering tests)
 - `paths/tests_onboarding_completion.py`
 - `paths/tests_seed_session6_accounts.py`
+- `social/tests_achievements.py` — passing (32 tests: award_badge, generate_achievement_card, grant_cross_path_title, check_streak_milestones, check_level_milestones, quest completion integration, weekly boss integration)
 
-Total: 97 tests, all passing.
+Total: 129 tests, all passing.
 
 ### Frontend pages (`frontend/src/pages/`)
 
@@ -103,7 +105,7 @@ Total: 97 tests, all passing.
 ### Phase 5B functional gaps
 
 3. **Session 6 partially complete.** Outstanding: Step 73 (accountability partner invite flow), Step 76 (path-mechanic log endpoint audit).
-4. **Session 8 not started.** No achievement cards generated, badge system not wired to trigger events, leaderboards not implemented, cross-path identity titles not granted, weekly boss quest system only partially seeded.
+4. **Session 8A complete.** Badge catalog seeded (68 badges), achievement service live, trigger hooks wired into `complete_lineup_item` and `apply_post_completion_mechanics`, weekly boss completion service implemented. Remaining Session 8 work: leaderboards, frontend badge display, cross-path title UI.
 5. **Placeholder UI.** Dashboard leaderboard card, feed right-panel mini-leaderboard, and achievement blocks currently show hardcoded dummy data.
 6. **Layer 3 weekly rhythm tables not implemented.** `_apply_smart_suggestions` now has personalization weight (Day 14+ pillar history blending), but the per-path default weekly pillar priority tables (Mon=strength, Tue=cardio, etc.) from the spec are not yet built. The personalization layer correctly blends history from Day 14+ but has no default rhythm to blend against before Day 14.
 
@@ -136,7 +138,8 @@ Total: 97 tests, all passing.
 
 - ✅ **Session B1** — Personalization weight, feedback learning fix (+3/-3), swap learning wired into `_apply_smart_suggestions`. 15 new tests.
 - ✅ **Session B2** — Five algorithm gaps closed: (1) carry-over D/C verified, (2) `is_cross_path_bonus` field added with `apply_cross_path_bonus_flags` post-generation flagging, (3) Visionary XP multiplier now applied to base + cross-path bonus consistently, (4) `SKILL_TREE_THRESHOLDS` defined in `paths/constants.py` + `check_and_unlock_skill_tree_nodes` hooked into `apply_post_completion_mechanics`, (5) `generate_daily_quests` scheduler restructured to group by timezone and only generate inside the local midnight window (00:00–00:14). 19 new tests; 1 migration (`quests/0009`).
-- **Session 8** — Social & Achievement Features (BUILD_ORDER steps 80–88).
+- ✅ **Session 8A** — Badge catalog (68 badges in `seed_badges` command), achievement service (`social/achievements.py`), trigger hooks in `complete_lineup_item` + `apply_post_completion_mechanics`, `complete_weekly_boss` service with EXP + Visionary multiplier + badge + card. `CompletionMechanicResult` extended with `badge_keys`. 32 new tests.
+- **Session 8** — Leaderboards, frontend badge/achievement UI (BUILD_ORDER steps 82–88).
 - **Session 9** — End-to-end verification (BUILD_ORDER steps 89–105).
 
 ### Stage C — Frontend polish pass (3–5 sessions)

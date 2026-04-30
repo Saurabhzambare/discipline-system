@@ -1,7 +1,7 @@
 # Discipline System — Build Order and Progress Tracker
 # docs/game-design/BUILD_ORDER.md
 
-**Last updated:** 2026-04-29 (B2 complete)
+**Last updated:** 2026-04-30 (Session 8A complete)
 
 ---
 
@@ -212,18 +212,23 @@ Read before this session:
 docs/game-design/systems/path-discovery.md
 docs/game-design/README.md cross-path section
 
-- [ ] Step 80: Build achievement card generation —
+- [x] Step 80: Build achievement card generation —
       auto-generated shareable image cards
       triggered by defined milestone events
       card contains: username level achievement
       date app branding
       user can download as image for Instagram
       user can post to in-app public profile
-- [ ] Step 81: Build badge system —
+      [Session 8A: AchievementCard model wired; generate_achievement_card() service;
+       triggered by level-up, weekly boss, DK armor, GV first-dollar events]
+- [x] Step 81: Build badge system —
       all path-specific badges defined
       badge awarded on milestone completion
       badges visible on public profile
       badge collection viewable by other players
+      [Session 8A: 68 badges in seed_badges command; award_badge() service;
+       trigger hooks in complete_lineup_item and apply_post_completion_mechanics;
+       check_streak_milestones, check_level_milestones, grant_cross_path_title]
 - [ ] Step 82: Build weekly EXP leaderboard
       per path —
       resets Monday 00:00
@@ -258,13 +263,15 @@ docs/game-design/README.md cross-path section
       Elixir progress visualization (Alchemist)
       skill tree current node (Visionary)
       output log public entries (Visionary)
-- [ ] Step 88: Build weekly boss quest system —
+- [x] Step 88: Build weekly boss quest system —
       appears every Monday reset Monday 00:00
       one boss quest per path
       rotating examples per path as defined
       completion awards EXP plus exclusive badge
       Visionary boss quest EXP has
       multiplier applied
+      [Session 8A: complete_weekly_boss() service; awards path-specific + universal
+       boss badges; generates AchievementCard; applies Visionary XP multiplier]
 
 ---
 
