@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import PostCard from '../components/PostCard';
 import PostComposer from '../components/PostComposer';
+import { getGlobalLeaderboard } from '../api';
 
 /* ── Feature E: Rich empty state ── */
 function FeedEmptyState({ onNavigate, onFocusComposer }) {
@@ -116,30 +118,63 @@ function FeedRightPanel({ player, friends, onNavigate }) {
         )}
       </div>
 
-      {/* Mini leaderboard (placeholder — real data = player + friends) */}
-      <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4">
-        <p className="mb-3 text-xs font-semibold text-slate-300">Top Hunters</p>
+      {/* Global cross-path leaderboard */}
+      <GlobalLeaderboardCard player={player} />
+    </aside>
+  );
+}
+
+function GlobalLeaderboardCard({ player }) {
+  const [state, setState] = useState({ data: null, loading: true, error: '' });
+
+  useEffect(() => {
+    let cancelled = false;
+    getGlobalLeaderboard()
+      .then((result) => {
+        if (!cancelled) setState({ data: result, loading: false, error: '' });
+      })
+      .catch((err) => {
+        if (!cancelled) setState({ data: null, loading: false, error: err.message || 'Failed to load leaderboard.' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { data, loading, error } = state;
+
+  const top = (data?.leaderboard || []).slice(0, 3);
+
+  return (
+    <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4">
+      <p className="mb-3 text-xs font-semibold text-slate-300">Top Hunters</p>
+      {loading && <p className="text-[10px] text-slate-500">Loading…</p>}
+      {!loading && error && <p className="text-[10px] text-rose-400">{error}</p>}
+      {!loading && !error && top.length === 0 && (
+        <p className="text-[10px] text-slate-500">No data yet.</p>
+      )}
+      {!loading && !error && top.length > 0 && (
         <ol className="space-y-2">
-          {[
-            player ? { rank: 1, name: player.username, exp: player.exp } : null,
-            ...friends.slice(0, 2).map((f, i) => ({ rank: i + 2, name: f.username, exp: '—' })),
-          ]
-            .filter(Boolean)
-            .map((entry) => (
-              <li key={entry.rank} className="flex items-center gap-2.5">
+          {top.map((entry) => {
+            const isMe = player?.id === entry.player_id;
+            return (
+              <li key={entry.player_id} className="flex items-center gap-2.5">
                 <span className={`w-4 text-center text-xs font-bold ${entry.rank === 1 ? 'text-amber-400' : 'text-slate-600'}`}>
                   {entry.rank}
                 </span>
                 <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#1a3a5c] bg-[#060d1a] text-[9px] text-slate-400">
-                  {entry.name.charAt(0).toUpperCase()}
+                  {entry.username ? entry.username.charAt(0).toUpperCase() : '?'}
                 </div>
-                <span className="flex-1 truncate text-xs text-slate-300">{entry.name}</span>
-                <span className="text-[10px] font-semibold text-amber-400">{entry.exp !== '—' ? `${entry.exp} EXP` : '—'}</span>
+                <span className={`flex-1 truncate text-xs ${isMe ? 'text-amber-300' : 'text-slate-300'}`}>
+                  {entry.username}{isMe ? ' (You)' : ''}
+                </span>
+                <span className="text-[10px] font-semibold text-amber-400">{entry.exp} EXP</span>
               </li>
-            ))}
+            );
+          })}
         </ol>
-      </div>
-    </aside>
+      )}
+    </div>
   );
 }
 

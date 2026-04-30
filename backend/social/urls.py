@@ -4,6 +4,7 @@ from .views import (
     AccountabilityRequestAcceptView,
     AccountabilityRequestListCreateView,
     AccountabilityRequestRejectView,
+    ArmorLeaderboardView,
     FriendRemoveView,
     FriendRequestAcceptView,
     FriendRequestCancelView,
@@ -15,7 +16,10 @@ from .views import (
     GroupLeaveView,
     GroupListCreateView,
     GroupMembershipListView,
+    GlobalLeaderboardView,
+    MultiplierStreakLeaderboardView,
     NotificationsView,
+    OutputMonthlyLeaderboardView,
     PlayerSearchView,
     PostCommentDetailView,
     PostCommentListCreateView,
@@ -23,6 +27,7 @@ from .views import (
     PublicProfileView,
     SocialPostDetailView,
     SocialPostListCreateView,
+    WeeklyLeaderboardView,
 )
 
 urlpatterns = [
@@ -48,4 +53,9 @@ urlpatterns = [
     path("groups/<int:group_id>/feed/", GroupFeedView.as_view(), name="social-group-feed"),
     path("players/search/", PlayerSearchView.as_view(), name="social-player-search"),
     path("notifications/", NotificationsView.as_view(), name="social-notifications"),
+    path("leaderboards/weekly/<str:path>/", WeeklyLeaderboardView.as_view(), name="social-leaderboard-weekly"),
+    path("leaderboards/global/", GlobalLeaderboardView.as_view(), name="social-leaderboard-global"),
+    path("leaderboards/armor/", ArmorLeaderboardView.as_view(), name="social-leaderboard-armor"),
+    path("leaderboards/multiplier-streak/", MultiplierStreakLeaderboardView.as_view(), name="social-leaderboard-multiplier-streak"),
+    path("leaderboards/output-monthly/", OutputMonthlyLeaderboardView.as_view(), name="social-leaderboard-output-monthly"),
 ]

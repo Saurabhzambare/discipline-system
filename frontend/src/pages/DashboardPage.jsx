@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import QuestCard from '../components/QuestCard';
+import { getWeeklyLeaderboard } from '../api';
 
 function calcExpProgress(player) {
   const inLevel = Math.max(player?.exp_in_level || 0, 0);
@@ -206,32 +207,77 @@ function ProgressPanel({ player, quests, doneTodayCount }) {
         </div>
       </div>
 
-      {/* Leaderboard (placeholder) */}
-      <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4">
-        <h3 className="mb-3 text-sm font-semibold text-slate-200">Leaderboard</h3>
-        <ol className="space-y-2">
-          {[
-            { rank: 1, name: player?.username || 'You', level: player?.level ?? 1, exp: `+${player?.exp ?? 0}` },
-            { rank: 2, name: '—', level: '—', exp: '—' },
-            { rank: 3, name: '—', level: '—', exp: '—' },
-          ].map((entry) => (
-            <li key={entry.rank} className="flex items-center gap-3">
-              <span className={`w-5 text-center text-sm font-bold ${entry.rank === 1 ? 'text-amber-400' : 'text-slate-600'}`}>
-                {entry.rank}
-              </span>
-              <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#1a3a5c] bg-slate-800 text-xs text-slate-400">
-                {entry.name !== '—' ? entry.name.charAt(0).toUpperCase() : '?'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-xs font-medium text-slate-300">{entry.name}</p>
-                {entry.level !== '—' && <p className="text-[10px] text-slate-500">Level {entry.level}</p>}
-              </div>
-              <span className="text-xs font-semibold text-amber-400">{entry.exp !== '—' ? `${entry.exp} EXP` : '—'}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
+      {/* Weekly leaderboard */}
+      <WeeklyLeaderboardCard player={player} />
     </aside>
+  );
+}
+
+/* ── Weekly leaderboard card ── */
+function WeeklyLeaderboardCard({ player }) {
+  const path = player?.path || '';
+  const [state, setState] = useState({ data: null, loading: !!path, error: '' });
+
+  useEffect(() => {
+    if (!path) return undefined;
+    let cancelled = false;
+    getWeeklyLeaderboard(path)
+      .then((result) => {
+        if (!cancelled) setState({ data: result, loading: false, error: '' });
+      })
+      .catch((err) => {
+        if (!cancelled) setState({ data: null, loading: false, error: err.message || 'Failed to load leaderboard.' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  const { data, loading, error } = state;
+
+  const top = (data?.leaderboard || []).slice(0, 5);
+  const userRank = data?.user_rank ?? null;
+  const showOwnRank = userRank && userRank > 5;
+
+  return (
+    <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4">
+      <h3 className="mb-3 text-sm font-semibold text-slate-200">Weekly Leaderboard</h3>
+      {loading && <p className="text-xs text-slate-500">Loading…</p>}
+      {!loading && error && (
+        <p className="text-xs text-rose-400">{error}</p>
+      )}
+      {!loading && !error && top.length === 0 && (
+        <p className="text-xs text-slate-500">No data yet.</p>
+      )}
+      {!loading && !error && top.length > 0 && (
+        <ol className="space-y-2">
+          {top.map((entry) => {
+            const isMe = player?.id === entry.player_id;
+            return (
+              <li key={entry.player_id} className="flex items-center gap-3">
+                <span className={`w-5 text-center text-sm font-bold ${entry.rank === 1 ? 'text-amber-400' : 'text-slate-600'}`}>
+                  {entry.rank}
+                </span>
+                <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#1a3a5c] bg-slate-800 text-xs text-slate-400">
+                  {entry.username ? entry.username.charAt(0).toUpperCase() : '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`truncate text-xs font-medium ${isMe ? 'text-amber-300' : 'text-slate-300'}`}>
+                    {entry.username}{isMe ? ' (You)' : ''}
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-amber-400">{entry.exp} EXP</span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      {showOwnRank && (
+        <p className="mt-3 border-t border-[#1a3a5c] pt-2 text-xs text-slate-400">
+          You: <span className="font-semibold text-amber-300">#{userRank}</span>
+        </p>
+      )}
+    </div>
   );
 }
 

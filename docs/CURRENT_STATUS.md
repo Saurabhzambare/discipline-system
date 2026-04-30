@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-04-30 (Session 8A complete)
+**Last updated:** 2026-04-30 (Session 8B leaderboards complete)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -34,7 +34,8 @@ All frontend polish will be done here using Claude Code.
 | Session B1 | Personalization weight, feedback learning fix, swap learning — all wired and tested | ✅ Complete |
 | Session B2 | Algorithm gaps: carry-over verified, cross-path bonus visual flag, Visionary multiplier on bonus, skill tree thresholds, midnight scheduler hardened | ✅ Complete |
 | Session 8A | Badge catalog (seed_badges), achievement service, trigger hooks, weekly boss completion, 32 tests | ✅ Complete |
-| Session 8 | Social & Achievement Features — leaderboards, frontend badge UI, cross-path title display | 🟡 In progress |
+| Session 8B | Leaderboards — 5 endpoints (weekly per path, global, armor, multiplier streak, output monthly), Dashboard + Feed real-data widgets, 45 tests | ✅ Complete |
+| Session 8 | Social & Achievement Features — leaderboards (8B done), frontend badge UI, cross-path title display | 🟡 In progress |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
 
 
@@ -76,9 +77,9 @@ Total: 129 tests, all passing.
 - `LoginPage.jsx`
 - `SignupPage.jsx`
 - `PathOnboardingPage.jsx` (new 5-path onboarding: quiz → results → path-specific form → commitment)
-- `DashboardPage.jsx` (quest lineup, completion ring, intention, swap, feedback, EOD summary, path mechanics widgets, placeholder leaderboard)
+- `DashboardPage.jsx` (quest lineup, completion ring, intention, swap, feedback, EOD summary, path mechanics widgets, weekly leaderboard fed by `/api/social/leaderboards/weekly/<path>/`)
 - `ProfilePage.jsx` (player stats, friends list, friend request lifecycle)
-- `FeedPage.jsx` (posts CRUD, comments, reactions, profile modal, placeholder mini-leaderboard)
+- `FeedPage.jsx` (posts CRUD, comments, reactions, profile modal, global cross-path mini-leaderboard fed by `/api/social/leaderboards/global/`)
 - `GroupsPage.jsx` (create/join/leave groups, group feed)
 - `ComingSoonPage.jsx` (roadmap showcase — not wired to backend)
 - `PreviewPage.jsx` (static demo screen — not wired)
@@ -109,7 +110,7 @@ Total: 129 tests, all passing.
 
 3. **Session 6 partially complete.** Outstanding: Step 73 (accountability partner invite flow), Step 76 (path-mechanic log endpoint audit).
 4. **Session 8A complete.** Badge catalog seeded (68 badges), achievement service live, trigger hooks wired into `complete_lineup_item` and `apply_post_completion_mechanics`, weekly boss completion service implemented. Remaining Session 8 work: leaderboards, frontend badge display, cross-path title UI.
-5. **Placeholder UI.** Dashboard leaderboard card, feed right-panel mini-leaderboard, and achievement blocks currently show hardcoded dummy data.
+5. **Placeholder UI (partial).** Dashboard leaderboard and feed right-panel mini-leaderboard are now backed by real API data (Session 8B). Achievement blocks still show hardcoded dummy data.
 6. **Layer 3 weekly rhythm tables not implemented.** `_apply_smart_suggestions` now has personalization weight (Day 14+ pillar history blending), but the per-path default weekly pillar priority tables (Mon=strength, Tue=cardio, etc.) from the spec are not yet built. The personalization layer correctly blends history from Day 14+ but has no default rhythm to blend against before Day 14.
 
 ### Production readiness
@@ -150,8 +151,8 @@ Total: 129 tests, all passing.
 This replaces the abandoned Lovable plan. Work is done here in Claude Code.
 
 - Design system pass: Tailwind tokens, colour palette (Solo Leveling dark/cyan/amber), typography scale, shared component primitives.
-- Replace placeholder Dashboard leaderboard with real backend leaderboard data (depends on Session 8).
-- Replace placeholder Feed leaderboard with real data.
+- ✅ Dashboard leaderboard now wired to real backend data (Session 8B).
+- ✅ Feed mini-leaderboard now wired to real backend data (Session 8B).
 - Polish completion ring, EOD summary modal, tomorrow preview, missed-day return interstitial, adaptive nudge prompt — currently shipped as minimal "proving UI."
 - Polish path mechanics widgets: War Room, Wisdom Log, Body Journal, Output Log, Vision Board, Skill Tree display.
 - Login/signup visual redesign toward immersive Solo Leveling aesthetic.

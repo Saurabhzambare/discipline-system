@@ -563,3 +563,30 @@ export async function completeOnboarding(pathCode) {
     body: { path_code: pathCode },
   });
 }
+
+// ── Leaderboards ────────────────────────────────────────────────────────────
+
+export async function getWeeklyLeaderboard(path, { limit } = {}) {
+  const query = limit ? `?limit=${encodeURIComponent(limit)}` : '';
+  return authedRequest(`/api/social/leaderboards/weekly/${encodeURIComponent(path)}/${query}`);
+}
+
+export async function getGlobalLeaderboard({ limit } = {}) {
+  const query = limit ? `?limit=${encodeURIComponent(limit)}` : '';
+  return authedRequest(`/api/social/leaderboards/global/${query}`);
+}
+
+export async function getArmorLeaderboard({ limit } = {}) {
+  const query = limit ? `?limit=${encodeURIComponent(limit)}` : '';
+  return authedRequest(`/api/social/leaderboards/armor/${query}`);
+}
+
+export async function getMultiplierStreakLeaderboard({ limit } = {}) {
+  const query = limit ? `?limit=${encodeURIComponent(limit)}` : '';
+  return authedRequest(`/api/social/leaderboards/multiplier-streak/${query}`);
+}
+
+export async function getOutputMonthlyLeaderboard({ limit } = {}) {
+  const query = limit ? `?limit=${encodeURIComponent(limit)}` : '';
+  return authedRequest(`/api/social/leaderboards/output-monthly/${query}`);
+}
