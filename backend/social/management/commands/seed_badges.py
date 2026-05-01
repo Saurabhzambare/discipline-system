@@ -2,7 +2,7 @@
 
 from django.core.management.base import BaseCommand
 
-from social.models import Badge
+from social.models import Badge, UserBadge
 
 
 BADGE_CATALOG = [
@@ -74,7 +74,7 @@ BADGE_CATALOG = [
     },
     # ── Universal: Cross-path title badges ────────────────────────────────────
     {
-        "key": "cross_path_warrior_sage",
+        "key": "title_warrior_sage",
         "name": "Warrior-Sage",
         "description": "Active on 2 paths simultaneously.",
         "tier": "silver",
@@ -82,7 +82,7 @@ BADGE_CATALOG = [
         "icon_name": "cross_path_2",
     },
     {
-        "key": "cross_path_optimized_human",
+        "key": "title_optimized_human",
         "name": "Optimized Human",
         "description": "Active on 3 paths simultaneously.",
         "tier": "gold",
@@ -90,7 +90,7 @@ BADGE_CATALOG = [
         "icon_name": "cross_path_3",
     },
     {
-        "key": "cross_path_complete_human",
+        "key": "title_complete_human",
         "name": "Complete Human",
         "description": "Active on 4 paths simultaneously.",
         "tier": "platinum",
@@ -98,7 +98,7 @@ BADGE_CATALOG = [
         "icon_name": "cross_path_4",
     },
     {
-        "key": "cross_path_renaissance_human",
+        "key": "title_renaissance_human",
         "name": "Renaissance Human",
         "description": "Active on all 5 paths simultaneously.",
         "tier": "legendary",
@@ -558,6 +558,13 @@ class Command(BaseCommand):
     help = "Seed or refresh the badge catalog idempotently."
 
     def handle(self, *args, **options):
+        legacy_title_key_map = {
+            "cross_path_warrior_sage": "title_warrior_sage",
+            "cross_path_optimized_human": "title_optimized_human",
+            "cross_path_complete_human": "title_complete_human",
+            "cross_path_renaissance_human": "title_renaissance_human",
+        }
+
         created = 0
         updated = 0
         for spec in BADGE_CATALOG:
@@ -577,6 +584,23 @@ class Command(BaseCommand):
             else:
                 updated += 1
 
+        migrated = 0
+        for legacy_key, canonical_key in legacy_title_key_map.items():
+            try:
+                legacy_badge = Badge.objects.get(key=legacy_key)
+                canonical_badge = Badge.objects.get(key=canonical_key)
+            except Badge.DoesNotExist:
+                continue
+
+            legacy_links = UserBadge.objects.filter(badge=legacy_badge).select_related("player")
+            for link in legacy_links:
+                UserBadge.objects.get_or_create(player=link.player, badge=canonical_badge)
+            moved_count = legacy_links.count()
+            legacy_links.delete()
+            legacy_badge.delete()
+            migrated += moved_count
+
         self.stdout.write(self.style.SUCCESS(
-            f"Badge catalog seeded: {created} created, {updated} updated ({created + updated} total)."
+            f"Badge catalog seeded: {created} created, {updated} updated "
+            f"({created + updated} total), {migrated} legacy title awards migrated."
         ))

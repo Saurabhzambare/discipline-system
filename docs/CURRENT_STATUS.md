@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-04-30 (Session 8B leaderboards complete)
+**Last updated:** 2026-05-01 (Post-C2 stabilization audit)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -10,10 +10,8 @@ Every session should read this first. Update it at the end of every session.
 
 **Phase 5B — Quest System Redesign** (in progress)
 
-We are in the middle of Phase 5B. Multiple sessions have been completed.
-The next work is closing out Session 6, then executing Sessions 8 and 9.
-The old plan to hand off the frontend to Lovable has been **abandoned**.
-All frontend polish will be done here using Claude Code.
+Stages A, B, C1, and C2 are complete. A post-C2 stabilization patch has been applied.
+Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D).
 
 ---
 
@@ -36,6 +34,12 @@ All frontend polish will be done here using Claude Code.
 | Session 8A | Badge catalog (seed_badges), achievement service, trigger hooks, weekly boss completion, 32 tests | ✅ Complete |
 | Session 8B | Leaderboards — 5 endpoints (weekly per path, global, armor, multiplier streak, output monthly), Dashboard + Feed real-data widgets, 45 tests | ✅ Complete |
 | Session 8 | Social & Achievement Features — leaderboards (8B done), frontend badge UI, cross-path title display | 🟡 In progress |
+| C1 | Badge system + achievement cards foundation | ✅ Complete |
+| C2 | Leaderboards + stabilization fixes (exp_awarded + public profile ownership) | ✅ Complete |
+| C3A | Weekly boss user-facing flow (frontend + endpoint wiring audit scope) | 🟡 In progress |
+| C3B | Cross-path title reward flow + badge-key validation follow-through | ⬜ Not started |
+| C3C | Public profile enhancements and social identity presentation | ⬜ Not started |
+| C3D | End-to-end C3 verification and release gate | ⬜ Not started |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
 
 
@@ -70,7 +74,7 @@ All frontend polish will be done here using Claude Code.
 - `paths/tests_seed_session6_accounts.py`
 - `social/tests_achievements.py` — passing (32 tests: award_badge, generate_achievement_card, grant_cross_path_title, check_streak_milestones, check_level_milestones, quest completion integration, weekly boss integration)
 
-Total: 129 tests, all passing.
+Total: 178 tests, all passing.
 
 ### Frontend pages (`frontend/src/pages/`)
 
@@ -109,8 +113,8 @@ Total: 129 tests, all passing.
 ### Phase 5B functional gaps
 
 3. **Session 6 partially complete.** Outstanding: Step 73 (accountability partner invite flow), Step 76 (path-mechanic log endpoint audit).
-4. **Session 8A complete.** Badge catalog seeded (68 badges), achievement service live, trigger hooks wired into `complete_lineup_item` and `apply_post_completion_mechanics`, weekly boss completion service implemented. Remaining Session 8 work: leaderboards, frontend badge display, cross-path title UI.
-5. **Placeholder UI (partial).** Dashboard leaderboard and feed right-panel mini-leaderboard are now backed by real API data (Session 8B). Achievement blocks still show hardcoded dummy data.
+4. **Stabilization patch applied after C2.** Locked fixes: `QuestCompletion.exp_awarded` source-of-truth, weekly/global leaderboard aggregation from completion records with legacy fallback, and safe public-profile ownership lookup via player relation.
+5. **Placeholder UI (partial).** Dashboard leaderboard and feed right-panel mini-leaderboard are now backed by real API data (Session 8B/C2 baseline). Achievement blocks still show hardcoded dummy data.
 6. **Layer 3 weekly rhythm tables not implemented.** `_apply_smart_suggestions` now has personalization weight (Day 14+ pillar history blending), but the per-path default weekly pillar priority tables (Mon=strength, Tue=cardio, etc.) from the spec are not yet built. The personalization layer correctly blends history from Day 14+ but has no default rhythm to blend against before Day 14.
 
 ### Production readiness

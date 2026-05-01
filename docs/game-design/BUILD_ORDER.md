@@ -1,7 +1,7 @@
 # Discipline System — Build Order and Progress Tracker
 # docs/game-design/BUILD_ORDER.md
 
-**Last updated:** 2026-04-30 (Session 8A complete)
+**Last updated:** 2026-05-01 (C2 stabilization audit)
 
 ---
 
@@ -287,7 +287,7 @@ docs/game-design/README.md cross-path section
       multiplier applied
       [Session 8A: complete_weekly_boss() service; awards path-specific + universal
        boss badges; generates AchievementCard; applies Visionary XP multiplier]
-      Partial backend completion service exists from Session 8A; full user-facing weekly boss flow remains for Session 8C.
+      Backend completion service exists from Session 8A; user-facing flow is Session C3A scope.
 
 ---
 

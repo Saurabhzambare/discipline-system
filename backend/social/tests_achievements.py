@@ -11,6 +11,7 @@ Session 8A achievement tests:
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
@@ -161,10 +162,10 @@ class GrantCrossPathTitleTests(TestCase):
 
     def _setup_paths(self, player, paths):
         _make_selection(player, paths=paths)
-        _make_badge("cross_path_warrior_sage", "silver")
-        _make_badge("cross_path_optimized_human", "gold")
-        _make_badge("cross_path_complete_human", "platinum")
-        _make_badge("cross_path_renaissance_human", "legendary")
+        _make_badge("title_warrior_sage", "silver")
+        _make_badge("title_optimized_human", "gold")
+        _make_badge("title_complete_human", "platinum")
+        _make_badge("title_renaissance_human", "legendary")
 
     def test_single_path_no_badge(self):
         p = _make_player("cp1")
@@ -177,25 +178,25 @@ class GrantCrossPathTitleTests(TestCase):
         self._setup_paths(p, ["fitness_warrior", "mindset_sage"])
         badges = grant_cross_path_title(p)
         keys = [b.key for b in badges]
-        self.assertIn("cross_path_warrior_sage", keys)
-        self.assertNotIn("cross_path_optimized_human", keys)
+        self.assertIn("title_warrior_sage", keys)
+        self.assertNotIn("title_optimized_human", keys)
 
     def test_three_paths_optimized_human(self):
         p = _make_player("cp3")
         self._setup_paths(p, ["fitness_warrior", "mindset_sage", "health_alchemist"])
         badges = grant_cross_path_title(p)
         keys = [b.key for b in badges]
-        self.assertIn("cross_path_warrior_sage", keys)
-        self.assertIn("cross_path_optimized_human", keys)
-        self.assertNotIn("cross_path_complete_human", keys)
+        self.assertIn("title_warrior_sage", keys)
+        self.assertIn("title_optimized_human", keys)
+        self.assertNotIn("title_complete_human", keys)
 
     def test_four_paths_complete_human(self):
         p = _make_player("cp4")
         self._setup_paths(p, ["fitness_warrior", "mindset_sage", "health_alchemist", "discipline_knight"])
         badges = grant_cross_path_title(p)
         keys = [b.key for b in badges]
-        self.assertIn("cross_path_complete_human", keys)
-        self.assertNotIn("cross_path_renaissance_human", keys)
+        self.assertIn("title_complete_human", keys)
+        self.assertNotIn("title_renaissance_human", keys)
 
     def test_five_paths_renaissance_human(self):
         p = _make_player("cp5")
@@ -203,7 +204,7 @@ class GrantCrossPathTitleTests(TestCase):
                                "discipline_knight", "grind_visionary"])
         badges = grant_cross_path_title(p)
         keys = [b.key for b in badges]
-        self.assertIn("cross_path_renaissance_human", keys)
+        self.assertIn("title_renaissance_human", keys)
 
     def test_idempotent_second_call_returns_empty(self):
         p = _make_player("cp6")
@@ -211,6 +212,37 @@ class GrantCrossPathTitleTests(TestCase):
         grant_cross_path_title(p)
         second = grant_cross_path_title(p)
         self.assertEqual(second, [])
+
+    def test_no_silent_noop_with_expected_title_key(self):
+        p = _make_player("cp7")
+        _make_selection(p, paths=["fitness_warrior", "mindset_sage"])
+        _make_badge("title_warrior_sage", "silver")
+        awarded = grant_cross_path_title(p)
+        self.assertEqual([b.key for b in awarded], ["title_warrior_sage"])
+
+
+class SeedBadgesTitleKeyTests(TestCase):
+
+    def test_seed_badges_creates_title_keys(self):
+        call_command("seed_badges")
+        for key in [
+            "title_warrior_sage",
+            "title_optimized_human",
+            "title_complete_human",
+            "title_renaissance_human",
+        ]:
+            self.assertTrue(Badge.objects.filter(key=key).exists())
+
+    def test_seed_badges_migrates_legacy_cross_path_user_badges(self):
+        player = _make_player("seed_migrate")
+        legacy = _make_badge("cross_path_warrior_sage", "silver")
+        UserBadge.objects.create(player=player, badge=legacy)
+
+        call_command("seed_badges")
+
+        self.assertTrue(Badge.objects.filter(key="title_warrior_sage").exists())
+        self.assertFalse(Badge.objects.filter(key="cross_path_warrior_sage").exists())
+        self.assertTrue(UserBadge.objects.filter(player=player, badge__key="title_warrior_sage").exists())
 
 
 # ── check_streak_milestones ───────────────────────────────────────────────────
