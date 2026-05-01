@@ -10,10 +10,10 @@ from .models import AchievementCard, Badge, UserBadge, WeeklyBossCompletion, Wee
 
 # Keys that map number of active paths to cross-path title badge keys.
 _CROSS_PATH_TITLE_KEYS = {
-    2: "cross_path_warrior_sage",
-    3: "cross_path_optimized_human",
-    4: "cross_path_complete_human",
-    5: "cross_path_renaissance_human",
+    2: "title_warrior_sage",
+    3: "title_optimized_human",
+    4: "title_complete_human",
+    5: "title_renaissance_human",
 }
 
 _STREAK_MILESTONE_KEYS = {
