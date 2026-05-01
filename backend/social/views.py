@@ -247,6 +247,9 @@ class PublicProfileView(SocialBaseView):
         except SocialNotFoundError as error:
             return self.not_found(error)
 
+        request_player = getattr(request.user, "player", None)
+        is_own_profile = bool(request_player and request_player.id == player.id)
+
         payload = {
             "id": player.id,
             "username": player.user.username,
@@ -255,6 +258,7 @@ class PublicProfileView(SocialBaseView):
             "streak": player.streak,
             "recent_activity": profile_activity_queryset(target_player=player)[:20],
             "recent_posts": profile_posts_queryset(target_player=player)[:10],
+            "is_own_profile": is_own_profile,
         }
 
         serializer = PublicProfileSerializer(payload)

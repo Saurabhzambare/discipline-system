@@ -88,6 +88,7 @@ class PublicProfileSerializer(serializers.Serializer):
     streak = serializers.IntegerField()
     recent_activity = ActivityEventSerializer(many=True)
     recent_posts = PublicProfilePostSerializer(many=True)
+    is_own_profile = serializers.BooleanField(required=False)
 
 
 class PostCreateSerializer(serializers.Serializer):
