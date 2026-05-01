@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone as dt_timezone
 from typing import Optional
 
-from django.db.models import Count, F, IntegerField, Q, Sum, Value
+from django.db.models import Case, Count, F, IntegerField, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
 
 from players.models import Player
@@ -93,7 +93,19 @@ def weekly_exp_leaderboard(
         .values("player_id", username=F("player__user__username"))
         # Use completion records so today's completions appear immediately,
         # without waiting for end-of-day summary generation.
-        .annotate(exp=Coalesce(Sum("quest__exp_reward"), Value(0), output_field=IntegerField()))
+        .annotate(
+            exp=Coalesce(
+                Sum(
+                    Case(
+                        When(exp_awarded__gt=0, then=F("exp_awarded")),
+                        default=F("quest__exp_reward"),
+                        output_field=IntegerField(),
+                    )
+                ),
+                Value(0),
+                output_field=IntegerField(),
+            )
+        )
         .filter(exp__gt=0)
         .order_by("-exp", "player_id")
     )
@@ -116,7 +128,8 @@ def global_cross_path_leaderboard(
 ) -> dict:
     """Top players globally by total weekly EXP across all active paths.
 
-    Uses raw quest-completion EXP (``quest.exp_reward``) from completion records.
+    Uses raw awarded EXP from completion records (``exp_awarded``).
+    Falls back to ``quest.exp_reward`` only for historical rows with zero.
     This intentionally avoids double-applying Visionary multipliers at read time.
     """
     from quests.models import QuestCompletion
@@ -127,7 +140,19 @@ def global_cross_path_leaderboard(
     qs = (
         QuestCompletion.objects.filter(completion_date__gte=week_start)
         .values("player_id", username=F("player__user__username"))
-        .annotate(exp=Coalesce(Sum("quest__exp_reward"), Value(0), output_field=IntegerField()))
+        .annotate(
+            exp=Coalesce(
+                Sum(
+                    Case(
+                        When(exp_awarded__gt=0, then=F("exp_awarded")),
+                        default=F("quest__exp_reward"),
+                        output_field=IntegerField(),
+                    )
+                ),
+                Value(0),
+                output_field=IntegerField(),
+            )
+        )
         .filter(exp__gt=0)
         .order_by("-exp", "player_id")
     )

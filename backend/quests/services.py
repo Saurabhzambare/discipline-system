@@ -802,7 +802,7 @@ def complete_lineup_item(player, lineup_item_id: int):
     item.completed_at = now
     item.save(update_fields=["completed", "completed_at"])
 
-    QuestCompletion.objects.get_or_create(
+    completion, _ = QuestCompletion.objects.get_or_create(
         player=player,
         quest=item.quest,
         completion_date=local_today,
@@ -846,6 +846,9 @@ def complete_lineup_item(player, lineup_item_id: int):
         player.exp += mechanic_result.bonus_exp
         player.level = calculate_level_from_exp(player.exp)
         player.save(update_fields=["exp", "level", "updated_at"])
+
+    completion.exp_awarded = exp_earned + bonus_exp + int(mechanic_result.bonus_exp or 0)
+    completion.save(update_fields=["exp_awarded"])
 
     # Badge and achievement card triggers.
     from social.achievements import (

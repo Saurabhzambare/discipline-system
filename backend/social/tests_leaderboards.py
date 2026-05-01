@@ -54,7 +54,7 @@ def _add_completion(
     )
 
 
-def _add_completion(player: Player, *, path: str, completion_date: date, exp: int):
+def _add_completion(player: Player, *, path: str, completion_date: date, exp: int, exp_awarded: int | None = None):
     quest = Quest.objects.create(
         title=f"{player.user.username}-{path}-{completion_date}-{exp}",
         description="leaderboard test quest",
@@ -67,6 +67,7 @@ def _add_completion(player: Player, *, path: str, completion_date: date, exp: in
         player=player,
         quest=quest,
         completion_date=completion_date,
+        exp_awarded=exp if exp_awarded is None else exp_awarded,
     )
 
 
@@ -76,7 +77,7 @@ class WeeklyExpLeaderboardTests(TestCase):
         self.week_start = _start_of_week_utc().date()
 
     def test_empty_state_returns_empty_list(self):
-        result = weekly_exp_leaderboard(self.path)
+        result = weekly_exp_leaderboard(Player.PATH_FITNESS_WARRIOR)
         self.assertEqual(result["leaderboard"], [])
         self.assertIsNone(result["user_rank"])
 
@@ -98,7 +99,7 @@ class WeeklyExpLeaderboardTests(TestCase):
         _add_completion(b, path=self.path, completion_date=self.week_start, exp=200)
         _add_completion(c, path=self.path, completion_date=self.week_start, exp=100)
 
-        result = weekly_exp_leaderboard(self.path)
+        result = weekly_exp_leaderboard(Player.PATH_FITNESS_WARRIOR)
         ids = [row["player_id"] for row in result["leaderboard"]]
         self.assertEqual(ids, [b.id, c.id, a.id])
 
@@ -149,13 +150,13 @@ class WeeklyExpLeaderboardTests(TestCase):
         p = _make_player("p", path=self.path)
         previous_week = self.week_start - timedelta(days=7)
         _add_completion(p, path=self.path, completion_date=previous_week, exp=999)
-        result = weekly_exp_leaderboard(self.path)
+        result = weekly_exp_leaderboard(Player.PATH_FITNESS_WARRIOR)
         self.assertEqual(result["leaderboard"], [])
 
     def test_current_week_does_contribute(self):
         p = _make_player("p", path=self.path)
         _add_completion(p, path=self.path, completion_date=self.week_start, exp=42)
-        result = weekly_exp_leaderboard(self.path)
+        result = weekly_exp_leaderboard(Player.PATH_FITNESS_WARRIOR)
         self.assertEqual(result["leaderboard"][0]["exp"], 42)
 
     def test_monday_boundary_sunday_excluded_monday_included(self):
@@ -168,10 +169,10 @@ class WeeklyExpLeaderboardTests(TestCase):
         ids = [r["player_id"] for r in rows]
         self.assertEqual(ids, [p_new.id])
 
-    def test_other_path_summaries_excluded(self):
+    def test_other_path_completions_excluded(self):
         p = _make_player("p", path=self.path)
         _add_completion(p, path=Player.PATH_MINDSET_SAGE, completion_date=self.week_start, exp=999)
-        result = weekly_exp_leaderboard(self.path)
+        result = weekly_exp_leaderboard(Player.PATH_FITNESS_WARRIOR)
         self.assertEqual(result["leaderboard"], [])
 
 
@@ -478,3 +479,34 @@ class LeaderboardEndpointAuthTests(TestCase):
         url = reverse("social-leaderboard-weekly", args=[Player.PATH_FITNESS_WARRIOR]) + "?limit=1"
         response = self.client.get(url)
         self.assertEqual(len(response.data["leaderboard"]), 1)
+
+    def test_weekly_uses_exp_awarded_not_quest_base_reward(self):
+        p = _make_player("awarded", path=Player.PATH_FITNESS_WARRIOR)
+        _add_completion(p, path=Player.PATH_FITNESS_WARRIOR, completion_date=self.week_start, exp=100, exp_awarded=180)
+        result = weekly_exp_leaderboard(Player.PATH_FITNESS_WARRIOR)
+        self.assertEqual(result["leaderboard"][0]["exp"], 180)
+
+
+class LeaderboardSourceTests(TestCase):
+    def setUp(self):
+        self.week_start = _start_of_week_utc().date()
+
+    def test_global_uses_exp_awarded_not_quest_base_reward(self):
+        p = _make_player("g_awarded", path=Player.PATH_FITNESS_WARRIOR)
+        _add_completion(p, path=Player.PATH_FITNESS_WARRIOR, completion_date=self.week_start, exp=90, exp_awarded=140)
+        rows = global_cross_path_leaderboard()["leaderboard"]
+        self.assertEqual(rows[0]["exp"], 140)
+
+    def test_weekly_and_global_ignore_daily_completion_summary(self):
+        p = _make_player("summary_only", path=Player.PATH_FITNESS_WARRIOR)
+        DailyCompletionSummary.objects.create(
+            player=p,
+            summary_date=self.week_start,
+            path=Player.PATH_FITNESS_WARRIOR,
+            quests_completed=1,
+            quests_total=1,
+            total_exp_earned=999,
+            bonus_exp_earned=0,
+        )
+        self.assertEqual(weekly_exp_leaderboard(Player.PATH_FITNESS_WARRIOR)["leaderboard"], [])
+        self.assertEqual(global_cross_path_leaderboard()["leaderboard"], [])

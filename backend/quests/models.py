@@ -150,6 +150,9 @@ class QuestCompletion(models.Model):
 
     completed_at = models.DateTimeField(default=timezone.now)
     completion_date = models.DateField(default=timezone.localdate)
+    # Actual EXP granted at completion time. Historical rows before this field
+    # may contain best-effort base EXP backfill values.
+    exp_awarded = models.PositiveIntegerField(default=0)
 
     class Meta:
         constraints = [

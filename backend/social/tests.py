@@ -220,10 +220,17 @@ class PublicProfileApiTests(TestCase):
         response = self.client.get(reverse("social-public-profile", args=[self.owner.player.id]))
 
         self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["is_own_profile"])
         self.assertIn("recent_activity", response.data)
         self.assertIn("recent_posts", response.data)
         self.assertEqual(len(response.data["recent_activity"]), 1)
         self.assertEqual(len(response.data["recent_posts"]), 1)
+
+    def test_public_profile_authenticated_request_safe_without_user_player_id(self):
+        response = self.client.get(reverse("social-public-profile", args=[self.viewer.player.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["is_own_profile"])
 
 
 class AccountabilityPartnerApiTests(TestCase):
