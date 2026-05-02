@@ -19,7 +19,10 @@ from .models import (
     SocialGroup,
 )
 from .selectors import (
+    profile_achievement_cards_selector,
     profile_activity_queryset,
+    profile_badges_selector,
+    profile_path_profiles_selector,
     profile_posts_queryset,
     visible_groups_queryset_for_player,
     visible_post_queryset_for_player,
@@ -267,6 +270,9 @@ class PublicProfileView(SocialBaseView):
             "recent_activity": profile_activity_queryset(target_player=player)[:20],
             "recent_posts": profile_posts_queryset(target_player=player)[:10],
             "is_own_profile": is_own_profile,
+            "path_profiles": profile_path_profiles_selector(player=player, is_own_profile=is_own_profile),
+            "badges": profile_badges_selector(player=player),
+            "achievement_cards": profile_achievement_cards_selector(player=player),
         }
 
         serializer = PublicProfileSerializer(payload)

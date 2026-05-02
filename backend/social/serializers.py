@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from .models import (
     AccountabilityPartnerRequest,
+    AchievementCard,
     ActivityEvent,
     FriendRequest,
     GroupMembership,
@@ -80,6 +81,32 @@ class PublicProfilePostSerializer(serializers.ModelSerializer):
         fields = ["id", "post_type", "content", "visibility", "group_id", "created_at", "updated_at", "is_edited"]
 
 
+class _BadgeItemSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    name = serializers.CharField()
+    tier = serializers.CharField()
+    earned_at = serializers.DateTimeField()
+
+
+class BadgeSummarySerializer(serializers.Serializer):
+    total_count = serializers.IntegerField()
+    titles = _BadgeItemSerializer(many=True)
+    recent = _BadgeItemSerializer(many=True)
+
+
+class AchievementCardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AchievementCard
+        fields = ["id", "title", "subtitle", "card_type", "earned_at", "metadata"]
+
+
+class PathProfileSerializer(serializers.Serializer):
+    path = serializers.CharField()
+    display_name = serializers.CharField()
+    summary = serializers.DictField()
+    own_only = serializers.DictField()
+
+
 class PublicProfileSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     username = serializers.CharField()
@@ -89,6 +116,9 @@ class PublicProfileSerializer(serializers.Serializer):
     recent_activity = ActivityEventSerializer(many=True)
     recent_posts = PublicProfilePostSerializer(many=True)
     is_own_profile = serializers.BooleanField(required=False)
+    path_profiles = PathProfileSerializer(many=True)
+    badges = BadgeSummarySerializer()
+    achievement_cards = AchievementCardSerializer(many=True)
 
 
 class PostCreateSerializer(serializers.Serializer):
