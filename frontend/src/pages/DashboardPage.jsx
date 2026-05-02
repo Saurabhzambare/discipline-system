@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import QuestCard from '../components/QuestCard';
-import { getWeeklyLeaderboard } from '../api';
+import { getWeeklyLeaderboard, getWeeklyBoss, completeWeeklyBoss } from '../api';
 
 function calcExpProgress(player) {
   const inLevel = Math.max(player?.exp_in_level || 0, 0);
@@ -277,6 +277,154 @@ function WeeklyLeaderboardCard({ player }) {
           You: <span className="font-semibold text-amber-300">#{userRank}</span>
         </p>
       )}
+    </div>
+  );
+}
+
+/* ── Weekly Boss Card ── */
+function WeeklyBossCard({ onRefresh }) {
+  const [state, setState] = useState({ data: null, loading: true, error: '' });
+  const [defeating, setDefeating] = useState(null);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ data: null, loading: true, error: '' });
+    getWeeklyBoss()
+      .then((data) => {
+        if (!cancelled) setState({ data, loading: false, error: '' });
+      })
+      .catch((err) => {
+        if (!cancelled) setState({ data: null, loading: false, error: err.message || 'Failed to load weekly boss.' });
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleDefeat = async (bossId) => {
+    setDefeating(bossId);
+    setResult(null);
+    try {
+      const res = await completeWeeklyBoss(bossId);
+      setResult(res);
+      // Re-fetch boss data
+      const fresh = await getWeeklyBoss();
+      setState({ data: fresh, loading: false, error: '' });
+      onRefresh?.();
+    } catch (err) {
+      setResult({ error: err.message || 'Failed to complete boss.' });
+    } finally {
+      setDefeating(null);
+    }
+  };
+
+  const { data, loading, error } = state;
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-rose-500/20 bg-gradient-to-br from-[#120a1e] via-[#0d1028] to-[#0a0618] p-5">
+        <p className="text-xs text-slate-500">Loading weekly boss…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-rose-500/30 bg-[#120a1e] p-5">
+        <p className="text-xs text-rose-400">{error}</p>
+      </div>
+    );
+  }
+
+  const bosses = data?.bosses || [];
+  if (bosses.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-rose-500/20 bg-gradient-to-br from-[#120a1e] via-[#0d1028] to-[#0a0618] p-5 shadow-[0_0_30px_rgba(239,68,68,0.08)]">
+      <div className="absolute-none inset-x-0 top-0" />
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-xl">⚔️</span>
+        <div>
+          <h2 className="text-lg font-bold text-rose-300">Weekly Boss</h2>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">
+            {data?.week_start} — {data?.week_end}
+          </p>
+        </div>
+      </div>
+
+      {result?.error && (
+        <div className="mb-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          {result.error}
+        </div>
+      )}
+
+      {result && !result.error && (
+        <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <p className="font-semibold">🏆 Boss Defeated!</p>
+          <p>+{result.exp_awarded} EXP earned</p>
+          {result.badges_earned?.length > 0 && (
+            <p>Badges: {result.badges_earned.join(', ')}</p>
+          )}
+          {result.level_up && (
+            <p className="mt-1 font-bold text-amber-300">⬆ Level Up! You are now Level {result.player_level}!</p>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {bosses.map((boss) => (
+          <div
+            key={boss.id}
+            className={`rounded-xl border p-4 transition-all ${
+              boss.state === 'completed'
+                ? 'border-emerald-500/30 bg-emerald-500/5'
+                : 'border-rose-500/30 bg-rose-500/5 hover:border-rose-400/50'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{boss.state === 'completed' ? '✅' : '💀'}</span>
+                  <h3 className={`text-sm font-bold ${
+                    boss.state === 'completed' ? 'text-emerald-300' : 'text-rose-200'
+                  }`}>
+                    {boss.title}
+                  </h3>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">{boss.description}</p>
+                {boss.path && (
+                  <span className="mt-2 inline-block rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+                    {boss.path.replace(/_/g, ' ')}
+                  </span>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-semibold text-amber-400">{boss.exp_reward} EXP</p>
+                <p className="text-[10px] text-slate-500">Rank S</p>
+              </div>
+            </div>
+
+            {boss.state === 'completed' && boss.completion && (
+              <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-300">
+                <p>Defeated • +{boss.completion.exp_awarded} EXP</p>
+                {boss.completion.badge_awarded && (
+                  <p className="text-amber-300">Badge: {boss.completion.badge_awarded}</p>
+                )}
+              </div>
+            )}
+
+            {boss.state === 'available' && (
+              <button
+                type="button"
+                disabled={defeating === boss.id}
+                onClick={() => handleDefeat(boss.id)}
+                className="mt-3 w-full rounded-lg border border-rose-500/50 bg-gradient-to-r from-rose-600/20 to-orange-600/20 px-4 py-2.5 text-sm font-semibold text-rose-200 transition hover:from-rose-600/30 hover:to-orange-600/30 hover:shadow-[0_0_20px_rgba(239,68,68,0.2)] disabled:cursor-wait disabled:opacity-60"
+              >
+                {defeating === boss.id ? 'Engaging Boss…' : '⚔️ Defeat Boss'}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1057,6 +1205,9 @@ export default function DashboardPage({
               </div>
             </div>
           </div>
+
+          {/* Weekly Boss */}
+          <WeeklyBossCard onRefresh={onRefresh} />
 
           {/* Quest list */}
           <div className="rounded-2xl border border-[#1a3a5c] bg-[#0a1628] p-5">

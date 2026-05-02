@@ -1,3 +1,4 @@
+from django.db import models
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -236,3 +237,141 @@ class AdaptiveDifficultyNudgeView(APIView):
         serializer = AdaptiveDifficultyDecisionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(set_adaptive_difficulty_decision(request.user.player, serializer.validated_data["decision"]))
+
+
+# ── Weekly Boss ──────────────────────────────────────────────────────────────
+
+class WeeklyBossView(APIView):
+    """GET /api/quests/weekly-boss/ — current week's boss(es) for the player."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        import datetime as _dt
+
+        from paths.models import UserPathSelection
+        from social.models import Badge, UserBadge, WeeklyBossCompletion, WeeklyBossQuest
+
+        player = request.user.player
+        today = timezone.localdate()
+        week_start = today - _dt.timedelta(days=today.weekday())
+        week_end = week_start + _dt.timedelta(days=6)
+
+        # Determine player's active paths.
+        active_paths = {player.path}
+        selection = UserPathSelection.objects.filter(player=player).first()
+        if selection and selection.multi_paths_active:
+            active_paths.update(selection.multi_paths_active)
+
+        # Fetch bosses for active paths in the current week.
+        bosses_qs = WeeklyBossQuest.objects.filter(
+            week_start=week_start,
+            is_active=True,
+        ).filter(
+            # path_target="" means all-path boss, or specific path in active set.
+            models.Q(path_target="") | models.Q(path_target__in=active_paths),
+        )
+
+        # Pre-fetch completions for this player + these bosses.
+        boss_ids = [b.id for b in bosses_qs]
+        completions_map = {}
+        for comp in WeeklyBossCompletion.objects.filter(player=player, boss_id__in=boss_ids):
+            completions_map[comp.boss_id] = comp
+
+        # Pre-fetch badge info for completed bosses that have a badge awarded.
+        earned_badge_keys = set(
+            UserBadge.objects.filter(player=player).values_list("badge__key", flat=True)
+        )
+
+        result_bosses = []
+        for boss in bosses_qs:
+            comp = completions_map.get(boss.id)
+            completion_data = None
+            state = "available"
+            if comp:
+                state = "completed"
+                # Determine badge awarded text.
+                badge_awarded = None
+                if boss.badge and boss.badge.key in earned_badge_keys:
+                    badge_awarded = boss.badge.key
+                completion_data = {
+                    "id": comp.id,
+                    "completed_at": comp.completed_at.isoformat() if comp.completed_at else None,
+                    "exp_awarded": comp.exp_awarded,
+                    "badge_awarded": badge_awarded,
+                }
+            result_bosses.append({
+                "id": boss.id,
+                "path": boss.path_target,
+                "title": boss.title,
+                "description": boss.description,
+                "exp_reward": boss.exp_reward,
+                "requirements": None,
+                "completion": completion_data,
+                "state": state,
+            })
+
+        return Response({
+            "week_start": week_start.isoformat(),
+            "week_end": week_end.isoformat(),
+            "bosses": result_bosses,
+        })
+
+
+class CompleteWeeklyBossView(APIView):
+    """POST /api/quests/weekly-boss/complete/ — defeat a weekly boss."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from social.achievements import complete_weekly_boss
+
+        boss_id = request.data.get("boss_id")
+        if boss_id is None:
+            return Response(
+                {"detail": "boss_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            boss_id = int(boss_id)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "boss_id must be an integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = complete_weekly_boss(request.user.player, boss_id)
+        except ValueError as exc:
+            error_msg = str(exc)
+            # Map known validation errors to appropriate HTTP status codes.
+            if "not available in the current week" in error_msg:
+                return Response({"detail": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+            if "not active on" in error_msg:
+                return Response({"detail": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+            if "not found" in error_msg:
+                return Response({"detail": error_msg}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": error_msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        if result.get("already_completed"):
+            return Response(
+                {"detail": "You have already defeated this boss this week."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return Response({
+            "completion": {
+                "id": result.get("achievement_card_id"),
+                "completed_at": timezone.now().isoformat(),
+                "exp_awarded": result["exp_awarded"],
+            },
+            "exp_awarded": result["exp_awarded"],
+            "badge_awarded": result["badges_earned"][0] if result.get("badges_earned") else None,
+            "badges_earned": result.get("badges_earned", []),
+            "achievement_card_id": result.get("achievement_card_id"),
+            "player_exp": result.get("player_exp"),
+            "player_level": result.get("player_level"),
+            "level_up": result.get("level_up", False),
+        })
+

@@ -203,6 +203,19 @@ export async function setAdaptiveNudgeDecision(decision) {
   });
 }
 
+// ── Weekly Boss ──────────────────────────────────────────────────────────────
+
+export async function getWeeklyBoss() {
+  return authedRequest('/api/quests/weekly-boss/');
+}
+
+export async function completeWeeklyBoss(bossId) {
+  return authedRequest('/api/quests/weekly-boss/complete/', {
+    method: 'POST',
+    body: { boss_id: bossId },
+  });
+}
+
 export async function getSocialPosts() {
   return authedRequest('/api/social/posts/');
 }

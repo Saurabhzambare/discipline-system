@@ -4,6 +4,7 @@ from .views import (
     AdaptiveDifficultyNudgeView,
     AlternativesAliasView,
     CompletionRingView,
+    CompleteWeeklyBossView,
     DailyIntentionView,
     DailyLineupCompleteView,
     DailyLineupView,
@@ -15,6 +16,7 @@ from .views import (
     QuestListView,
     SwapAlternativesView,
     SwapQuestView,
+    WeeklyBossView,
 )
 
 urlpatterns = [
@@ -32,4 +34,7 @@ urlpatterns = [
     path("completion-ring/", CompletionRingView.as_view(), name="quest-completion-ring"),
     path("tomorrow-preview/", TomorrowPreviewView.as_view(), name="quest-tomorrow-preview"),
     path("adaptive-nudge/", AdaptiveDifficultyNudgeView.as_view(), name="quest-adaptive-nudge"),
+    path("weekly-boss/", WeeklyBossView.as_view(), name="weekly-boss"),
+    path("weekly-boss/complete/", CompleteWeeklyBossView.as_view(), name="weekly-boss-complete"),
 ]
+

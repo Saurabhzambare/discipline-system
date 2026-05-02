@@ -119,20 +119,45 @@ def complete_weekly_boss(player: Player, boss_id: int) -> dict:
     """
     Record a player defeating a weekly boss and distribute rewards.
 
+    Validations:
+    - Boss must exist and be active.
+    - Boss must belong to the current calendar week (Monday–Sunday UTC).
+    - Boss path_target must match the player's primary or active paths.
+    - Duplicate completion is idempotent (returns ``already_completed``).
+
     Awards:
     - Path-specific boss badge (first boss) and/or generic boss-count badges
     - AchievementCard of type "weekly_boss_<path>"
     - Bonus EXP (boss.exp_reward) with Visionary multiplier applied if applicable
 
     Returns a dict summarising what was awarded.
+
+    Raises ``ValueError`` for validation failures.
     """
-    from paths.models import XPMultiplier
+    import datetime as _dt
+
+    from paths.models import UserPathSelection, XPMultiplier
     from quests.services import calculate_level_from_exp
 
     try:
         boss = WeeklyBossQuest.objects.select_for_update().get(id=boss_id, is_active=True)
     except WeeklyBossQuest.DoesNotExist:
         raise ValueError("Weekly boss not found or inactive.")
+
+    # ── Current-week validation ───────────────────────────────────────────
+    today = timezone.localdate()
+    current_week_start = today - _dt.timedelta(days=today.weekday())  # Monday
+    if boss.week_start != current_week_start:
+        raise ValueError("This weekly boss is not available in the current week.")
+
+    # ── Active-path validation ────────────────────────────────────────────
+    if boss.path_target:
+        active_paths = {player.path}
+        selection = UserPathSelection.objects.filter(player=player).first()
+        if selection and selection.multi_paths_active:
+            active_paths.update(selection.multi_paths_active)
+        if boss.path_target not in active_paths:
+            raise ValueError("This weekly boss is for a path you are not active on.")
 
     completion, created = WeeklyBossCompletion.objects.get_or_create(
         player=player,

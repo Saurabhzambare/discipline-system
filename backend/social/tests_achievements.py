@@ -411,9 +411,11 @@ class WeeklyBossCompletionIntegrationTest(TestCase):
         _make_badge("level_5", "bronze")
 
     def _make_boss(self, path="fitness_warrior", exp_reward=200):
+        today = date.today()
+        monday = today - timedelta(days=today.weekday())
         return WeeklyBossQuest.objects.create(
             path_target=path,
-            week_start=date.today(),
+            week_start=monday,
             title="Trial of Fire",
             exp_reward=exp_reward,
             is_active=True,
@@ -457,8 +459,10 @@ class WeeklyBossCompletionIntegrationTest(TestCase):
 
     def test_inactive_boss_raises(self):
         p = _make_player("wb5", path="fitness_warrior")
+        today = date.today()
+        monday = today - timedelta(days=today.weekday())
         boss = WeeklyBossQuest.objects.create(
-            path_target="fitness_warrior", week_start=date.today(),
+            path_target="fitness_warrior", week_start=monday,
             title="Inactive Boss", exp_reward=100, is_active=False,
         )
         with self.assertRaises(ValueError):
@@ -472,8 +476,10 @@ class WeeklyBossCompletionIntegrationTest(TestCase):
         xp.multiplier = 1.5
         xp.save(update_fields=["multiplier"])
 
+        today = date.today()
+        monday = today - timedelta(days=today.weekday())
         boss = WeeklyBossQuest.objects.create(
-            path_target="grind_visionary", week_start=date.today(),
+            path_target="grind_visionary", week_start=monday,
             title="Visionary Trial", exp_reward=200, is_active=True,
         )
         _make_badge("gv_boss_week_1", "silver")
