@@ -9,7 +9,15 @@ from rest_framework.views import APIView
 
 from players.models import Player
 
-from .models import FriendRequest, GroupMembership, PostComment, PostReaction, SocialGroup
+from .models import (
+    ActivityEvent,
+    ActivityEventRead,
+    FriendRequest,
+    GroupMembership,
+    PostComment,
+    PostReaction,
+    SocialGroup,
+)
 from .selectors import (
     profile_activity_queryset,
     profile_posts_queryset,
@@ -541,65 +549,110 @@ class PlayerSearchView(SocialBaseView):
         return Response(results)
 
 
-class NotificationsView(SocialBaseView):
-    """Aggregated recent notifications: comments, reactions, and friend requests."""
+def _visible_notifications_qs(player):
+    """ActivityEvents visible to ``player`` for notification purposes.
 
-    EMOJI = {"like": "👍", "fire": "🔥", "respect": "💪", "clap": "👏"}
+    Includes events where the player is the actor (their own progression
+    history) and events where the player is the related_player (e.g. someone
+    added them as a friend).
+    """
+    from django.db.models import Q
+
+    return (
+        ActivityEvent.objects.select_related("actor__user", "related_player__user")
+        .filter(Q(actor=player) | Q(related_player=player))
+    )
+
+
+class NotificationsView(SocialBaseView):
+    """Per-player notification feed backed by ActivityEvent + ActivityEventRead."""
+
+    DEFAULT_LIMIT = 25
 
     def get(self, request):
         player = request.user.player
-        notifications = []
+        events_qs = _visible_notifications_qs(player)
 
-        # Comments on my posts by others
-        comments = (
-            PostComment.objects.filter(post__author=player)
-            .exclude(author=player)
-            .select_related("author__user", "post")
-            .order_by("-created_at")[:15]
+        seen_event_ids = set(
+            ActivityEventRead.objects.filter(player=player, event__in=events_qs)
+            .values_list("event_id", flat=True)
         )
-        for c in comments:
-            notifications.append({
-                "id": f"comment_{c.id}",
-                "type": "comment",
-                "text": f"{c.author.user.username} commented on your post",
-                "preview": c.content[:120],
-                "created_at": c.created_at.isoformat(),
+        seen_at_by_event = dict(
+            ActivityEventRead.objects.filter(player=player, event__in=events_qs)
+            .values_list("event_id", "seen_at")
+        )
+
+        ordered = list(events_qs.order_by("-created_at", "-id")[: self.DEFAULT_LIMIT * 2])
+
+        items = []
+        for event in ordered:
+            seen_at = seen_at_by_event.get(event.id)
+            items.append({
+                "id": event.id,
+                "event_type": event.event_type,
+                "text_snapshot": event.text_snapshot,
+                "actor": {"id": event.actor_id, "username": event.actor.user.username},
+                "related_player_id": event.related_player_id,
+                "related_post_id": event.related_post_id,
+                "related_group_id": event.related_group_id,
+                "created_at": event.created_at.isoformat(),
+                "seen_at": seen_at.isoformat() if seen_at else None,
+                "is_seen": event.id in seen_event_ids,
             })
 
-        # Reactions on my posts by others
-        reactions = (
-            PostReaction.objects.filter(post__author=player)
-            .exclude(player=player)
-            .select_related("player__user", "post")
-            .order_by("-created_at")[:15]
-        )
-        for r in reactions:
-            emoji = self.EMOJI.get(r.reaction_type, "❤️")
-            notifications.append({
-                "id": f"reaction_{r.id}",
-                "type": "reaction",
-                "text": f"{r.player.user.username} reacted {emoji} to your post",
-                "preview": r.post.content[:120],
-                "created_at": r.created_at.isoformat(),
-            })
+        # Stable sort: unseen group first, then created_at desc, then id desc.
+        items.sort(key=lambda x: x["id"], reverse=True)
+        items.sort(key=lambda x: x["created_at"], reverse=True)
+        items.sort(key=lambda x: 0 if not x["is_seen"] else 1)
 
-        # Pending incoming friend requests
-        friend_requests = (
-            FriendRequest.objects.filter(to_player=player, status=FriendRequest.STATUS_PENDING)
-            .select_related("from_player__user")
-            .order_by("-created_at")[:10]
-        )
-        for fr in friend_requests:
-            notifications.append({
-                "id": f"fr_{fr.id}",
-                "type": "friend_request",
-                "text": f"{fr.from_player.user.username} sent you a friend request",
-                "preview": None,
-                "created_at": fr.created_at.isoformat(),
-            })
+        items = items[: self.DEFAULT_LIMIT]
 
-        notifications.sort(key=lambda x: x["created_at"], reverse=True)
-        return Response(notifications[:25])
+        unseen_count = events_qs.exclude(id__in=seen_event_ids).count()
+        return Response({"items": items, "unseen_count": unseen_count})
+
+
+class NotificationsMarkSeenView(SocialBaseView):
+    """POST endpoint to mark a list of visible events as seen for the player."""
+
+    def post(self, request):
+        player = request.user.player
+        raw_ids = request.data.get("event_ids", [])
+        if not isinstance(raw_ids, list):
+            return _error_response(detail="event_ids must be a list.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        event_ids = []
+        for v in raw_ids:
+            try:
+                event_ids.append(int(v))
+            except (TypeError, ValueError):
+                return _error_response(detail="event_ids must be integers.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        events_qs = _visible_notifications_qs(player)
+
+        marked = 0
+        if event_ids:
+            visible_ids = set(
+                events_qs.filter(id__in=event_ids).values_list("id", flat=True)
+            )
+            already_seen_ids = set(
+                ActivityEventRead.objects.filter(player=player, event_id__in=visible_ids)
+                .values_list("event_id", flat=True)
+            )
+            to_create = visible_ids - already_seen_ids
+            for event_id in to_create:
+                _, created = ActivityEventRead.objects.get_or_create(
+                    player=player, event_id=event_id
+                )
+                if created:
+                    marked += 1
+
+        seen_event_ids = set(
+            ActivityEventRead.objects.filter(player=player, event__in=events_qs)
+            .values_list("event_id", flat=True)
+        )
+        unseen_count = events_qs.exclude(id__in=seen_event_ids).count()
+
+        return Response({"marked": marked, "unseen_count": unseen_count})
 
 
 # ── LEADERBOARDS ─────────────────────────────────────────────────────────────

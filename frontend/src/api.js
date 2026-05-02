@@ -263,6 +263,13 @@ export async function getNotifications() {
   return authedRequest('/api/social/notifications/');
 }
 
+export async function markNotificationsSeen(eventIds) {
+  return authedRequest('/api/social/notifications/mark-seen/', {
+    method: 'POST',
+    body: { event_ids: eventIds },
+  });
+}
+
 export async function getAccountabilityRequests(direction) {
   const query = direction ? `?direction=${encodeURIComponent(direction)}` : '';
   return authedRequest(`/api/social/accountability/requests/${query}`);

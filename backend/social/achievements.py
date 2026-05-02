@@ -5,7 +5,15 @@ from django.utils import timezone
 
 from players.models import Player
 
-from .models import AchievementCard, Badge, UserBadge, WeeklyBossCompletion, WeeklyBossQuest
+from .models import (
+    AchievementCard,
+    ActivityEvent,
+    Badge,
+    UserBadge,
+    WeeklyBossCompletion,
+    WeeklyBossQuest,
+)
+from .services.events import create_activity_event
 
 
 # Exact path combinations required for each cross-path title badge.
@@ -56,9 +64,24 @@ def award_badge(player: Player, badge_key: str, *, idempotent: bool = True) -> "
             player=player,
             badge=badge,
         )
-        return ub if created else None
+        if created:
+            create_activity_event(
+                actor=player,
+                event_type=ActivityEvent.TYPE_BADGE_EARNED,
+                text_snapshot=f"{player.user.username} earned the {badge.name} badge.",
+                is_public=True,
+            )
+            return ub
+        return None
 
-    return UserBadge.objects.create(player=player, badge=badge)
+    ub = UserBadge.objects.create(player=player, badge=badge)
+    create_activity_event(
+        actor=player,
+        event_type=ActivityEvent.TYPE_BADGE_EARNED,
+        text_snapshot=f"{player.user.username} earned the {badge.name} badge.",
+        is_public=True,
+    )
+    return ub
 
 
 def generate_achievement_card(
@@ -195,6 +218,13 @@ def complete_weekly_boss(player: Player, boss_id: int) -> dict:
     )
     if not created:
         return {"already_completed": True}
+
+    create_activity_event(
+        actor=player,
+        event_type=ActivityEvent.TYPE_WEEKLY_BOSS_DEFEATED,
+        text_snapshot=f"{player.user.username} defeated the weekly boss: {boss.title}.",
+        is_public=True,
+    )
 
     # Determine EXP reward with Visionary multiplier.
     base_exp = boss.exp_reward

@@ -247,11 +247,31 @@ class ActivityEvent(models.Model):
     TYPE_POST_CREATED = "post_created"
     TYPE_FRIEND_ADDED = "friend_added"
     TYPE_JOINED_GROUP = "joined_group"
+    TYPE_QUEST_COMPLETED = "quest_completed"
+    TYPE_LEVEL_UP = "level_up"
+    TYPE_MULTIPLIER_UPGRADE = "multiplier_upgrade"
+    TYPE_STREAK_MILESTONE = "streak_milestone"
+    TYPE_BADGE_EARNED = "badge_earned"
+    TYPE_CROSS_PATH_TITLE_EARNED = "cross_path_title_earned"
+    TYPE_PARTNER_QUEST_COMPLETED = "partner_quest_completed"
+    TYPE_PARTNER_LEVEL_UP = "partner_level_up"
+    TYPE_FIRST_DOLLAR = "first_dollar"
+    TYPE_WEEKLY_BOSS_DEFEATED = "weekly_boss_defeated"
 
     EVENT_CHOICES = [
         (TYPE_POST_CREATED, "Post Created"),
         (TYPE_FRIEND_ADDED, "Friend Added"),
         (TYPE_JOINED_GROUP, "Joined Group"),
+        (TYPE_QUEST_COMPLETED, "Quest Completed"),
+        (TYPE_LEVEL_UP, "Level Up"),
+        (TYPE_MULTIPLIER_UPGRADE, "Multiplier Upgrade"),
+        (TYPE_STREAK_MILESTONE, "Streak Milestone"),
+        (TYPE_BADGE_EARNED, "Badge Earned"),
+        (TYPE_CROSS_PATH_TITLE_EARNED, "Cross-Path Title Earned"),
+        (TYPE_PARTNER_QUEST_COMPLETED, "Partner Quest Completed"),
+        (TYPE_PARTNER_LEVEL_UP, "Partner Level Up"),
+        (TYPE_FIRST_DOLLAR, "First Dollar"),
+        (TYPE_WEEKLY_BOSS_DEFEATED, "Weekly Boss Defeated"),
     ]
 
     actor = models.ForeignKey(
@@ -287,6 +307,34 @@ class ActivityEvent(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class ActivityEventRead(models.Model):
+    """Per-player read state for an ActivityEvent.
+
+    ActivityEvent is shared/public feed data, so a per-user read row keeps
+    seen state isolated between players.
+    """
+
+    event = models.ForeignKey(
+        ActivityEvent,
+        on_delete=models.CASCADE,
+        related_name="reads",
+    )
+    player = models.ForeignKey(
+        "players.Player",
+        on_delete=models.CASCADE,
+        related_name="activity_event_reads",
+    )
+    seen_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "player"],
+                name="social_activity_event_read_unique",
+            ),
+        ]
 
 
 class AccountabilityPartnerRequest(models.Model):

@@ -856,6 +856,16 @@ def complete_lineup_item(player, lineup_item_id: int):
         check_streak_milestones,
         generate_achievement_card,
     )
+    from social.models import ActivityEvent
+    from social.services.events import create_activity_event
+
+    create_activity_event(
+        actor=player,
+        event_type=ActivityEvent.TYPE_QUEST_COMPLETED,
+        text_snapshot=f"{player.user.username} completed {item.quest.title}.",
+        is_public=True,
+    )
+
     badges_earned = []
     level_badges = check_level_milestones(player, old_level, player.level)
     for badge in level_badges:
@@ -866,6 +876,13 @@ def complete_lineup_item(player, lineup_item_id: int):
             title=f"Level {player.level} Reached!",
             subtitle=f"You reached Level {player.level} — {badge.name}.",
             metadata={"level": player.level, "badge_key": badge.key},
+        )
+    if player.level > old_level:
+        create_activity_event(
+            actor=player,
+            event_type=ActivityEvent.TYPE_LEVEL_UP,
+            text_snapshot=f"{player.user.username} reached Level {player.level}.",
+            is_public=True,
         )
     streak_badges = check_streak_milestones(player)
     for badge in streak_badges:

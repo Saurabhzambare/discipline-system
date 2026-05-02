@@ -552,6 +552,8 @@ def complete_path_onboarding(player: Player, path_code: str) -> dict:
 
     # Check for cross-path title grants after path activation.
     from social.achievements import generate_achievement_card, grant_cross_path_title
+    from social.models import ActivityEvent
+    from social.services.events import create_activity_event
 
     newly_granted = grant_cross_path_title(player)
     titles_awarded = []
@@ -562,6 +564,12 @@ def complete_path_onboarding(player: Player, path_code: str) -> dict:
             title=badge.name,
             subtitle=badge.description,
             metadata={"badge_id": badge.id, "badge_key": badge.key},
+        )
+        create_activity_event(
+            actor=player,
+            event_type=ActivityEvent.TYPE_CROSS_PATH_TITLE_EARNED,
+            text_snapshot=f"{player.user.username} earned the title {badge.name}.",
+            is_public=True,
         )
         titles_awarded.append(badge.key)
 

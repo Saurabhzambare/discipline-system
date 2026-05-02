@@ -144,7 +144,7 @@ export default function App() {
   const [groupsError, setGroupsError] = useState('');
   const [levelUpInfo, setLevelUpInfo] = useState(null);
   const [viewingProfile, setViewingProfile] = useState(null);
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState({ items: [], unseen_count: 0 });
   const [onboardingStatus, setOnboardingStatus] = useState(null);
 
   const selectedPathDisplay = useMemo(() => player?.path_display || '', [player?.path_display]);
@@ -341,7 +341,14 @@ export default function App() {
   const loadNotifications = useCallback(async () => {
     try {
       const data = await getNotifications();
-      setNotifications(data);
+      if (data && Array.isArray(data.items)) {
+        setNotifications({
+          items: data.items,
+          unseen_count: typeof data.unseen_count === 'number' ? data.unseen_count : 0,
+        });
+      } else {
+        setNotifications({ items: [], unseen_count: 0 });
+      }
     } catch {
       // non-critical — silently ignore
     }
