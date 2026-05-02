@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-05-01 (C3A — Weekly Boss user-facing flow complete)
+**Last updated:** 2026-05-01 (C3B — Cross-path title automation complete)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -37,7 +37,7 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 | C1 | Badge system + achievement cards foundation | ✅ Complete |
 | C2 | Leaderboards + stabilization fixes (exp_awarded + public profile ownership) | ✅ Complete |
 | C3A | Weekly boss user-facing flow — API endpoints, service validation, dashboard card, 22 endpoint tests | ✅ Complete |
-| C3B | Cross-path title reward flow + badge-key validation follow-through | ⬜ Not started |
+| C3B | Cross-path title automation — exact combo matching, onboarding hook, AchievementCard, 15 tests | ✅ Complete |
 | C3C | Public profile enhancements and social identity presentation | ⬜ Not started |
 | C3D | End-to-end C3 verification and release gate | ⬜ Not started |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |

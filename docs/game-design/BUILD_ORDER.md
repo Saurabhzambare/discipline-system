@@ -260,7 +260,7 @@ docs/game-design/README.md cross-path section
        GET /api/social/leaderboards/multiplier-streak/;
        active when player streak > 0 and multiplier > 1.0;
        sibling endpoint /leaderboards/output-monthly/ for Output Log]
-- [ ] Step 86: Build cross-path identity titles —
+- [x] Step 86: Build cross-path identity titles —
       Warrior-Sage
       The Optimized Human
       The Complete Human
@@ -269,6 +269,11 @@ docs/game-design/README.md cross-path section
       achievement card generated on unlock
       Renaissance Human gets dedicated
       leaderboard tier globally
+      [Session C3B: grant_cross_path_title() uses exact path subset matching;
+       hooked into complete_path_onboarding(); AchievementCard generated on unlock;
+       15 tests (combinations, wrong combos, idempotency, integration hooks);
+       V1 active-path-combination only; 7-day consistency-window deferred to Session 9;
+       ActivityEvent emission deferred to C3C]
 - [ ] Step 87: Build public profile enhancements —
       armor visualization (Knight)
       Discipline Code display (Knight)

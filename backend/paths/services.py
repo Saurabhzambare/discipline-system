@@ -549,7 +549,26 @@ def complete_path_onboarding(player: Player, path_code: str) -> dict:
     if path_code not in PATH_CODES:
         raise ValueError(f"Invalid path: {path_code}")
     _complete_onboarding(player=player, path_code=path_code)
-    return {"completed": True, "path_code": path_code}
+
+    # Check for cross-path title grants after path activation.
+    from social.achievements import generate_achievement_card, grant_cross_path_title
+
+    newly_granted = grant_cross_path_title(player)
+    titles_awarded = []
+    for badge in newly_granted:
+        generate_achievement_card(
+            player,
+            card_type=f"cross_path_title_{badge.key}",
+            title=badge.name,
+            subtitle=badge.description,
+            metadata={"badge_id": badge.id, "badge_key": badge.key},
+        )
+        titles_awarded.append(badge.key)
+
+    result = {"completed": True, "path_code": path_code}
+    if titles_awarded:
+        result["titles_awarded"] = titles_awarded
+    return result
 
 
 def count_mastery_lab_completions(*, player: Player) -> int:

@@ -8,13 +8,26 @@ from players.models import Player
 from .models import AchievementCard, Badge, UserBadge, WeeklyBossCompletion, WeeklyBossQuest
 
 
-# Keys that map number of active paths to cross-path title badge keys.
-_CROSS_PATH_TITLE_KEYS = {
-    2: "title_warrior_sage",
-    3: "title_optimized_human",
-    4: "title_complete_human",
-    5: "title_renaissance_human",
-}
+# Exact path combinations required for each cross-path title badge.
+_CROSS_PATH_TITLE_REQUIREMENTS: list[tuple[set[str], str]] = [
+    # Order: most-specific first so all eligible titles are checked.
+    (
+        {"fitness_warrior", "mindset_sage", "health_alchemist", "discipline_knight", "grind_visionary"},
+        "title_renaissance_human",
+    ),
+    (
+        {"fitness_warrior", "mindset_sage", "health_alchemist", "discipline_knight"},
+        "title_complete_human",
+    ),
+    (
+        {"fitness_warrior", "mindset_sage", "health_alchemist"},
+        "title_optimized_human",
+    ),
+    (
+        {"fitness_warrior", "mindset_sage"},
+        "title_warrior_sage",
+    ),
+]
 
 _STREAK_MILESTONE_KEYS = {
     7: "streak_7",
@@ -65,26 +78,43 @@ def generate_achievement_card(
     )
 
 
+
 def grant_cross_path_title(player: Player) -> list[Badge]:
     """
-    Check how many paths the player is currently active on and award the
-    appropriate cross-path title badge. Returns list of newly-awarded badges.
+    Check which cross-path titles the player qualifies for based on their
+    exact active path combinations and award the appropriate badges.
+
+    Returns list of newly-awarded Badge objects.
+
+    Title requirements (per game design):
+    - Warrior-Sage: fitness_warrior + mindset_sage
+    - The Optimized Human: fitness_warrior + mindset_sage + health_alchemist
+    - The Complete Human: above + discipline_knight
+    - The Renaissance Human: all five paths
+
+    V1: Active-path-combination only.
+    TODO: Add 7-day consistency-window check in Session 9 verification.
     """
     from paths.models import UserPathSelection
 
-    selection = UserPathSelection.objects.filter(player=player, onboarding_complete=True).first()
-    if not selection:
+    # Build the set of active path codes.
+    active_paths: set[str] = set()
+
+    selection = UserPathSelection.objects.filter(player=player).first()
+    if selection and selection.multi_paths_active:
+        active_paths.update(selection.multi_paths_active)
+
+    # Fallback: include player.path if it's set.
+    if player.path:
+        active_paths.add(player.path)
+
+    if len(active_paths) < 2:
         return []
 
-    active_paths = selection.multi_paths_active or []
-    path_count = len(active_paths)
-    if path_count < 2:
-        return []
-
-    awarded = []
-    for threshold, key in _CROSS_PATH_TITLE_KEYS.items():
-        if path_count >= threshold:
-            ub = award_badge(player, key)
+    awarded: list[Badge] = []
+    for required_paths, badge_key in _CROSS_PATH_TITLE_REQUIREMENTS:
+        if required_paths.issubset(active_paths):
+            ub = award_badge(player, badge_key)
             if ub:
                 awarded.append(ub.badge)
     return awarded
