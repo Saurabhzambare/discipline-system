@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { markNotificationsSeen } from '../api';
+
 const NAV_ITEMS = [
   {
     path: '/dashboard',
@@ -71,15 +73,36 @@ function timeAgo(isoString) {
 }
 
 const NOTIF_ICONS = {
-  comment: '💬',
-  reaction: '❤️',
-  friend_request: '👤',
+  quest_completed: '⚔️',
+  level_up: '⭐',
+  badge_earned: '🏅',
+  weekly_boss_defeated: '🐉',
+  cross_path_title_earned: '👑',
+  multiplier_upgrade: '✨',
+  streak_milestone: '🔥',
+  partner_quest_completed: '🤝',
+  partner_level_up: '🤝',
+  first_dollar: '💵',
+  friend_added: '👤',
+  joined_group: '👥',
+  post_created: '📝',
 };
 
-function NotificationBell({ notifications, onNavigate }) {
+const MARK_SEEN_DELAY_MS = 1000;
+
+function NotificationBell({ notifications, onMarkSeen }) {
   const [open, setOpen] = useState(false);
+  const [locallySeen, setLocallySeen] = useState(() => new Set());
+  const markedRef = useRef(new Set());
   const ref = useRef(null);
-  const count = notifications.length;
+
+  const rawItems = notifications.items || [];
+  const items = rawItems.map((n) =>
+    locallySeen.has(n.id) ? { ...n, is_seen: true } : n,
+  );
+  const baseUnseen = notifications.unseen_count || 0;
+  const newlyMarked = rawItems.filter((n) => !n.is_seen && locallySeen.has(n.id)).length;
+  const count = Math.max(0, baseUnseen - newlyMarked);
 
   useEffect(() => {
     function handleClick(e) {
@@ -88,6 +111,29 @@ function NotificationBell({ notifications, onNavigate }) {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const timer = setTimeout(async () => {
+      const unseenIds = items
+        .filter((n) => !n.is_seen && !markedRef.current.has(n.id))
+        .map((n) => n.id);
+      if (unseenIds.length === 0) return;
+      unseenIds.forEach((id) => markedRef.current.add(id));
+      try {
+        await onMarkSeen(unseenIds);
+        setLocallySeen((prev) => {
+          const next = new Set(prev);
+          unseenIds.forEach((id) => next.add(id));
+          return next;
+        });
+      } catch {
+        // bell stays usable; allow retry on next open
+        unseenIds.forEach((id) => markedRef.current.delete(id));
+      }
+    }, MARK_SEEN_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [open, items, onMarkSeen]);
 
   return (
     <div className="relative" ref={ref}>
@@ -117,37 +163,37 @@ function NotificationBell({ notifications, onNavigate }) {
           </div>
 
           <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {items.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-slate-500">No new notifications.</p>
             ) : (
               <ul className="divide-y divide-[#1a3a5c]/40">
-                {notifications.map((n) => (
-                  <li key={n.id} className="flex gap-3 px-4 py-3 hover:bg-[#0a1628]/60 transition">
-                    <span className="mt-0.5 text-base flex-shrink-0">{NOTIF_ICONS[n.type] || '🔔'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-200">{n.text}</p>
-                      {n.preview && (
-                        <p className="mt-0.5 truncate text-[10px] text-slate-500">{n.preview}</p>
+                {items.map((n) => {
+                  const unseen = !n.is_seen;
+                  return (
+                    <li
+                      key={n.id}
+                      className={`flex gap-3 px-4 py-3 transition ${
+                        unseen
+                          ? 'bg-cyan-500/5 border-l-2 border-cyan-500/60 hover:bg-[#0a1628]/60'
+                          : 'hover:bg-[#0a1628]/60'
+                      }`}
+                    >
+                      <span className="mt-0.5 text-base flex-shrink-0">{NOTIF_ICONS[n.event_type] || '🔔'}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs ${unseen ? 'font-semibold text-slate-100' : 'text-slate-300'}`}>
+                          {n.text_snapshot || n.event_type}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-slate-600">{timeAgo(n.created_at)}</p>
+                      </div>
+                      {unseen && (
+                        <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-cyan-400" aria-label="Unseen" />
                       )}
-                      <p className="mt-0.5 text-[10px] text-slate-600">{timeAgo(n.created_at)}</p>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
-
-          {notifications.some((n) => n.type === 'friend_request') && (
-            <div className="border-t border-[#1a3a5c]/60 px-4 py-2">
-              <button
-                type="button"
-                onClick={() => { onNavigate('/profile'); setOpen(false); }}
-                className="text-xs text-cyan-400 hover:text-cyan-300"
-              >
-                View friend requests →
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -261,7 +307,10 @@ export default function Layout({
             Welcome back,{' '}
             <span className="font-semibold text-slate-100">{playerName || 'Hunter'}</span>
           </p>
-          <NotificationBell notifications={notifications || []} onNavigate={onNavigate} />
+          <NotificationBell
+            notifications={notifications || { items: [], unseen_count: 0 }}
+            onMarkSeen={markNotificationsSeen}
+          />
         </header>
 
         <main className="flex-1 px-6 py-6">

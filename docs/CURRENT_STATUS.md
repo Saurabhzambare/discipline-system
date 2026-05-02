@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-05-01 (C3B — Cross-path title automation complete)
+**Last updated:** 2026-05-02 (C3C — ActivityEvent expansion + notification seen tracking complete)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -38,8 +38,8 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 | C2 | Leaderboards + stabilization fixes (exp_awarded + public profile ownership) | ✅ Complete |
 | C3A | Weekly boss user-facing flow — API endpoints, service validation, dashboard card, 22 endpoint tests | ✅ Complete |
 | C3B | Cross-path title automation — exact combo matching, onboarding hook, AchievementCard, 15 tests | ✅ Complete |
-| C3C | Public profile enhancements and social identity presentation | ⬜ Not started |
-| C3D | End-to-end C3 verification and release gate | ⬜ Not started |
+| C3C | ActivityEvent expansion + per-user notification seen tracking, bounded event hooks (quest_completed, level_up, badge_earned, weekly_boss_defeated, cross_path_title_earned), 19 tests | ✅ Complete |
+| C3D | Public profile enhancements + end-to-end C3 verification | ⬜ Not started |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
 
 
@@ -73,8 +73,9 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 - `paths/tests_onboarding_completion.py`
 - `paths/tests_seed_session6_accounts.py`
 - `social/tests_achievements.py` — passing (32 tests: award_badge, generate_achievement_card, grant_cross_path_title, check_streak_milestones, check_level_milestones, quest completion integration, weekly boss integration)
+- `social/tests_notifications.py` — passing (19 tests: ActivityEventRead model, notifications endpoint shape/sorting/visibility/auth, mark-seen endpoint behavior, quest_completed/level_up/badge_earned/weekly_boss_defeated/cross_path_title_earned hooks)
 
-Total: 178 tests, all passing.
+Total: 238 tests, all passing.
 
 ### Frontend pages (`frontend/src/pages/`)
 
