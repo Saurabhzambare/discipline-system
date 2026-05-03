@@ -89,6 +89,11 @@ class PublicProfileSerializer(serializers.Serializer):
     recent_activity = ActivityEventSerializer(many=True)
     recent_posts = PublicProfilePostSerializer(many=True)
     is_own_profile = serializers.BooleanField(required=False)
+    # C3D-1 extension fields. Pre-assembled in profile_selectors so payloads
+    # are passed through verbatim via JSONField.
+    path_profiles = serializers.JSONField(required=False)
+    badges = serializers.JSONField(required=False)
+    achievement_cards = serializers.JSONField(required=False)
 
 
 class PostCreateSerializer(serializers.Serializer):
