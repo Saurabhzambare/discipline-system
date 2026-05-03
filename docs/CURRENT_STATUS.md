@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-05-02 (C4-0 — Preflight audit; Steps 73/76 verified complete; Session 6 closed)
+**Last updated:** 2026-05-03 (C4-1 — Phase 5B end-to-end verification tests for Steps 89–98)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -40,7 +40,7 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 | C3B | Cross-path title automation — exact combo matching, onboarding hook, AchievementCard, 15 tests | ✅ Complete |
 | C3C | ActivityEvent expansion + per-user notification seen tracking, bounded event hooks (quest_completed, level_up, badge_earned, weekly_boss_defeated, cross_path_title_earned), 19 tests | ✅ Complete |
 | C3D | Public profile enhancements + dashboard achievements + end-to-end C3 verification | ✅ Complete |
-| Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
+| Session 9 / C4-1 | E2E verification tests (Steps 89–98) added — `social/tests_phase5b_e2e.py` (41 tests) | 🟡 In progress (C4-2 covers Steps 99–105) |
 
 
 **Documentation note:** The achievement service currently lives at `backend/social/achievements.py`.
