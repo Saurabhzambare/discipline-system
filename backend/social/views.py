@@ -18,6 +18,7 @@ from .models import (
     PostReaction,
     SocialGroup,
 )
+from .profile_selectors import build_public_profile_extensions
 from .selectors import (
     profile_activity_queryset,
     profile_posts_queryset,
@@ -268,6 +269,7 @@ class PublicProfileView(SocialBaseView):
             "recent_posts": profile_posts_queryset(target_player=player)[:10],
             "is_own_profile": is_own_profile,
         }
+        payload.update(build_public_profile_extensions(player, is_own=is_own_profile))
 
         serializer = PublicProfileSerializer(payload)
         return Response(serializer.data)
