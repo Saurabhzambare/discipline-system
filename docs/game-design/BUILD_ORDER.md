@@ -152,7 +152,7 @@ Rules:
 
 ---
 
-## Session 6 — Path-Specific Mechanics 🟡 IN PROGRESS
+## Session 6 — Path-Specific Mechanics ✅ COMPLETE
 
 ### Fitness Warrior mechanics
 - [x] Step 51: Split day rotation service (PPL auto-rotate)
@@ -185,12 +185,22 @@ Rules:
 - [x] Step 70: Vision Board + singular goal + countdown
 - [x] Step 71: Skill Tree node unlock sequence
 - [x] Step 72: Output Log CRUD + public/private flag
-- [ ] Step 73: Accountability Partner invite flow (social domain) — in progress
+- [x] Step 73: Accountability Partner invite flow (social domain)
+      [C4-0 audit: send/accept/reject services + endpoints + tests;
+       frontend API helpers + DashboardPage search/invite/accept/reject UI;
+       App.jsx wiring complete. Partner activity notifications (spec line 782)
+       are a separate post-partner feature, not part of the invite flow.]
 - [x] Step 74: First Dollar legendary moment + post-first-dollar quest chain
 
 ### Cross-cutting
 - [x] Step 75: Protection-order service consolidated into single helper — verify
-- [ ] Step 76: Path-mechanic log endpoints wired to frontend widgets — audit gaps
+- [x] Step 76: Path-mechanic log endpoints wired to frontend widgets
+      [C4-0 audit: WisdomLog, BodyJournal, OutputLog, WarRoom, TemptationLog,
+       DarkNight, VisionBoard, KnightWeeklyReport, Health/Discipline/Grind
+       status endpoints all registered in paths/urls.py; frontend api.js has
+       matching helpers; App.jsx passes all handlers to DashboardPage;
+       DashboardPage widgets fetch, render, and submit data with loading/error
+       states. Backend tested in paths/tests_session6.py. Frontend lint/build clean.]
 
 ---
 
@@ -403,5 +413,20 @@ backend data. Added AchievementSummaryView (GET /api/social/achievements/summary
 from DashboardPage.jsx; replaced with live fetch with loading/error fallback.
 Step 87 checked. Session 8 marked complete (all steps 80–88 checked).
 264 backend tests green. Frontend lint clean, build succeeds.
+
+[2026-05-02] — C4-0 preflight audit. Evidence-based sign-off:
+- Step 73 (Accountability Partner invite flow): COMPLETE. send/accept/reject
+  services, 3 endpoints, 2 backend tests, 4 frontend API helpers, DashboardPage
+  search/invite/accept/reject UI, App.jsx wiring. Partner activity notifications
+  (spec line 782) are post-partner feature, out of Step 73 scope.
+- Step 76 (Path-mechanic log endpoints wired to frontend): COMPLETE.
+  WisdomLog/BodyJournal/OutputLog/WarRoom/TemptationLog/DarkNight/VisionBoard/
+  KnightWeeklyReport + Health/Discipline/Grind status endpoints in paths/urls.py.
+  Matching api.js helpers. App.jsx passes all handlers. DashboardPage widgets
+  fetch, render, and submit with loading/error states.
+- Session 6 now fully complete (all steps 51-76 checked).
+- Sessions 1-8 all complete. Only Session 9 (steps 89-105) remains.
+- 175 focused tests (social + paths) green. Frontend lint/build clean.
+- Django check clean. Only known BigAutoField drift in makemigrations dry-run.
 
 ---

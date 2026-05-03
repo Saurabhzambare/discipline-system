@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-05-02 (C3D-3 — Dashboard achievement summary wired; Session 8 complete)
+**Last updated:** 2026-05-02 (C4-0 — Preflight audit; Steps 73/76 verified complete; Session 6 closed)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -25,7 +25,7 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 | Session 3 | Quest seeding for all 5 paths (+ hardening patch) | ✅ Complete |
 | Session 4 | Path-specific onboarding flows, DK oath moderation, GV skill tree init | ✅ Complete |
 | Session 5 | Daily Quest Assignment Engine (5-layer algo, lineups, swaps, intention, feedback, summary) | ✅ Complete |
-| Session 6 | Path mechanic persistence hooks, log endpoints, protection-order service, accountability partner flow | 🟡 In progress |
+| Session 6 | Path mechanic persistence hooks, log endpoints, protection-order service, accountability partner flow | ✅ Complete |
 | Session 7 | Backend contract freeze (quest board, completion ring, EOD summary, tomorrow preview, missed-day, adaptive nudge) | ✅ Complete |
 | Session A1 | Repo stabilize: fix stale tests, ESLint, Session 6 gaps, CI, .gitignore | ✅ Complete |
 | Session A2 | Push to origin/main, README badges, Stage A docs | ✅ Complete |
@@ -115,7 +115,7 @@ Total: 264 tests, all passing.
 
 ### Phase 5B functional gaps
 
-3. **Session 6 partially complete.** Outstanding: Step 73 (accountability partner invite flow), Step 76 (path-mechanic log endpoint audit).
+3. **~~Session 6 partially complete.~~** ~~Outstanding: Step 73 (accountability partner invite flow), Step 76 (path-mechanic log endpoint audit).~~ **Resolved in C4-0 audit:** Both steps verified complete and checked.
 4. **Stabilization patch applied after C2.** Locked fixes: `QuestCompletion.exp_awarded` source-of-truth, weekly/global leaderboard aggregation from completion records with legacy fallback, and safe public-profile ownership lookup via player relation.
 5. **~~Placeholder UI (partial).~~** ~~Dashboard leaderboard and feed right-panel mini-leaderboard are now backed by real API data (Session 8B/C2 baseline). Achievement blocks still show hardcoded dummy data.~~ **Resolved in C3D-3:** Dashboard achievements now wired to real backend data via `/api/social/achievements/summary/`.
 6. **Layer 3 weekly rhythm tables not implemented.** `_apply_smart_suggestions` now has personalization weight (Day 14+ pillar history blending), but the per-path default weekly pillar priority tables (Mon=strength, Tue=cardio, etc.) from the spec are not yet built. The personalization layer correctly blends history from Day 14+ but has no default rhythm to blend against before Day 14.

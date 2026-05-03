@@ -12,7 +12,7 @@ of every session.
 - ✅ Session 3: Quest seeding complete (with hardening patch)
 - ✅ Session 4: Path onboarding flows complete (resume-safe status, DK oath moderation, GV skill-tree initialization)
 - ✅ Session 5: Daily Quest Assignment Engine complete (lineup generation, intention/swap/feedback/summary entry points)
-- 🟡 Session 6: In progress — path mechanic persistence hooks, log endpoints, protection-order service integration, social-domain accountability partner invite flow
+- ✅ Session 6: Path mechanic persistence hooks, log endpoints, protection-order service, accountability partner invite flow — complete
 - ✅ Session 7: Backend contract layer complete — quest board, completion ring, EOD summary, tomorrow preview, missed-day return, adaptive difficulty nudge
 - ✅ Session 8: Social & achievement features — complete (C3A–C3D)
 - ⬜ Session 9: Final verification — not started
@@ -356,7 +356,7 @@ and the following are verified:
 - [ ] Daily Quest Assignment Engine runs at midnight
       in player local timezone (done)
 - [ ] Quest board shows correct daily lineup per player (done)
-- [ ] All path-specific mechanics working (Session 6 — in progress)
+- [x] All path-specific mechanics working (Session 6 — complete; Steps 73/76 verified in C4-0 audit)
 - [ ] Cross-path bonus system working (partial — detection + title automation done; consistency-window deferred to Session 9)
 - [x] Social achievement features working (Session 8 — complete)
 - [ ] Existing user accounts completely unaffected (verified)
