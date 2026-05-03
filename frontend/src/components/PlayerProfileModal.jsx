@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getPublicProfile } from '../api';
+import { PathProfileCards, BadgeSection, AchievementCards } from './ProfileExtensions';
 
 function timeAgo(isoString) {
   if (!isoString) return '';
@@ -51,7 +52,7 @@ export default function PlayerProfileModal({ username, onClose, onSendRequest, c
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-[#1a3a5c] bg-[#0a1628] shadow-[0_0_60px_rgba(6,182,212,0.1)]"
+        className="relative flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-[#1a3a5c] bg-[#0a1628] shadow-[0_0_60px_rgba(6,182,212,0.1)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top glow line */}
@@ -66,7 +67,7 @@ export default function PlayerProfileModal({ username, onClose, onSendRequest, c
           ✕
         </button>
 
-        <div className="p-6">
+        <div className="overflow-y-auto p-6">
           {loading ? (
             <div className="flex h-32 items-center justify-center">
               <p className="text-sm text-slate-500">Loading profile...</p>
@@ -98,6 +99,22 @@ export default function PlayerProfileModal({ username, onClose, onSendRequest, c
                     <p className={`mt-1 text-lg font-bold ${color}`}>{value}</p>
                   </div>
                 ))}
+              </div>
+
+              {/* Path profile cards */}
+              <div className="mt-5">
+                <p className="mb-2 text-xs uppercase tracking-[0.15em] text-slate-500">Active Paths</p>
+                <PathProfileCards pathProfiles={profile.path_profiles} />
+              </div>
+
+              {/* Titles & Badges */}
+              <div className="mt-5">
+                <BadgeSection badges={profile.badges} />
+              </div>
+
+              {/* Achievement Cards */}
+              <div className="mt-5">
+                <AchievementCards cards={profile.achievement_cards} />
               </div>
 
               {/* Recent posts */}
