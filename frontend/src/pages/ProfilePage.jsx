@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { searchPlayers } from '../api';
+import { getPublicProfile, searchPlayers } from '../api';
+import { PathProfileCards, BadgeSection, AchievementCards } from '../components/ProfileExtensions';
 
 /* ── Send friend request panel with live search ─────────────────────────── */
 function SendRequestPanel({ onSend }) {
@@ -248,6 +249,21 @@ export default function ProfilePage({
   onRefreshFriends,
 }) {
   const [tab, setTab] = useState('profile');
+  const [publicProfile, setPublicProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState('');
+
+  const playerUsername = player?.username;
+
+  useEffect(() => {
+    if (!playerUsername) return undefined;
+    let cancelled = false;
+    getPublicProfile(playerUsername)
+      .then((data) => { if (!cancelled) setPublicProfile(data); })
+      .catch((err) => { if (!cancelled) setProfileError(err.message || "Couldn't load profile."); })
+      .finally(() => { if (!cancelled) setProfileLoading(false); });
+    return () => { cancelled = true; };
+  }, [playerUsername]);
 
   const tabs = [
     { id: 'profile', label: 'Profile' },
@@ -327,6 +343,26 @@ export default function ProfilePage({
               </div>
             ))}
           </div>
+
+          {/* Extended profile sections (path profiles, badges, achievements) */}
+          {profileLoading ? (
+            <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4 text-center">
+              <p className="text-xs text-slate-500">Loading profile...</p>
+            </div>
+          ) : profileError ? (
+            <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-center">
+              <p className="text-xs text-rose-300">Couldn't load profile.</p>
+            </div>
+          ) : publicProfile ? (
+            <>
+              <div>
+                <p className="mb-2 text-xs uppercase tracking-[0.2em] text-cyan-400/70">Active Paths</p>
+                <PathProfileCards pathProfiles={publicProfile.path_profiles} />
+              </div>
+              <BadgeSection badges={publicProfile.badges} />
+              <AchievementCards cards={publicProfile.achievement_cards} />
+            </>
+          ) : null}
         </>
       )}
 

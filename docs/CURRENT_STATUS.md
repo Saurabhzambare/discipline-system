@@ -39,7 +39,7 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 | C3A | Weekly boss user-facing flow — API endpoints, service validation, dashboard card, 22 endpoint tests | ✅ Complete |
 | C3B | Cross-path title automation — exact combo matching, onboarding hook, AchievementCard, 15 tests | ✅ Complete |
 | C3C | ActivityEvent expansion + per-user notification seen tracking, bounded event hooks (quest_completed, level_up, badge_earned, weekly_boss_defeated, cross_path_title_earned), 19 tests | ✅ Complete |
-| C3D | Public profile enhancements + end-to-end C3 verification | ⬜ Not started |
+| C3D | Public profile enhancements + end-to-end C3 verification | 🟡 In progress (C3D-1 backend + C3D-2 frontend rendering complete; C3D-3 dashboard achievements + closure pending) |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
 
 
