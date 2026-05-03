@@ -10,13 +10,16 @@ from rest_framework.views import APIView
 from players.models import Player
 
 from .models import (
+    AchievementCard,
     ActivityEvent,
     ActivityEventRead,
+    Badge,
     FriendRequest,
     GroupMembership,
     PostComment,
     PostReaction,
     SocialGroup,
+    UserBadge,
 )
 from .profile_selectors import build_public_profile_extensions
 from .selectors import (
@@ -655,6 +658,54 @@ class NotificationsMarkSeenView(SocialBaseView):
         unseen_count = events_qs.exclude(id__in=seen_event_ids).count()
 
         return Response({"marked": marked, "unseen_count": unseen_count})
+
+
+# ── ACHIEVEMENT SUMMARY ──────────────────────────────────────────────────────
+
+
+class AchievementSummaryView(SocialBaseView):
+    """Dashboard-facing summary of the authenticated player's badges and cards."""
+
+    def get(self, request):
+        player = request.user.player
+
+        # Badges
+        user_badges = (
+            UserBadge.objects.filter(player=player)
+            .select_related("badge")
+            .order_by("-earned_at")
+        )
+        unlocked_count = user_badges.count()
+        recent_badges = [
+            {
+                "key": ub.badge.key,
+                "name": ub.badge.name,
+                "tier": ub.badge.tier,
+                "earned_at": ub.earned_at.isoformat(),
+            }
+            for ub in user_badges[:5]
+        ]
+
+        # Achievement cards
+        cards_qs = AchievementCard.objects.filter(player=player).order_by("-earned_at")
+        achievement_card_count = cards_qs.count()
+        recent_cards = [
+            {
+                "id": c.id,
+                "title": c.title,
+                "subtitle": c.subtitle,
+                "card_type": c.card_type,
+                "earned_at": c.earned_at.isoformat(),
+            }
+            for c in cards_qs[:5]
+        ]
+
+        return Response({
+            "unlocked_count": unlocked_count,
+            "recent_badges": recent_badges,
+            "achievement_card_count": achievement_card_count,
+            "recent_cards": recent_cards,
+        })
 
 
 # ── LEADERBOARDS ─────────────────────────────────────────────────────────────

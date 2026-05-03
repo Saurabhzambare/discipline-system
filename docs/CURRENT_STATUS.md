@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-05-02 (C3C — ActivityEvent expansion + notification seen tracking complete)
+**Last updated:** 2026-05-02 (C3D-3 — Dashboard achievement summary wired; Session 8 complete)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -33,13 +33,13 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 | Session B2 | Algorithm gaps: carry-over verified, cross-path bonus visual flag, Visionary multiplier on bonus, skill tree thresholds, midnight scheduler hardened | ✅ Complete |
 | Session 8A | Badge catalog (seed_badges), achievement service, trigger hooks, weekly boss completion, 32 tests | ✅ Complete |
 | Session 8B | Leaderboards — 5 endpoints (weekly per path, global, armor, multiplier streak, output monthly), Dashboard + Feed real-data widgets, 45 tests | ✅ Complete |
-| Session 8 | Social & Achievement Features — leaderboards (8B done), frontend badge UI, cross-path title display | 🟡 In progress |
+| Session 8 | Social & Achievement Features — all steps (80–88) complete | ✅ Complete |
 | C1 | Badge system + achievement cards foundation | ✅ Complete |
 | C2 | Leaderboards + stabilization fixes (exp_awarded + public profile ownership) | ✅ Complete |
 | C3A | Weekly boss user-facing flow — API endpoints, service validation, dashboard card, 22 endpoint tests | ✅ Complete |
 | C3B | Cross-path title automation — exact combo matching, onboarding hook, AchievementCard, 15 tests | ✅ Complete |
 | C3C | ActivityEvent expansion + per-user notification seen tracking, bounded event hooks (quest_completed, level_up, badge_earned, weekly_boss_defeated, cross_path_title_earned), 19 tests | ✅ Complete |
-| C3D | Public profile enhancements + end-to-end C3 verification | 🟡 In progress (C3D-1 backend + C3D-2 frontend rendering complete; C3D-3 dashboard achievements + closure pending) |
+| C3D | Public profile enhancements + dashboard achievements + end-to-end C3 verification | ✅ Complete |
 | Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
 
 
@@ -74,8 +74,10 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 - `paths/tests_seed_session6_accounts.py`
 - `social/tests_achievements.py` — passing (32 tests: award_badge, generate_achievement_card, grant_cross_path_title, check_streak_milestones, check_level_milestones, quest completion integration, weekly boss integration)
 - `social/tests_notifications.py` — passing (19 tests: ActivityEventRead model, notifications endpoint shape/sorting/visibility/auth, mark-seen endpoint behavior, quest_completed/level_up/badge_earned/weekly_boss_defeated/cross_path_title_earned hooks)
+- `social/tests_public_profile.py` — passing (17 tests: C3D-1 public profile extensions — base fields, path profiles, path-specific summaries, privacy gating, badge count, title filtering, achievement card compact payload)
+- `social/tests_dashboard_achievements.py` — passing (9 tests: C3D-3 dashboard achievement summary — auth, empty state, badge count, card count, payload shape, metadata non-exposure, cross-player isolation)
 
-Total: 238 tests, all passing.
+Total: 264 tests, all passing.
 
 ### Frontend pages (`frontend/src/pages/`)
 
@@ -115,7 +117,7 @@ Total: 238 tests, all passing.
 
 3. **Session 6 partially complete.** Outstanding: Step 73 (accountability partner invite flow), Step 76 (path-mechanic log endpoint audit).
 4. **Stabilization patch applied after C2.** Locked fixes: `QuestCompletion.exp_awarded` source-of-truth, weekly/global leaderboard aggregation from completion records with legacy fallback, and safe public-profile ownership lookup via player relation.
-5. **Placeholder UI (partial).** Dashboard leaderboard and feed right-panel mini-leaderboard are now backed by real API data (Session 8B/C2 baseline). Achievement blocks still show hardcoded dummy data.
+5. **~~Placeholder UI (partial).~~** ~~Dashboard leaderboard and feed right-panel mini-leaderboard are now backed by real API data (Session 8B/C2 baseline). Achievement blocks still show hardcoded dummy data.~~ **Resolved in C3D-3:** Dashboard achievements now wired to real backend data via `/api/social/achievements/summary/`.
 6. **Layer 3 weekly rhythm tables not implemented.** `_apply_smart_suggestions` now has personalization weight (Day 14+ pillar history blending), but the per-path default weekly pillar priority tables (Mon=strength, Tue=cardio, etc.) from the spec are not yet built. The personalization layer correctly blends history from Day 14+ but has no default rhythm to blend against before Day 14.
 
 ### Production readiness
@@ -148,8 +150,7 @@ Total: 238 tests, all passing.
 - ✅ **Session B1** — Personalization weight, feedback learning fix (+3/-3), swap learning wired into `_apply_smart_suggestions`. 15 new tests.
 - ✅ **Session B2** — Five algorithm gaps closed: (1) carry-over D/C verified, (2) `is_cross_path_bonus` field added with `apply_cross_path_bonus_flags` post-generation flagging, (3) Visionary XP multiplier now applied to base + cross-path bonus consistently, (4) `SKILL_TREE_THRESHOLDS` defined in `paths/constants.py` + `check_and_unlock_skill_tree_nodes` hooked into `apply_post_completion_mechanics`, (5) `generate_daily_quests` scheduler restructured to group by timezone and only generate inside the local midnight window (00:00–00:14). 19 new tests; 1 migration (`quests/0009`).
 - ✅ **Session 8A** — Badge catalog (68 badges in `seed_badges` command), achievement service (`social/achievements.py`), trigger hooks in `complete_lineup_item` + `apply_post_completion_mechanics`, `complete_weekly_boss` service with EXP + Visionary multiplier + badge + card. `CompletionMechanicResult` extended with `badge_keys`. 32 new tests.
-- **Session 8** — Leaderboards, frontend badge/achievement UI (BUILD_ORDER steps 82–88).
-- **Session 9** — End-to-end verification (BUILD_ORDER steps 89–105).
+- ✅ **Session 8** — Leaderboards, frontend badge/achievement UI, public profile enhancements, dashboard achievement summary (BUILD_ORDER steps 80–88). All complete.
 
 ### Stage C — Frontend polish pass (3–5 sessions)
 

@@ -5,7 +5,7 @@
 on session progress. Update both this doc and CURRENT_STATUS.md at the end
 of every session.
 
-### Progress Snapshot (updated 2026-04-22)
+### Progress Snapshot (updated 2026-05-02)
 
 - ✅ Session 1: Foundation models complete
 - ✅ Session 2: Path Discovery quiz complete
@@ -14,7 +14,7 @@ of every session.
 - ✅ Session 5: Daily Quest Assignment Engine complete (lineup generation, intention/swap/feedback/summary entry points)
 - 🟡 Session 6: In progress — path mechanic persistence hooks, log endpoints, protection-order service integration, social-domain accountability partner invite flow
 - ✅ Session 7: Backend contract layer complete — quest board, completion ring, EOD summary, tomorrow preview, missed-day return, adaptive difficulty nudge
-- ⬜ Session 8: Social & achievement features — not started
+- ✅ Session 8: Social & achievement features — complete (C3A–C3D)
 - ⬜ Session 9: Final verification — not started
 
 ## Phase Type
@@ -357,8 +357,8 @@ and the following are verified:
       in player local timezone (done)
 - [ ] Quest board shows correct daily lineup per player (done)
 - [ ] All path-specific mechanics working (Session 6 — in progress)
-- [ ] Cross-path bonus system working (partial — detection present, titles not granted)
-- [ ] Social achievement features working (Session 8 — not started)
+- [ ] Cross-path bonus system working (partial — detection + title automation done; consistency-window deferred to Session 9)
+- [x] Social achievement features working (Session 8 — complete)
 - [ ] Existing user accounts completely unaffected (verified)
 - [ ] Existing social features still working (verified)
 - [ ] No broken migrations

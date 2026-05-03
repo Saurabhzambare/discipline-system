@@ -1,7 +1,7 @@
 # Discipline System — Build Order and Progress Tracker
 # docs/game-design/BUILD_ORDER.md
 
-**Last updated:** 2026-05-01 (C2 stabilization audit)
+**Last updated:** 2026-05-02 (C3D-3 — Session 8 complete)
 
 ---
 
@@ -206,7 +206,7 @@ Rules:
 
 ---
 
-## Session 8 — Social and Achievement Features ⬜ NOT STARTED
+## Session 8 — Social and Achievement Features ✅ COMPLETE
 
 Read before this session:
 docs/game-design/systems/path-discovery.md
@@ -274,7 +274,7 @@ docs/game-design/README.md cross-path section
        15 tests (combinations, wrong combos, idempotency, integration hooks);
        V1 active-path-combination only; 7-day consistency-window deferred to Session 9;
        ActivityEvent emission deferred to C3C]
-- [ ] Step 87: Build public profile enhancements —
+- [x] Step 87: Build public profile enhancements —
       armor visualization (Knight)
       Discipline Code display (Knight)
       multiplier and streak (Visionary)
@@ -283,6 +283,11 @@ docs/game-design/README.md cross-path section
       Elixir progress visualization (Alchemist)
       skill tree current node (Visionary)
       output log public entries (Visionary)
+      [C3D-1: Backend profile_selectors — path-specific summaries with privacy gating;
+       C3D-2: Frontend ProfileExtensions.jsx renders path cards, badges, achievement cards;
+       C3D-3: Dashboard achievement count wired to live backend data;
+       Backend tests for profile payload + achievement summary;
+       17 public profile tests + 9 dashboard achievement tests]
 - [x] Step 88: Build weekly boss quest system —
       appears every Monday reset Monday 00:00
       one boss quest per path
@@ -391,5 +396,12 @@ Added manage.py check step to CI before test run.
   timezone, and only generates inside [00:00, 00:14] local. --force/--date/
   --player-id/--all-timezones bypass the gate for manual runs and tests.
 - 19 new tests in quests/tests_b2_algorithms.py; total suite 97 green.
+
+[2026-05-02] — Session C3D-3. Dashboard achievement summary wired to real
+backend data. Added AchievementSummaryView (GET /api/social/achievements/summary/).
+9 tests in social/tests_dashboard_achievements.py. Removed hardcoded "0 Unlocked"
+from DashboardPage.jsx; replaced with live fetch with loading/error fallback.
+Step 87 checked. Session 8 marked complete (all steps 80–88 checked).
+264 backend tests green. Frontend lint clean, build succeeds.
 
 ---

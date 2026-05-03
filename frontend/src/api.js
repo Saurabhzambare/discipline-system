@@ -216,6 +216,12 @@ export async function completeWeeklyBoss(bossId) {
   });
 }
 
+// ── Achievement Summary ──────────────────────────────────────────────────────
+
+export async function getAchievementSummary() {
+  return authedRequest('/api/social/achievements/summary/');
+}
+
 export async function getSocialPosts() {
   return authedRequest('/api/social/posts/');
 }

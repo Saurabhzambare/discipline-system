@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import QuestCard from '../components/QuestCard';
-import { getWeeklyLeaderboard, getWeeklyBoss, completeWeeklyBoss } from '../api';
+import { getWeeklyLeaderboard, getWeeklyBoss, completeWeeklyBoss, getAchievementSummary } from '../api';
 
 function calcExpProgress(player) {
   const inLevel = Math.max(player?.exp_in_level || 0, 0);
@@ -165,17 +165,38 @@ const FILTERS = [
 function ProgressPanel({ player, quests, doneTodayCount }) {
   const completedCount = doneTodayCount ?? quests.filter((q) => q.completed_today || q.assigned_completed_today).length;
   const weeklyExp = player ? (player.exp % 700) : 0;
+  const [achState, setAchState] = useState({ data: null, loading: true, error: '' });
+
+  useEffect(() => {
+    let cancelled = false;
+    getAchievementSummary()
+      .then((data) => {
+        if (!cancelled) setAchState({ data, loading: false, error: '' });
+      })
+      .catch((err) => {
+        if (!cancelled) setAchState({ data: null, loading: false, error: err.message || 'Failed to load' });
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const achCount = achState.data?.unlocked_count ?? null;
 
   return (
     <aside className="flex flex-col gap-4">
       <h2 className="text-xs uppercase tracking-[0.2em] text-slate-500">Progress</h2>
 
-      {/* Achievements (placeholder) */}
+      {/* Achievements (live) */}
       <div className="rounded-xl border border-[#1a3a5c] bg-[#0a1628] p-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-slate-200">Achievements</p>
-            <p className="mt-0.5 text-xs text-slate-500">0 Unlocked</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {achState.loading
+                ? 'Loading…'
+                : achState.error
+                  ? '— Unlocked'
+                  : `${achCount} Unlocked`}
+            </p>
           </div>
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
