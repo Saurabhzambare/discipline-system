@@ -149,8 +149,13 @@ class Session5LineupCompletionTests(TestCase):
         self.assertEqual(QuestCompletion.objects.filter(player=self.player).count(), 1)
 
         second_response = self.client.post(self.complete_url, {"item_id": item_id}, format="json")
-        self.assertEqual(second_response.status_code, 400)
-        self.assertEqual(second_response.data["detail"], "Quest already completed.")
+        # Idempotent contract (C4-3): duplicate completion returns 200 with
+        # already_completed=true so flaky mobile retries do not see a 400.
+        self.assertEqual(second_response.status_code, 200)
+        self.assertTrue(second_response.data["item_completed"])
+        self.assertTrue(second_response.data["already_completed"])
+        self.assertEqual(second_response.data["exp_earned"], 0)
+        self.assertEqual(second_response.data["bonus_exp"], 0)
         self.assertEqual(QuestCompletion.objects.filter(player=self.player).count(), 1)
 
 

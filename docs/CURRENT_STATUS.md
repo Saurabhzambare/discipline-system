@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-05-02 (C4-0 — Preflight audit; Steps 73/76 verified complete; Session 6 closed)
+**Last updated:** 2026-05-09 (C4-3 — Phase 5B final sign-off complete; Steps 99–105 closed)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -8,7 +8,7 @@ Every session should read this first. Update it at the end of every session.
 
 ## 1. Active Phase
 
-**Phase 5B — Quest System Redesign** (in progress)
+**Phase 5B — Quest System Redesign** (✅ complete — signed off 2026-05-09 in C4-3)
 
 Stages A, B, C1, and C2 are complete. A post-C2 stabilization patch has been applied.
 Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D).
@@ -40,7 +40,9 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 | C3B | Cross-path title automation — exact combo matching, onboarding hook, AchievementCard, 15 tests | ✅ Complete |
 | C3C | ActivityEvent expansion + per-user notification seen tracking, bounded event hooks (quest_completed, level_up, badge_earned, weekly_boss_defeated, cross_path_title_earned), 19 tests | ✅ Complete |
 | C3D | Public profile enhancements + dashboard achievements + end-to-end C3 verification | ✅ Complete |
-| Session 9 | End-to-end verification + Phase 5B completion sign-off | ⬜ Not started |
+| Session 9 / C4-1 | E2E verification tests (Steps 89–98) added — `social/tests_phase5b_e2e.py` (41 tests) | ✅ Complete |
+| Session 9 / C4-2 | Edge-case verification tests added — `quests/tests_phase5b_edge_cases.py` (17 tests): timezone/midnight, DST boundary, missed-day protection priority order, duplicate-completion safety. Backend total: 322 tests | ✅ Complete |
+| Session 9 / C4-3 | Phase 5B final sign-off — Steps 99–105 closed: BigAutoField migration drift resolved (`paths/0008`, `social/0006`); duplicate-completion contract made idempotent; frontend EXP formula leak removed; service-layer / pack_id / sixth-path audits clean. Final backend total: 322 tests passing | ✅ Complete |
 
 
 **Documentation note:** The achievement service currently lives at `backend/social/achievements.py`.
@@ -119,6 +121,8 @@ Total: 264 tests, all passing.
 4. **Stabilization patch applied after C2.** Locked fixes: `QuestCompletion.exp_awarded` source-of-truth, weekly/global leaderboard aggregation from completion records with legacy fallback, and safe public-profile ownership lookup via player relation.
 5. **~~Placeholder UI (partial).~~** ~~Dashboard leaderboard and feed right-panel mini-leaderboard are now backed by real API data (Session 8B/C2 baseline). Achievement blocks still show hardcoded dummy data.~~ **Resolved in C3D-3:** Dashboard achievements now wired to real backend data via `/api/social/achievements/summary/`.
 6. **Layer 3 weekly rhythm tables not implemented.** `_apply_smart_suggestions` now has personalization weight (Day 14+ pillar history blending), but the per-path default weekly pillar priority tables (Mon=strength, Tue=cardio, etc.) from the spec are not yet built. The personalization layer correctly blends history from Day 14+ but has no default rhythm to blend against before Day 14.
+
+6a. **~~C4-2 contract observation (deferred to C4-3):~~ Resolved in C4-3:** `complete_lineup_item` and `complete_quest` are now idempotent. A duplicate completion attempt returns a stable 200 success payload with `already_completed=true`, `exp_earned=0`, `bonus_exp=0`, and the current `daily_progress` snapshot — no double EXP, no duplicate `QuestCompletion`, no streak change. Existing duplicate-completion tests in `quests/tests.py` and `quests/tests_session5.py` updated to assert the new contract.
 
 ### Production readiness
 

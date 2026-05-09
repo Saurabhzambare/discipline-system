@@ -146,10 +146,17 @@ class QuestProgressionServiceTests(TestCase):
             selection_reason=DailyQuestLineupItem.REASON_FALLBACK,
         )
 
-        complete_quest(player=self.player, quest=quest)
+        first = complete_quest(player=self.player, quest=quest)
+        exp_after_first = self.player.exp
+        self.assertFalse(first["already_completed"])
 
-        with self.assertRaisesMessage(ValueError, "Quest already completed today."):
-            complete_quest(player=self.player, quest=quest)
+        # Idempotent contract (C4-3): duplicate completion returns success
+        # with already_completed=true, no EXP gain, no duplicate row.
+        second = complete_quest(player=self.player, quest=quest)
+        self.assertTrue(second["already_completed"])
+        self.assertEqual(second["exp_gained"], 0)
+        self.player.refresh_from_db()
+        self.assertEqual(self.player.exp, exp_after_first)
 
     def test_streak_increments_when_completed_yesterday(self):
         self.player.path = "discipline_knight"

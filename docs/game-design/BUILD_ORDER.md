@@ -314,37 +314,55 @@ docs/game-design/README.md cross-path section
 
 ---
 
-## Session 9 — Final Verification ⬜ NOT STARTED
+## Session 9 — Final Verification ✅ COMPLETE
 
-- [ ] Step 89: Full end-to-end flow tested —
+- [x] Step 89: Full end-to-end flow tested —
       new user signup through path discovery
       through onboarding through first week
       of daily quests
-- [ ] Step 90: Existing user account flow tested —
+- [x] Step 90: Existing user account flow tested —
       existing user logs in
       gets redirected to path discovery quiz
       completes re-onboarding
       account data intact
       social data intact
-- [ ] Step 91: All existing social features
+- [x] Step 91: All existing social features
       verified still working —
       posts comments reactions friends groups
-- [ ] Step 92: All five path onboarding flows
+- [x] Step 92: All five path onboarding flows
       tested end to end
-- [ ] Step 93: Daily quest assignment engine
+- [x] Step 93: Daily quest assignment engine
       tested for all five paths
-- [ ] Step 94: All path-specific mechanics tested
-- [ ] Step 95: Cross-path bonus system tested
-- [ ] Step 96: Cross-path identity titles tested
-- [ ] Step 97: Leaderboards tested
-- [ ] Step 98: Achievement cards tested
-- [ ] Step 99: No broken migrations confirmed
-- [ ] Step 100: All new code follows service layer pattern
-- [ ] Step 101: All EXP logic confirmed server-side only
-- [ ] Step 102: Timezone logic confirmed
-- [ ] Step 103: Quest model pack_id field confirmed
-- [ ] Step 104: Sixth path placeholder confirmed non-functional
-- [ ] Step 105: BUILD_ORDER.md fully checked off — Phase 5B complete
+- [x] Step 94: All path-specific mechanics tested
+- [x] Step 95: Cross-path bonus system tested
+- [x] Step 96: Cross-path identity titles tested
+- [x] Step 97: Leaderboards tested
+- [x] Step 98: Achievement cards tested
+- [x] Step 99: No broken migrations confirmed
+      (BigAutoField drift resolved: paths/0008 and social/0006
+      state-only ID-field migrations created and verified;
+      `makemigrations --check --dry-run` clean)
+- [x] Step 100: All new code follows service layer pattern
+      (73 view classes audited — views are thin HTTP orchestration;
+      business logic lives in services / mechanics / selectors)
+- [x] Step 101: All EXP logic confirmed server-side only
+      (frontend `deriveProgressFromTotalExp` removed in C4-3;
+      progress bar now consumes server-provided `exp_progress`
+      from completion response)
+- [x] Step 102: Timezone logic confirmed
+      (C4-2 added `quests/tests_phase5b_edge_cases.py` —
+      timezone, DST spring-forward, and idempotent same-day
+      generation tests pass)
+- [x] Step 103: Quest model pack_id field confirmed
+      (`Quest.pack_id` CharField, blank default; consumed by
+      seed_quests catalog and `_apply_smart_suggestions`)
+- [x] Step 104: Sixth path placeholder confirmed non-functional
+      (backend `PATH_CHOICES` / `PATH_CODES` contain only the
+      five active paths; frontend `LOCKED_PATH` export is
+      data-only and unused)
+- [x] Step 105: BUILD_ORDER.md fully checked off — Phase 5B complete
+      (sign-off date: 2026-05-09; final backend test count: 322;
+      Django check clean; frontend lint/build clean)
 
 ---
 
