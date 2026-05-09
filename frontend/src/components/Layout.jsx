@@ -232,7 +232,7 @@ export default function Layout({
   // Path Discovery flow is a cinematic, chromeless experience — no sidebar,
   // no header, no notifications. Source of truth:
   // docs/game-design/systems/path-discovery.md ("No navigation elements").
-  if (route === '/onboarding' || route === '/path-onboarding') {
+  if (route === '/onboarding' || route === '/path-onboarding' || route === '/path-discovery') {
     return (
       <div className="min-h-screen bg-[#050d1a] text-slate-100">
         {children}

@@ -592,6 +592,33 @@ export default function PathOnboardingPage({ player, onNavigate, onOnboardingCom
     return <div className="p-8 text-slate-400">Loading onboarding...</div>;
   }
 
+  // Defensive: a user landing here without a selected path cannot complete
+  // path-specific onboarding. Send them to Path Discovery to take the quiz.
+  const pathCode = status?.path_code || path;
+  if (!pathCode) {
+    return (
+      <div className="min-h-screen bg-[#050d1a] p-4 sm:p-8">
+        <div className="mx-auto max-w-3xl space-y-4">
+          <div className={CARD}>
+            <p className="text-xs uppercase tracking-[0.3em] text-cyan-400/70">Path Onboarding</p>
+            <h1 className="mt-1 text-2xl font-black text-slate-100">Choose your path first</h1>
+            <p className="mt-3 text-sm text-slate-400">
+              You have not selected a path yet. Take the Path Discovery quiz to
+              find the path that matches who you are becoming.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate('/path-discovery')}
+              className="mt-5 rounded-lg border border-cyan-500/50 bg-cyan-500/10 px-4 py-2 text-cyan-200"
+            >
+              Start Path Discovery
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#050d1a] p-4 sm:p-8">
       <div className="mx-auto max-w-3xl space-y-4">

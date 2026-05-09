@@ -76,6 +76,7 @@ import DashboardPage from './pages/DashboardPage';
 import FeedPage from './pages/FeedPage';
 import GroupsPage from './pages/GroupsPage';
 import LoginPage from './pages/LoginPage';
+import PathDiscoveryPage from './pages/PathDiscoveryPage';
 import PathOnboardingPage from './pages/PathOnboardingPage';
 import PreviewPage from './pages/PreviewPage';
 import ProfilePage from './pages/ProfilePage';
@@ -459,10 +460,12 @@ export default function App() {
     [withSocialAuth],
   );
 
-  // Enforce onboarding for users who haven't chosen a path yet
+  // Enforce path discovery for users who haven't chosen a path yet.
+  // Without a selected path, /path-onboarding has nothing to render — the
+  // user must complete the quiz first.
   useEffect(() => {
-    if (isAuthenticated && player && !player.path && route !== '/path-onboarding') {
-      navigate('/path-onboarding');
+    if (isAuthenticated && player && !player.path && route !== '/path-discovery') {
+      navigate('/path-discovery');
     }
   }, [isAuthenticated, player, route, navigate]);
 
@@ -637,9 +640,11 @@ export default function App() {
   } else if (route === '/signup') {
     page = <SignupPage onSignup={handleSignup} onGoogleAuth={handleGoogleAuth} onNavigate={navigate} />;
   } else if (route === '/onboarding') {
-    // Legacy route — redirect immediately to the current onboarding flow
-    navigate('/path-onboarding');
+    // Legacy route — route based on whether the player has selected a path.
+    navigate(player?.path ? '/path-onboarding' : '/path-discovery');
     page = null;
+  } else if (route === '/path-discovery') {
+    page = <PathDiscoveryPage onNavigate={navigate} />;
   } else if (route === '/path-onboarding') {
     page = (
       <PathOnboardingPage
