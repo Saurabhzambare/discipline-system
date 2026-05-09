@@ -573,6 +573,7 @@ export default function App() {
           player_streak: response.streak_update,
           new_level: response.new_level,
           leveled_up: response.level_up,
+          exp_progress: response.exp_progress,
         };
       } else {
         response = await completeQuest(questId);

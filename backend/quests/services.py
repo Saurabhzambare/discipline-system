@@ -798,6 +798,10 @@ def complete_lineup_item(player, lineup_item_id: int):
         # Idempotent path: a duplicate completion attempt (e.g. a flaky mobile
         # retry) returns a stable success payload with already_completed=true.
         # No additional EXP, no duplicate QuestCompletion row, no streak change.
+        # Refresh the player so the snapshot reflects any concurrent updates
+        # (e.g. completing a different lineup item between the original call
+        # and this retry) instead of the in-memory copy passed in by the view.
+        player.refresh_from_db()
         completed, total = _count_completed(item.lineup)
         return {
             "item_completed": True,
