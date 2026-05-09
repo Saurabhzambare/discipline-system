@@ -348,22 +348,38 @@ Phase 5B is complete when all items in
 `docs/game-design/BUILD_ORDER.md` are checked off
 and the following are verified:
 
-- [ ] Player.path field updated with new path values (done)
-- [ ] Old quest seed data wiped cleanly (done)
-- [ ] All five paths have complete quest data seeded (done)
-- [ ] Path Discovery Quiz works end to end (done)
-- [ ] Path-specific onboarding works all five paths (done)
-- [ ] Daily Quest Assignment Engine runs at midnight
-      in player local timezone (done)
-- [ ] Quest board shows correct daily lineup per player (done)
-- [x] All path-specific mechanics working (Session 6 — complete; Steps 73/76 verified in C4-0 audit)
-- [ ] Cross-path bonus system working (partial — detection + title automation done; consistency-window deferred to Session 9)
-- [x] Social achievement features working (Session 8 — complete)
-- [ ] Existing user accounts completely unaffected (verified)
-- [ ] Existing social features still working (verified)
-- [ ] No broken migrations
-- [ ] All new code follows service layer pattern
-- [ ] All EXP logic is server-side only
+- [x] Player.path field updated with new path values
+- [x] Old quest seed data wiped cleanly
+- [x] All five paths have complete quest data seeded
+- [x] Path Discovery Quiz works end to end (verified in C4-1 Step 89)
+- [x] Path-specific onboarding works all five paths (verified in C4-1 Step 92)
+- [x] Daily Quest Assignment Engine runs at midnight
+      in player local timezone (verified in C4-2 timezone + DST tests)
+- [x] Quest board shows correct daily lineup per player (verified in C4-1 Steps 89/93)
+- [x] All path-specific mechanics working (Session 6 + C4-1 Step 94)
+- [x] Cross-path bonus system working (C4-1 Step 95 — detection + bonus EXP + Visionary multiplier safety)
+- [x] Social achievement features working (Session 8 + C4-1 Step 98)
+- [x] Existing user accounts completely unaffected (C4-1 Step 90)
+- [x] Existing social features still working (C4-1 Step 91)
+- [x] No broken migrations (C4-3 Step 99 — paths/0008 and social/0006 BigAutoField drift resolved)
+- [x] All new code follows service layer pattern (C4-3 Step 100 audit)
+- [x] All EXP logic is server-side only (C4-3 Step 101 — frontend `deriveProgressFromTotalExp` removed)
+
+---
+
+### Phase 5B Sign-Off
+
+Phase 5B closed on **2026-05-09** under C4-3.
+
+- Final backend test count: **322 tests passing**.
+- Final Django check: clean.
+- Final `makemigrations --check --dry-run`: clean.
+- Final frontend lint + Vite build: clean.
+- C4-1 added end-to-end integration tests (`backend/social/tests_phase5b_e2e.py`, 41 tests covering BUILD_ORDER Steps 89–98).
+- C4-2 added edge-case verification tests (`backend/quests/tests_phase5b_edge_cases.py`, 17 tests covering timezone, DST spring-forward, missed-day protection priority order, duplicate-completion safety).
+- C4-3 closed Steps 99–105: BigAutoField migration drift resolved, duplicate-completion contract made idempotent, server-side EXP authority enforced, sixth-path placeholder confirmed inert.
+
+Stage D (production hardening — DEBUG/SECRET_KEY/ALLOWED_HOSTS, React Router migration, pagination) is the recommended next session.
 
 ---
 

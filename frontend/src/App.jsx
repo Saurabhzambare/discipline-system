@@ -83,19 +83,11 @@ import SignupPage from './pages/SignupPage';
 
 const PUBLIC_ROUTES = ['/login', '/signup'];
 
-function deriveProgressFromTotalExp(totalExp = 0, level = 1) {
-  const safeLevel = Math.max(1, Number(level) || 1);
-  const safeExp = Math.max(0, Number(totalExp) || 0);
-  const expFor = (lvl) => (lvl * lvl * 50) - 50;
-  const currentFloor = expFor(safeLevel);
-  const nextFloor = expFor(safeLevel + 1);
-  const expForLevel = Math.max(1, nextFloor - currentFloor);
-  const expInLevel = Math.max(0, safeExp - currentFloor);
-  return {
-    exp_in_level: expInLevel,
-    exp_for_level: expForLevel,
-    exp_to_next_level: Math.max(0, nextFloor - safeExp),
-  };
+// EXP/level math is server-authoritative. The completion API returns
+// `exp_progress` already shaped for the progress bar; we keep this fallback
+// only for the rare case the server payload omits it.
+function fallbackProgressShape() {
+  return { exp_in_level: 0, exp_for_level: 1, exp_to_next_level: 0 };
 }
 
 function useRoute() {
@@ -588,7 +580,7 @@ export default function App() {
 
       setPlayer((previous) => {
         if (!previous) return previous;
-        const progressState = deriveProgressFromTotalExp(response.player_exp, response.new_level);
+        const progressState = response.exp_progress || fallbackProgressShape();
         return {
           ...previous,
           exp: response.player_exp,

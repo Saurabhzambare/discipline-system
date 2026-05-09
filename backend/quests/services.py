@@ -792,10 +792,28 @@ def complete_lineup_item(player, lineup_item_id: int):
     local_today = _get_player_local_date(player)
     if item.lineup.date != local_today:
         raise ValueError("Only today's lineup items can be completed.")
-    if item.completed:
-        raise ValueError("Quest already completed.")
     if not item.quest:
         raise ValueError("Bonus slot has no selected quest.")
+    if item.completed:
+        # Idempotent path: a duplicate completion attempt (e.g. a flaky mobile
+        # retry) returns a stable success payload with already_completed=true.
+        # No additional EXP, no duplicate QuestCompletion row, no streak change.
+        completed, total = _count_completed(item.lineup)
+        return {
+            "item_completed": True,
+            "already_completed": True,
+            "exp_earned": 0,
+            "bonus_exp": 0,
+            "player_exp": player.exp,
+            "player_level": player.level,
+            "level_up": False,
+            "new_level": player.level,
+            "exp_progress": calculate_exp_window(player.exp),
+            "streak_update": player.streak,
+            "daily_progress": {"completed": completed, "total": total},
+            "badges_earned": [],
+            "mechanic_notes": [],
+        }
 
     now = timezone.now()
     item.completed = True
@@ -1097,12 +1115,7 @@ def complete_quest(*, player, quest):
     item = DailyQuestLineupItem.objects.filter(lineup__player=player, lineup__date=today, lineup__path=player.path, quest=quest).first()
     if not item:
         raise ValueError("Quest is not assigned for today.")
-    try:
-        result = complete_lineup_item(player, item.id)
-    except ValueError as exc:
-        if "already completed" in str(exc).lower():
-            raise ValueError("Quest already completed today.") from exc
-        raise
+    result = complete_lineup_item(player, item.id)
     return {
         "exp_gained": result["exp_earned"] + result["bonus_exp"],
         "player_exp": player.exp,
@@ -1110,6 +1123,8 @@ def complete_quest(*, player, quest):
         "old_level": max(1, result["new_level"] - (1 if result["level_up"] else 0)),
         "new_level": result["new_level"],
         "leveled_up": result["level_up"],
+        "exp_progress": result["exp_progress"],
+        "already_completed": result.get("already_completed", False),
     }
 
 

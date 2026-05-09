@@ -476,20 +476,27 @@ class Phase5BConcurrencyCompletionTests(TestCase):
             lineup=self.lineup, quest=self.quest, slot_order=1
         )
 
-    def test_duplicate_completion_does_not_double_award_exp(self):
+    def test_duplicate_completion_is_idempotent_and_does_not_double_award_exp(self):
+        """C4-3 contract: a duplicate completion attempt returns a stable
+        success payload with already_completed=true and awards no EXP."""
         starting_exp = self.player.exp
 
-        # First call: success.
+        # First call: regular success.
         result = complete_lineup_item(self.player, self.item.id)
         self.assertTrue(result["item_completed"])
+        self.assertFalse(result.get("already_completed", False))
         self.player.refresh_from_db()
         first_exp = self.player.exp
         self.assertGreater(first_exp, starting_exp)
 
-        # Second call: current contract raises ValueError; document this.
-        # (See C4-2 final summary for the contract-mismatch flag.)
-        with self.assertRaisesMessage(ValueError, "already completed"):
-            complete_lineup_item(self.player, self.item.id)
+        # Second call: idempotent success — does NOT raise, returns 0 EXP,
+        # and reports already_completed=true so mobile retries are safe.
+        repeat = complete_lineup_item(self.player, self.item.id)
+        self.assertTrue(repeat["item_completed"])
+        self.assertTrue(repeat["already_completed"])
+        self.assertEqual(repeat["exp_earned"], 0)
+        self.assertEqual(repeat["bonus_exp"], 0)
+        self.assertEqual(repeat["badges_earned"], [])
 
         # Critical invariant: no double-award and no duplicate completion row.
         self.player.refresh_from_db()
@@ -511,14 +518,15 @@ class Phase5BConcurrencyCompletionTests(TestCase):
         SQLite limitation: Django's TestCase wraps each test in a transaction
         which serializes writes; real concurrency would be exercised in
         TransactionTestCase against a multi-writer DB. The unique constraint
-        on QuestCompletion is the production safeguard.
+        on QuestCompletion plus the in-service `if item.completed` early-return
+        guard are the production safeguards.
         """
-        # Scenario: attempt 1 completes; attempt 2 sees `item.completed=True`
-        # and raises before reaching QuestCompletion / EXP code.
         starting_exp = self.player.exp
         first = complete_lineup_item(self.player, self.item.id)
-        with self.assertRaises(ValueError):
-            complete_lineup_item(self.player, self.item.id)
+        # Second sequential attempt no longer raises — it returns the idempotent payload.
+        second = complete_lineup_item(self.player, self.item.id)
+        self.assertTrue(second["already_completed"])
+        self.assertEqual(second["exp_earned"], 0)
 
         self.player.refresh_from_db()
         gain = self.player.exp - starting_exp

@@ -1,6 +1,6 @@
 # Discipline System — Current Status
 
-**Last updated:** 2026-05-03 (C4-2 — Timezone, missed-day, and concurrency edge-case verification tests added)
+**Last updated:** 2026-05-09 (C4-3 — Phase 5B final sign-off complete; Steps 99–105 closed)
 **Purpose:** This is the single source of truth for where the project stands.
 Every session should read this first. Update it at the end of every session.
 
@@ -8,7 +8,7 @@ Every session should read this first. Update it at the end of every session.
 
 ## 1. Active Phase
 
-**Phase 5B — Quest System Redesign** (in progress)
+**Phase 5B — Quest System Redesign** (✅ complete — signed off 2026-05-09 in C4-3)
 
 Stages A, B, C1, and C2 are complete. A post-C2 stabilization patch has been applied.
 Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D).
@@ -41,7 +41,8 @@ Current execution is Session C3 split into four sub-sessions (C3A, C3B, C3C, C3D
 | C3C | ActivityEvent expansion + per-user notification seen tracking, bounded event hooks (quest_completed, level_up, badge_earned, weekly_boss_defeated, cross_path_title_earned), 19 tests | ✅ Complete |
 | C3D | Public profile enhancements + dashboard achievements + end-to-end C3 verification | ✅ Complete |
 | Session 9 / C4-1 | E2E verification tests (Steps 89–98) added — `social/tests_phase5b_e2e.py` (41 tests) | ✅ Complete |
-| Session 9 / C4-2 | Edge-case verification tests added — `quests/tests_phase5b_edge_cases.py` (17 tests): timezone/midnight, DST boundary, missed-day protection priority order, duplicate-completion safety. Backend total: 322 tests | 🟡 In progress (C4-3 will run final architecture audit + Phase 5B closeout) |
+| Session 9 / C4-2 | Edge-case verification tests added — `quests/tests_phase5b_edge_cases.py` (17 tests): timezone/midnight, DST boundary, missed-day protection priority order, duplicate-completion safety. Backend total: 322 tests | ✅ Complete |
+| Session 9 / C4-3 | Phase 5B final sign-off — Steps 99–105 closed: BigAutoField migration drift resolved (`paths/0008`, `social/0006`); duplicate-completion contract made idempotent; frontend EXP formula leak removed; service-layer / pack_id / sixth-path audits clean. Final backend total: 322 tests passing | ✅ Complete |
 
 
 **Documentation note:** The achievement service currently lives at `backend/social/achievements.py`.
@@ -121,7 +122,7 @@ Total: 264 tests, all passing.
 5. **~~Placeholder UI (partial).~~** ~~Dashboard leaderboard and feed right-panel mini-leaderboard are now backed by real API data (Session 8B/C2 baseline). Achievement blocks still show hardcoded dummy data.~~ **Resolved in C3D-3:** Dashboard achievements now wired to real backend data via `/api/social/achievements/summary/`.
 6. **Layer 3 weekly rhythm tables not implemented.** `_apply_smart_suggestions` now has personalization weight (Day 14+ pillar history blending), but the per-path default weekly pillar priority tables (Mon=strength, Tue=cardio, etc.) from the spec are not yet built. The personalization layer correctly blends history from Day 14+ but has no default rhythm to blend against before Day 14.
 
-6a. **C4-2 contract observation (deferred to C4-3):** `complete_lineup_item` raises `ValueError("Quest already completed.")` on a duplicate completion attempt and the API view surfaces this as HTTP 400. The unique constraint on `QuestCompletion (player, quest, completion_date)` and the early `if item.completed: raise` guard prevent duplicate rows or double EXP, so production safety is preserved. Two existing tests assert on this error message (`quests/tests_session5.py`, `quests/tests.py`). Switching to an idempotent 200 response is preferable for mobile retry resilience but would change the API contract and break those tests; defer the decision to C4-3.
+6a. **~~C4-2 contract observation (deferred to C4-3):~~ Resolved in C4-3:** `complete_lineup_item` and `complete_quest` are now idempotent. A duplicate completion attempt returns a stable 200 success payload with `already_completed=true`, `exp_earned=0`, `bonus_exp=0`, and the current `daily_progress` snapshot — no double EXP, no duplicate `QuestCompletion`, no streak change. Existing duplicate-completion tests in `quests/tests.py` and `quests/tests_session5.py` updated to assert the new contract.
 
 ### Production readiness
 
