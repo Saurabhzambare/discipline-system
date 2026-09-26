@@ -176,7 +176,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Replace the example environment values locally before running the application. Never commit populated `.env` files or local SQLite databases.
+Replace the example environment values locally before running the application, including a long, random `SECRET_KEY`. The backend example uses `DB_HOST=localhost` for commands run directly on the host machine. Docker Compose overrides that value with `DB_HOST=db`, which is the PostgreSQL service name inside the Compose network. Never commit populated `.env` files or local SQLite databases.
 
 ---
 
