@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Do not render historical environment-file contents in future diffs.
+backend/.env binary
+frontend/.env binary

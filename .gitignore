@@ -43,6 +43,13 @@ frontend/.vite/
 *.swo
 .DS_Store
 
+# Local editor and analysis-tool state
+.claude/settings.local.json
+.obsidian/
+.graphify*
+graphify-out/
+Untitled.md
+
 # Coverage
 .coverage
 htmlcov/
