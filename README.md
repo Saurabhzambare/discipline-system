@@ -93,7 +93,7 @@ have been fully replaced.
 - Python
 - Django
 - Django REST Framework
-- SQLite (dev) / PostgreSQL (prod)
+- PostgreSQL application database / SQLite test database
 - JWT authentication
 
 ### Frontend
@@ -126,8 +126,7 @@ discipline-system/
     manage.py
     requirements.txt
     Dockerfile
-    .env
-    db.sqlite3
+    .env.example
   frontend/
     src/
       pages/
@@ -137,6 +136,7 @@ discipline-system/
     public/
     package.json
     Dockerfile
+    .env.example
   docs/
     CURRENT_STATUS.md
     AGENTS.md
@@ -164,6 +164,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env
 python manage.py migrate
 python manage.py seed_quests
 python manage.py runserver
@@ -171,8 +172,11 @@ python manage.py runserver
 # Frontend
 cd frontend
 npm install
+cp .env.example .env
 npm run dev
 ```
+
+Replace the example environment values locally before running the application, including a long, random `SECRET_KEY`. The backend example uses `DB_HOST=localhost` for commands run directly on the host machine. Docker Compose overrides that value with `DB_HOST=db`, which is the PostgreSQL service name inside the Compose network. Never commit populated `.env` files or local SQLite databases.
 
 ---
 
