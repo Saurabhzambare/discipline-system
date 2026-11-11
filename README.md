@@ -3,44 +3,19 @@
 [![Backend Tests](https://github.com/Saurabhzambare/discipline-system/actions/workflows/backend-tests.yml/badge.svg)](https://github.com/Saurabhzambare/discipline-system/actions/workflows/backend-tests.yml)
 [![Frontend Checks](https://github.com/Saurabhzambare/discipline-system/actions/workflows/frontend-checks.yml/badge.svg)](https://github.com/Saurabhzambare/discipline-system/actions/workflows/frontend-checks.yml)
 
-A Solo Leveling–inspired discipline web app where real-life habits become quests and are converted into progression through EXP, levels, and streaks.
+An independent full-stack web app for people who want to track daily habits, workouts, or study sessions and see their progress over time. It uses a Solo Leveling–inspired quest system to turn completed activities into experience points (EXP), levels, and streaks.
 
-## What this app is
+## How it works
 
-Discipline System is a gamified self-improvement web application.
+After signing in, a player opens their dashboard, completes a quest, and sees the recorded progress. The app also supports path discovery and onboarding, daily quest lineups, achievements, and leaderboards.
 
-It turns daily habits, workouts, study tasks, and other disciplined actions into a gameplay loop:
+### Quest completion and daily boundaries
 
-- **User = Player**
-- **Habits / workouts / study tasks = Quests**
-- **Completing quests = EXP gain**
-- **EXP gain = Level progression**
-- **Consistency = Streak growth**
-- **Dashboard = Status window**
+A repeated submission should leave the player's progress consistent. If the same quest completion is submitted again, the system returns a successful response with no additional EXP and keeps a single completion record. Daily lineup generation uses the player's local date so the next lineup appears at local midnight.
 
-The goal is to make self-improvement feel like an RPG progression system.
+The [edge-case tests](backend/quests/tests_phase5b_edge_cases.py) exercise sequential duplicate submissions, local-midnight generation, and a daylight-saving transition. The [architecture guide](docs/architecture.md) describes where the quest and player logic lives.
 
-## One-line definition
-
-**A real-life RPG-style discipline app where daily habits are turned into quests and converted into progression through EXP, levels, and streaks.**
-
----
-
-## Core gameplay loop
-
-1. User signs up or logs in
-2. User views their dashboard and available quests
-3. User completes a quest
-4. System awards EXP
-5. System updates level progression
-6. System updates streak data where appropriate
-7. User sees measurable growth over time
-
-This project is being built in clear phases so the system stays maintainable and beginner-friendly while remaining extensible for future growth.
-
-See `docs/CURRENT_STATUS.md` for up-to-date phase and session status.
-
----
+See the [current status](docs/CURRENT_STATUS.md) for implemented scope and the [quick start](#quick-start) to run the app locally.
 
 ## Product direction
 
